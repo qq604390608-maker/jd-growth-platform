@@ -1,10 +1,12 @@
 /**
- * 文档卡（阶段1 · M2 共享上下文 · F-07 业务背景管理 / F-08 可用来源与工具登记 / F-09 证据管理 / F-10 机会记录管理 · 2026-09-19）
+ * 文档卡（阶段1 · M2 共享上下文 · F-07 业务背景管理 / F-08 可用来源与工具登记 / F-09 证据管理 /
+ *        F-10 机会记录管理 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** · 2026-09-19）
  * 上游：`../../AGENTS.md`（宪法：白盒原则｜双向引用｜术语口径「共享上下文＝数据库」）
  *   ｜ `../../docs/03-locks/schema.md`（MD-04 `business_context` / MD-05 `touchpoint`；CFG-01 `source_registry`；
  *        EXT-02 `evidence` / LNK-01 `opportunity_evidence` / LNK-02 `finding_evidence`；
  *        MD-06 `opportunity` / PD-05 `opportunity_status_log` / LNK-03 `opportunity_relation`；
  *        MD-07 `research` / MD-08 `research_finding` / EXT-03 `external_validation`；
+ *        **CFG-06 `context_template` / PD-06 `context_injection`**；
  *        Q-03 已决「背景不做定版快照」；Q-05 六要素必填见 MD-06 表尾注；证据四要素见 §6 EXT-02 与 §11 应用层校验；
  *        §0.5 第 1 条编号裁决「全库只用 R-xxx，`ST-xxx` 弃用」；MD-07 表注「追问不覆盖原研究」）
  *   ｜ `../../docs/07-decisions/ADR-003-机会六要素必填与未知项二态.md`（§3 六要素清单/判定式、§3.1 两件套约束、§3.2 未加二态 CHECK）
@@ -25,20 +27,24 @@
  *   F-09 证据登记与回查链路（EXT-02 + LNK-01/LNK-02：四要素齐全校验、证据→查询→来源可回查、新旧依据并存不覆盖）；
  *   F-10 机会记录管理（MD-06 六要素 + `unknown_item` 二态；PD-05 状态迁移留痕；LNK-03 机会↔机会关系 + 自环拒绝）；
  *   F-11 研究结果与历史管理（MD-07 `research` + MD-08 `research_finding` 只读 + EXT-03 `external_validation` 登记；
- *        按 `parent_research_no` 链追溯祖先 / 派生，使后续研究可引用历史、避免重复研究）。
+ *        按 `parent_research_no` 链追溯祖先 / 派生，使后续研究可引用历史、避免重复研究）；
+ *   **F-12 上下文按任务组织注入**（CFG-06 `context_template` 模板登记 + PD-06 `context_injection` 注入留痕；
+ *        两个维度——类型（模板定注入哪些类型）＋范围（只查京东超市有关触点 / 只看业务方负责品类）；
+ *        **初始化是确定性程序行为**：同任务同输入 → 同工作空间，不每回随机、不退化为只传一句「继续分析」）。
  * 硬红线（BRD §5.3 / tech-stack §7.2）：只在本平台自有 D1 内增删查（「共享上下文＝数据库」），
  *   **不调任何面向生产环境会改线上数据的接口**；证据一律**只新增行、不覆盖**（EXT-02 头注：新证据加入不覆盖原有依据）；
  *   暂不研究的机会**不删除**（状态置 `deferred`，记录保留后可再选）；
  *   **追问不覆盖原研究**（MD-07 表注 L271：追问形成新的 `research` 行，`parent_research_no` 指向原研究）。
- * 边界（严格只做 F-07/F-08/F-09/F-10/F-11）：不含上下文注入（F-12）；
+ * 边界（严格只做 F-07/F-08/F-09/F-10/F-11/F-12）：
  *   CFG-02 工具的**写/注册**归 F-23（M5），本文件仅只读交叉引用；
- *   LNK-04 `task_object` 的**写入路径归 M1 task-runner（F-02/F-04/F-06）**，本文件不提供其写接口；
+ *   LNK-04 `task_object` 的**写入路径归 M1 task-runner（F-02/F-04/F-06）**，本文件不提供其写接口
+ *   （F-12 只**读** LNK-04 取二阶段锚点：所选机会 / 原研究）；
  *   机会的**人工选择**（F-03）与 **Agent 产出**（M3 F-14~F-16）不在本文件，本文件只做记录读写；
  *   MD-08 关键发现与七要素正文的**生成**归 F-20/F-21（M4），本文件只做历史回查时的只读；
  *   外部验证的**执行与效果计算由业务工作完成**，本文件只登记其结论与来源引用（schema EXT-03 表注 L737-738）。
- * 反向清单：被 `../api/index.js`（F-07/F-08/F-09/F-10/F-11 路由）与后续 `../agent-orchestrator`（背景注入/能力边界/
- *   证据回查/机会上下文/历史研究上下文）引用；登记 `../README.md`；测试 `./test-f07.mjs`、`./test-f08.mjs`、
- *   `./test-f09.mjs`、`./test-f10.mjs`、`./test-f11.mjs`。
+ * 反向清单：被 `../api/index.js`（F-07/F-08/F-09/F-10/F-11/**F-12** 路由）与后续 `../agent-orchestrator`（背景注入/能力边界/
+ *   证据回查/机会上下文/历史研究上下文/**任务上下文初始化**）引用；登记 `../README.md`；测试 `./test-f07.mjs`、`./test-f08.mjs`、
+ *   `./test-f09.mjs`、`./test-f10.mjs`、`./test-f11.mjs`、**`./test-f12.mjs`**。
  *
  * @typedef {Object} D1Like D1 绑定（`env.DB`），提供 prepare().bind().run()/all()/first()
  */
@@ -1105,4 +1111,389 @@ export async function getResearchRecord(db, research_no) {
     validations: await listExternalValidations(db, { research_no }),
     lineage: await getResearchLineage(db, research_no),
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * CFG-06 `context_template` + PD-06 `context_injection`
+ * （F-12 上下文按任务组织注入）
+ *
+ * 口径（schema.md CFG-06 / PD-06 / §11 字典枚举；PRD-M2 F-12；ADR-001）：
+ *   两个维度——**类型**（CFG-06 按任务类型定该注入哪些信息类型、顺序如何）＋
+ *   **范围**（只查和京东超市有关的触点 / 只看业务方负责品类＝任务现读的 `goal_id` +
+ *   目标版本的 `business_scope`/`focus_period` + `is_active=1` 触点清单）。
+ *   **初始化是确定性程序行为**：注入内容由 CFG-06 模板 + D1 现状决定，不由 Agent 每回随机；
+ *   同任务同输入 → 同工作空间；只传一句「继续分析」无效（空工作空间＝不完整，见 `missing_required`）。
+ *   背景不做定版快照（Q-03 / ADR-001）：`background` 注入 `MD-04` **当前生效条目**（`is_active=1`），
+ *   PD-06 只记「注入了哪几条对象」，不承担「当时内容是什么」的还原责任。
+ * 硬红线：只读写本平台自有 D1；注入记录**只新增、不覆盖**；重复初始化**幂等**（已注入对象跳过）。
+ * 边界：LNK-04 `task_object` 的**写入**归 M1 task-runner（F-02/F-04/F-06），本文件只读其锚点；
+ *   `research_proposal`（MD-12）的写入归 F-03，本文件只读；证据/机会/研究的**生成**归 M3/M4/M5。
+ * ------------------------------------------------------------------ */
+
+/** CFG-06 必填（`template_id` PK、`UK(task_type, context_type_code)`，DDL L95-102）。 */
+const REQUIRED_CONTEXT_TEMPLATE = ["template_id", "task_type", "context_type_code", "order_no"];
+
+/** PD-06 必填（`injection_id` PK、`task_id` FK→PD-01，DDL L366-373）。 */
+const REQUIRED_CONTEXT_INJECTION = [
+  "injection_id",
+  "task_id",
+  "context_type_code",
+  "ref_object_type",
+  "ref_object_id",
+];
+
+/**
+ * 上下文信息类型 → 被注入对象的表类别（`PD-06.ref_object_type`）。
+ * 值域真源＝`dict:OBJECT_TYPE`（schema.md §11 字典枚举：goal / opportunity / research / proposal）；
+ * 本文件**不内联值域、不做域校验**（与 F-10 `LNK-03` 同款口径：值域真源在 `dict_item`）。
+ * ⚠️ **Q-08（本项发现，待裁决，已登记 `docs/03-locks/schema.md` §12）**：
+ *   `background`（MD-04 背景条目）/ `source`（CFG-01 来源）/ `existing_evidence`（EXT-02 证据）
+ *   三类在 `dict:OBJECT_TYPE` **无对应取值**，故本项**只装配其内容、不落 PD-06 行**；
+ *   裁决后按裁决结果补写——改这一张映射表即可，不散落各处。
+ */
+export const CONTEXT_OBJECT_TYPE = {
+  goal: "goal",
+  opp_summary: "opportunity",
+  selected_opp: "opportunity",
+  product_question: "proposal",
+  related_history: "research",
+};
+
+/** Q-08 涉及的三类：只装配、不落 PD-06 行（理由见 `CONTEXT_OBJECT_TYPE`）。 */
+export const CONTEXT_WITHOUT_OBJECT_TYPE = ["background", "source", "existing_evidence"];
+
+/**
+ * 登记模板项（CFG-06）。重复 `(task_type, context_type_code)` 由库级 UK 拒绝（TC-D-M2-011，DDL L101）；
+ * `template_id` 重复由 PK 拒绝。
+ */
+export async function registerContextTemplate(db, input) {
+  assertRequired(input, REQUIRED_CONTEXT_TEMPLATE, "context_template");
+  await db
+    .prepare(
+      `INSERT INTO context_template
+         (template_id, task_type, context_type_code, order_no, is_required)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .bind(
+      input.template_id,
+      input.task_type,
+      input.context_type_code,
+      input.order_no,
+      input.is_required === undefined ? 1 : input.is_required
+    )
+    .run();
+  return {
+    template_id: input.template_id,
+    task_type: input.task_type,
+    context_type_code: input.context_type_code,
+  };
+}
+
+/** 模板列表（可按任务类型过滤；按 `order_no` 确定性排序——注入顺序即模板顺序）。 */
+export async function listContextTemplates(db, { task_type } = {}) {
+  const where = task_type ? " WHERE task_type = ?" : "";
+  const params = task_type ? [task_type] : [];
+  const { results } = await db
+    .prepare(
+      "SELECT * FROM context_template" + where + " ORDER BY task_type, order_no, context_type_code"
+    )
+    .bind(...params)
+    .all();
+  return results;
+}
+
+/** 取单条模板项。 */
+export async function getContextTemplate(db, template_id) {
+  return db.prepare("SELECT * FROM context_template WHERE template_id = ?").bind(template_id).first();
+}
+
+/**
+ * 落一条注入记录（PD-06）。`task_id` 不存在 → 库级外键拒绝（TC-D-M2-009，DDL L368）。
+ * 本文件的 `initTaskContext` 与后续 M1 `task-runner`（按步注入）共用同一写入口。
+ */
+export async function recordContextInjection(db, input) {
+  assertRequired(input, REQUIRED_CONTEXT_INJECTION, "context_injection");
+  const at = input.injected_at || nowStamp();
+  await db
+    .prepare(
+      `INSERT INTO context_injection
+         (injection_id, task_id, context_type_code, ref_object_type, ref_object_id, injected_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      input.injection_id,
+      input.task_id,
+      input.context_type_code,
+      input.ref_object_type,
+      input.ref_object_id,
+      at
+    )
+    .run();
+  return { injection_id: input.injection_id, injected_at: at };
+}
+
+/** 注入记录列表（可按任务 / 信息类型过滤；确定性排序）。 */
+export async function listContextInjections(db, { task_id, context_type_code } = {}) {
+  const where = [];
+  const params = [];
+  if (task_id) {
+    where.push("task_id = ?");
+    params.push(task_id);
+  }
+  if (context_type_code) {
+    where.push("context_type_code = ?");
+    params.push(context_type_code);
+  }
+  const sql =
+    "SELECT * FROM context_injection" +
+    (where.length ? " WHERE " + where.join(" AND ") : "") +
+    " ORDER BY task_id, context_type_code, ref_object_type, ref_object_id";
+  const { results } = await db.prepare(sql).bind(...params).all();
+  return results;
+}
+
+/** 读任务（PD-01）：上下文的 `goal_id` / `goal_version_no` **一律从任务现读**，不由调用方传。 */
+async function readTask(db, task_id) {
+  const task = await db.prepare("SELECT * FROM task WHERE task_id = ?").bind(task_id).first();
+  if (!task) throw new Error(`task 不存在：${task_id}`);
+  return task;
+}
+
+/**
+ * 二阶段锚点：所选机会 / 原研究。显式传入优先，否则从 LNK-04 `task_object` 现读
+ * （其**写入**归 M1 task-runner F-02/F-04/F-06，本文件只读）。
+ */
+async function readTaskAnchors(db, task_id) {
+  const { results } = await db
+    .prepare("SELECT object_type, object_id FROM task_object WHERE task_id = ? ORDER BY link_id")
+    .bind(task_id)
+    .all();
+  const pick = (t) => {
+    const hit = results.find((r) => r.object_type === t);
+    return hit ? hit.object_id : null;
+  };
+  return { opportunity_id: pick("opportunity"), research_no: pick("research") };
+}
+
+/**
+ * 各信息类型的装配器：入参＝范围（`scope`），出参＝该类型要注入的条目（**确定性排序**）。
+ * 一律只读：机会/证据/研究的**生成**分别归 M3/M5/M4，本文件只做按范围的挑选。
+ */
+const SECTION_RESOLVERS = {
+  /** 目标（MD-01）+ 启动采用的目标版本快照（MD-02，含品类 `business_scope` 与关注时段 `focus_period`）。 */
+  async goal(db, scope) {
+    const goal = await db.prepare("SELECT * FROM research_goal WHERE goal_id = ?").bind(scope.goal_id).first();
+    if (!goal) return [];
+    const version =
+      scope.goal_version_no == null
+        ? null
+        : await db
+            .prepare(
+              "SELECT * FROM research_goal_version WHERE goal_id = ? AND version_no = ?"
+            )
+            .bind(scope.goal_id, scope.goal_version_no)
+            .first();
+    return [{ ref_object_id: goal.goal_id, goal, version }];
+  },
+
+  /** 背景（MD-04）：**当前生效条目**（`is_active=1`），本目标条目 + 平台级通用条目（`goal_id IS NULL`）。 */
+  async background(db, scope) {
+    const { results } = await db
+      .prepare(
+        `SELECT * FROM business_context
+          WHERE is_active = 1 AND (goal_id = ? OR goal_id IS NULL)
+          ORDER BY context_id`
+      )
+      .bind(scope.goal_id)
+      .all();
+    return results.map((row) => ({ ref_object_id: row.context_id, background: row }));
+  },
+
+  /** 可用来源（CFG-01，F-08 已登记）：含 `capability_can` / `capability_cannot`（缺口来源）。 */
+  async source(db) {
+    const rows = await listSources(db);
+    return rows.map((row) => ({ ref_object_id: row.source_id, source: row }));
+  },
+
+  /** 已有机会摘要（MD-06，该目标下）：逐条附六要素判定（ADR-003）。 */
+  async opp_summary(db, scope) {
+    const rows = await listOpportunities(db, { goal_id: scope.goal_id });
+    return rows.map((row) => ({
+      ref_object_id: row.opportunity_id,
+      opportunity: row,
+      six_elements: assessOpportunitySixElements(row),
+    }));
+  },
+
+  /** 所选机会（MD-06 单条）。 */
+  async selected_opp(db, scope) {
+    if (!scope.opportunity_id) return [];
+    const row = await getOpportunity(db, scope.opportunity_id);
+    if (!row) return [];
+    return [
+      { ref_object_id: row.opportunity_id, opportunity: row, six_elements: assessOpportunitySixElements(row) },
+    ];
+  },
+
+  /** 产品问题（MD-12 `research_proposal.research_question`；写入归 F-03，本文件只读）。 */
+  async product_question(db, scope) {
+    if (!scope.opportunity_id) return [];
+    const { results } = await db
+      .prepare("SELECT * FROM research_proposal WHERE opportunity_id = ? ORDER BY proposal_id")
+      .bind(scope.opportunity_id)
+      .all();
+    return results.map((row) => ({ ref_object_id: row.proposal_id, proposal: row }));
+  },
+
+  /** 已有证据（EXT-02 经 LNK-01 挂到该机会；新旧依据并存，按 `link_kind` 区分）。 */
+  async existing_evidence(db, scope) {
+    if (!scope.opportunity_id) return [];
+    const rows = await listEvidenceByOpportunity(db, scope.opportunity_id);
+    return rows.map((row) => ({
+      ref_object_id: row.evidence_id,
+      evidence: row,
+      link_kind: row.link_kind,
+    }));
+  },
+
+  /** 相关历史研究（MD-07，该机会下的既往研究；`has_history` 供「是否已有历史可引用」判定）。 */
+  async related_history(db, scope) {
+    if (!scope.opportunity_id) return [];
+    const rows = await listResearch(db, { opportunity_id: scope.opportunity_id });
+    return rows.map((row) => ({
+      ref_object_id: row.research_no,
+      research: row,
+      has_history: Boolean(row.parent_research_no),
+    }));
+  },
+};
+
+/**
+ * 装配某任务的工作空间（**纯读取、不写库**）：按 CFG-06 模板逐类型装配。
+ * **确定性**：所有查询显式 ORDER BY、不依赖时间与随机；同任务同库状态 → 同结果（TC-I-M2-002）。
+ * `missing_required`＝必需类型（`is_required=1`）却为空的类型编码——**为空即视为上下文不完整**。
+ */
+export async function buildTaskContext(db, { task_id, opportunity_id, research_no } = {}) {
+  if (!task_id) throw new Error("buildTaskContext 缺必填字段：task_id");
+  const task = await readTask(db, task_id);
+  const anchors = await readTaskAnchors(db, task_id);
+
+  const version =
+    task.goal_version_no == null
+      ? null
+      : await db
+          .prepare(
+            "SELECT business_scope, focus_period FROM research_goal_version WHERE goal_id = ? AND version_no = ?"
+          )
+          .bind(task.goal_id, task.goal_version_no)
+          .first();
+
+  /** 范围（PRD-M2 F-12 第二个维度）：只看本目标的品类与时段、只查京东超市在册触点。 */
+  const scope = {
+    goal_id: task.goal_id,
+    goal_version_no: task.goal_version_no,
+    opportunity_id: opportunity_id || anchors.opportunity_id,
+    research_no: research_no || anchors.research_no,
+    business_scope: version ? version.business_scope : null,
+    focus_period: version ? version.focus_period : null,
+    touchpoints: await listTouchpoints(db, { activeOnly: true }),
+  };
+
+  const template = await listContextTemplates(db, { task_type: task.task_type });
+  const sections = [];
+  for (const t of template) {
+    const resolver = SECTION_RESOLVERS[t.context_type_code];
+    const items = resolver ? await resolver(db, scope) : [];
+    sections.push({
+      context_type_code: t.context_type_code,
+      order_no: t.order_no,
+      is_required: t.is_required,
+      object_type: CONTEXT_OBJECT_TYPE[t.context_type_code] || null,
+      no_object_type_q08: CONTEXT_WITHOUT_OBJECT_TYPE.includes(t.context_type_code),
+      status: items.length ? "injected" : "empty",
+      items,
+    });
+  }
+
+  const missing_required = sections
+    .filter((s) => s.is_required === 1 && s.status === "empty")
+    .map((s) => s.context_type_code);
+
+  return {
+    task_id,
+    task_type: task.task_type,
+    goal_id: task.goal_id,
+    goal_version_no: task.goal_version_no,
+    template: template.map((t) => ({
+      template_id: t.template_id,
+      context_type_code: t.context_type_code,
+      order_no: t.order_no,
+      is_required: t.is_required,
+    })),
+    sections,
+    missing_required,
+    complete: missing_required.length === 0,
+    scope,
+  };
+}
+
+/**
+ * 初始化任务上下文：装配（见 `buildTaskContext`）＋ 落 PD-06 注入记录。
+ * **幂等**：同一 `(task_id, context_type_code, ref_object_type, ref_object_id)` 已存在则跳过，不重复落行。
+ * `injected_at` 可由调用方显式传入（测试 / 回放），缺省取当前时点。
+ * Q-08 涉及的 `background` / `source` / `existing_evidence` 三类**只装配、不落行**。
+ */
+export async function initTaskContext(db, { task_id, opportunity_id, research_no, injected_at } = {}) {
+  const context = await buildTaskContext(db, { task_id, opportunity_id, research_no });
+  const at = injected_at || nowStamp();
+  const written = [];
+  let skipped = 0;
+  let seq = 0;
+
+  for (const section of context.sections) {
+    const objectType = CONTEXT_OBJECT_TYPE[section.context_type_code];
+    if (!objectType) continue; // Q-08：无 OBJECT_TYPE 取值者只装配、不落行
+    for (const item of section.items) {
+      const dup = await db
+        .prepare(
+          `SELECT injection_id FROM context_injection
+            WHERE task_id = ? AND context_type_code = ? AND ref_object_type = ? AND ref_object_id = ?`
+        )
+        .bind(task_id, section.context_type_code, objectType, item.ref_object_id)
+        .first();
+      if (dup) {
+        skipped += 1;
+        continue;
+      }
+      seq += 1;
+      const injection_id = `CI-${task_id}-${String(seq).padStart(2, "0")}`;
+      await recordContextInjection(db, {
+        injection_id,
+        task_id,
+        context_type_code: section.context_type_code,
+        ref_object_type: objectType,
+        ref_object_id: item.ref_object_id,
+        injected_at: at,
+      });
+      written.push(injection_id);
+    }
+  }
+
+  return {
+    ...context,
+    injected_at: at,
+    injections_written: written.length,
+    injections_skipped: skipped,
+    injections: await listContextInjections(db, { task_id }),
+  };
+}
+
+/**
+ * 回读某任务的工作空间：已落 PD-06 的注入记录 + 按当前 D1 现状装配的内容（**纯读取**）。
+ * 供 F-31 追问页与「该任务注入过什么」的回查；不改任何数据。
+ */
+export async function getTaskContext(db, task_id) {
+  const injections = await listContextInjections(db, { task_id });
+  const context = await buildTaskContext(db, { task_id });
+  return { ...context, injections };
 }
