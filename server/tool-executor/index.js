@@ -1,15 +1,25 @@
 /**
- * 文档卡（阶段2 · M5 工具执行程序 · F-23 工具注册与权限检查 / **F-24 查询执行与真实返回（DS-06 编排层）** · 2026-09-19）
+ * 文档卡（阶段2 · M5 工具执行程序 · F-23 工具注册与权限检查 / **F-24 查询执行与真实返回（DS-06 编排层）**
+ *   / **F-25 查询记录保存** / **F-26 失败重试与受限返回** · 2026-09-19）
  * 上游：`../../AGENTS.md`（宪法：一条硬红线｜编号体系｜双向引用｜术语口径「查询证据必须带来源、条件、时点、适用范围」）
- *   ｜ `../../docs/02-prd/PRD-M5-工具执行程序.md`（F-23 验收要点：权限分支互斥——允许/不允许，不允许时保存原因并返回受限原因）
+ *   ｜ `../../docs/02-prd/PRD-M5-工具执行程序.md`（F-23 验收要点：权限分支互斥——允许/不允许，不允许时保存原因并返回受限原因；
+ *        **F-26 验收要点：重试是代码逻辑不是 AI 决策；实在卡死保留状态停止**；§4 约束 3 失败也留痕、约束 4 生产零写）
  *   ｜ `../../docs/03-locks/schema.md` EXT-01 `query_record`（L700-714：`query_id` PK 形如 `Q-90217`、
  *        `task_id` FK→PD-01、`source_id` FK→CFG-01、`query_condition` 须完整到可复现、`result_status` 走
- *        `dict:QUERY_STATUS`、`result_summary` **失败时为空**、`restricted_flag` 0/1、`message_id` FK→PD-07）枚举
+ *        `dict:QUERY_STATUS`、`result_summary` **失败时为空**、`restricted_flag` 0/1、**`retry_count` 本次执行已重试次数**、
+ *        `message_id` FK→PD-07）｜ PD-01 `task`（`task_status` 走 `dict:TASK_STATUS`、`done_part` 已完成部分、
+ *        `retry_count` 本任务已重试次数、`is_auto_restart` 停止状态一律 0）｜ PD-03 `task_block`（`block_reason_code`
+ *        走 `dict:BLOCK_REASON`、`resume_condition`、`is_resolved`）｜ CFG-04 `run_policy`（`retry_limit` 失败重试次数上限，
+ *        达到即暂停受影响研究）**§12 Q-12**（卡死门槛待裁决）
  *   ｜ `../../docs/03-locks/external-deps.md` §5（12 工具 TOL-01~12 文档视图，与 CFG-02 同源；
  *        **TOL-12 是「不存在」而非「待接入」**；TOL-03/TOL-10 是「存在但能力不足」；TOL-11 降级）
- *   ｜ `../../docs/03-locks/tech-stack.md`（DS-06 自建 MCP 客户端；**§2.6 五项协议面落在 `./mcp-client.js`**）
+ *   ｜ `../../docs/03-locks/tech-stack.md`（DS-06 自建 MCP 客户端；**§2.6 五项协议面落在 `./mcp-client.js`**；
+ *        **§4.2 Queues 重试最大 100 次 → 直接对应 CFG-04 `retry_limit`（值域 ≤100）**，超限进死信 → 写 `PD-03` 并置
+ *        `task_status=blocked`；§4.2 消费者墙钟 15 分钟）
  *   ｜ `../../docs/03-locks/external-deps.md` §6（mock 契约：请求含 `tool_code` + `query_condition`；响应须能映射到
  *        EXT-01 的 result_status/result_summary/returned_rows/fail_reason/retry_count/restricted_flag；七类行为 + 超时/执行中）
+ *        §6.1（**成功不算失败**，`retry_count` 仍记）/ §6.2（**403 = 受限返回，非失败**）/ §6 末段（超时失败 → `call_failed`）
+ *   ｜ `../../docs/01-brd/BRD.md` §4 F-06 **任务受阻处理矩阵 + 状态流**（F-26 与之共用状态机口径）
  *   ｜ `../../db/migrations/0001_init.sql` L49-92（CFG-02/03/04/05 DDL）
  * 职责：**F-23** —— CFG-02 工具注册（只读查询 + 登记接口）、CFG-03 按「任务/Agent × 工具」的授权登记，
  *   以及**每次调用前的权限判定**（判定链互斥、受限必带原因、不静默放行）。
@@ -17,15 +27,21 @@
  *   并把返回体（连同四要素）以 EXT-01 字段口径的信封返回；**只返回不落库**。
  *   **F-25** —— `EXT-01 query_record` 落痕：把每次**执行**的条件/来源/时点/结果或失败原因写成一行，
  *   **失败也留痕**、记录可回查；`result_status` 值域不内联，从 `dict:QUERY_STATUS` 读。
- * 边界：F-25 不含失败重试与暂停（＝F-26，与 M1 F-06 共用状态机）；EXT-01 无承载「限制」的字段，
- *   四要素之「限制」仍在信封里（schema §12 **Q-10 方向②**）；`EXT-02 evidence` 提炼归 F-09；
- *   传输、超时、错误码映射五项协议面在 `./mcp-client.js`，**那一个文件零 SQL、零写**。
+ *   **F-26** —— 失败**重试**（`executeQueryWithRetry`，上限取 `CFG-04 retry_limit`、封顶 100）与**受限返回**
+ *   （受限不重试），以及持续失败后的**任务态处置**（`handleQueryFailure`：写 `PD-03` + 置 `PD-01.task_status`，
+ *   保留 `done_part`；停止状态不自动重启）。
+ * 边界：F-26 的一次「执行」＝**带重试的完整一次执行，落一行 `EXT-01`**（行内 `retry_count` 记本层重试次数，
+ *   逐次尝试的证据面留在信封 `attempts[]`）；EXT-01 无承载「限制」的字段，四要素之「限制」仍在信封里
+ *   （schema §12 **Q-10 方向②**）；`EXT-02 evidence` 提炼归 F-09；**任务调度/Queues 重投递与完整状态机归 M1 F-06（阶段3）**，
+ *   本模块只按共用口径写任务态；传输、超时、错误码映射五项协议面在 `./mcp-client.js`，**那一个文件零 SQL、零写**。
  * 门禁状态：`external-deps.md` §7 的 T-01/T-02/T-05 未关闭——`tool_code` 为 demo 占位（`*` 后缀），
- *   **demo 值不进断言**；TS-10/TS-22 未决，本模块不锁死模型选型与 MCP 协议版本。
+ *   **demo 值不进断言**；**T-06（HJE/PIM/MKT 失败语义）未关闭 → F-26 的 `TC-I-M5-004` 按 stub/mock 打桩、不设为发布门禁**；
+ *   TS-10/TS-22 未决，本模块不锁死模型选型与 MCP 协议版本。
  *
- * 反向清单：被 `../api/index.js`（F-23 路由 / F-24 路由 / **F-25 路由**）与后续 `../agent-orchestrator`
- *   （调用前先查权限；M3/M4 发起真实查询并落痕）引用；`./mcp-client.js`（F-24 传输层）被本文件引用；
- *   登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`、`./test-f24.mjs`、**`./test-f25.mjs`**。
+ * 反向清单：被 `../api/index.js`（F-23 路由 / F-24 路由 / **F-25 路由** / **F-26 路由**）与后续 `../agent-orchestrator`
+ *   （调用前先查权限；M3/M4 发起真实查询并落痕；失败/受限后消费任务态处置结果）引用；`./mcp-client.js`（F-24 传输层）
+ *   被本文件引用；登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`、`./test-f24.mjs`、`./test-f25.mjs`、
+ *   **`./test-f26.mjs`**。
  */
 
 import {
@@ -37,6 +53,31 @@ import {
   serializeCondition,
   mapResponseToResult,
 } from "./mcp-client.js";
+import {
+  BLOCK_REASON_CODE,
+  TaskStateError,
+  getTask,
+  assertTaskRunnable,
+  listTaskBlocks,
+  recordBlock,
+  setTaskStatus,
+  appendDonePart,
+} from "./task-state.js";
+
+// F-26 的任务态写入面（`PD-01`/`PD-03`）与只读回查：转出，便于路由与用例统一从本模块取用。
+// 其中「改动已有行」的实现**只在 `./task-state.js`**，本文件因此不含改行 / 删行类 SQL（生产零写可静态验证）。
+export {
+  BLOCK_REASON_CODE,
+  TaskStateError,
+  dictCodes,
+  getTask,
+  assertTaskRunnable,
+  nextBlockId,
+  listTaskBlocks,
+  recordBlock,
+  setTaskStatus,
+  appendDonePart,
+} from "./task-state.js";
 
 /** 判定链（互斥，依次短路）：每条拒绝都必带原因，允许也可能带「限制」提示。 */
 export const REASON = {
@@ -491,3 +532,272 @@ export async function recordQuery(db, params = {}) {
     throw e; // 其余错误（FK 拒绝 / 值域不合）如实上抛，不吞成「没落痕」
   }
 }
+
+// ================================================================== F-26 失败重试与受限返回
+
+/**
+ * 重试上限的硬上限：`tech-stack.md` §4.2「Queues 重试 最大 100 次 → 直接对应 `CFG-04 retry_limit`（值域 ≤100）」。
+ * 库里若出现越界值，**截断到上限并显式标注**，不静默放过、也不擅自改成别的数。
+ */
+export const RETRY_LIMIT_MAX = 100;
+
+/** 重试/终局分类（`executeQueryWithRetry` 的 `outcome`）。 */
+export const RETRY_OUTCOME = { ok: "ok", running: "running", restricted: "restricted", exhausted: "exhausted" };
+
+/** 失效判定：受限返回（事前判定受限 `decision=restricted`，或来源返回 403 后 `restricted_flag=1`）。 */
+const isRestrictedEnvelope = (env) => Boolean(env && (env.decision === "restricted" || env.restricted_flag === 1));
+
+// ---------------------------------------------------------------- CFG-04 运行策略
+
+/**
+ * 取生效运行策略（`CFG-04`）：**先目标级、后平台级**，各取 `is_active=1` 的第一条（按 `policy_id` 稳定排序）。
+ * 都取不到则返回 `null`——重试上限此时按「不重试」处理，并由返回值显式说明（`policy_source='none'`），不假设默认值。
+ */
+export async function getRunPolicy(db, { goal_id = null } = {}) {
+  if (goal_id) {
+    const scoped = await db
+      .prepare(
+        `SELECT * FROM run_policy
+         WHERE policy_scope = 'goal' AND goal_id = ? AND is_active = 1
+         ORDER BY policy_id LIMIT 1`,
+      )
+      .bind(goal_id)
+      .first();
+    if (scoped) return scoped;
+  }
+  return db
+    .prepare(
+      `SELECT * FROM run_policy
+       WHERE policy_scope = 'platform' AND goal_id IS NULL AND is_active = 1
+       ORDER BY policy_id LIMIT 1`,
+    )
+    .first();
+}
+
+/** 由策略行算本次重试上限：`{ retry_limit, policy_id, policy_source, clamped, note? }`。 */
+export function retryLimitOf(policy) {
+  if (!policy) {
+    return {
+      retry_limit: 0,
+      policy_id: null,
+      policy_source: "none",
+      clamped: false,
+      note: "无生效运行策略（CFG-04）：本次不重试——**不假设默认重试次数**",
+    };
+  }
+  const raw = Number(policy.retry_limit);
+  const safe = Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 0;
+  const clamped = safe > RETRY_LIMIT_MAX;
+  return {
+    retry_limit: clamped ? RETRY_LIMIT_MAX : safe,
+    policy_id: policy.policy_id,
+    policy_source: policy.policy_scope,
+    clamped,
+    ...(clamped
+      ? { note: `retry_limit ${safe} 超过平台上限 ${RETRY_LIMIT_MAX}（tech-stack §4.2 Queues 最大重试），按上限截断并标注` }
+      : {}),
+  };
+}
+
+// ---------------------------------------------------------------- PD-01/PD-03 任务态写入面
+// 受阻留痕（插 `task_block`）与任务态处置（改 `task`）**单独落在 `./task-state.js`**——与 `mcp-client.js` 同理由：
+// 让写入面可静态验证，本文件因此**不含改行 / 删行类 SQL**（`test-f23.mjs` 的生产零写断言逐字不动）。
+
+// ---------------------------------------------------------------- 重试（代码逻辑，非 AI 决策）
+
+/**
+ * F-26 核心之一：**按配置上限重试**（`BRD` F-26「重试是代码逻辑不是 AI 决策」；上限取 `CFG-04 retry_limit`，
+ * 受 `tech-stack` §4.2 平台上限 ≤100 约束）。`params` 与 `executeQuery`（F-24）同形，逐次透传。
+ *
+ * 重试判定（确定性，互斥）：
+ * - `result_status='ok'` → 成功，**成功不算失败**（`external-deps` §6.1）；
+ * - `result_status='running'` → 非终态，不视为失败、不重试；
+ * - **受限返回**（事前判定 `decision=restricted` 或来源返回 403 后 `restricted_flag=1`）→ **不重试**
+ *   （重试不改变权限，`external-deps` §6.2「受限返回，非失败」）；
+ * - `result_status='fail'` 且非受限 → 在 `retry_limit` 内重试，用尽即 `outcome='exhausted'`。
+ *
+ * `retry_count` 的取值口径（显式标注，不隐式）：**本层真的重试过**（`retried>0`）→ 写本层重试次数、
+ * `retry_count_source='platform'`（这才是「重试是代码逻辑」的留痕）；本层未重试 → 沿用返回体透传值
+ * 并标 `upstream_passthrough`（`external-deps` §6.1 慢响应场景）；两者皆无 → `none`。
+ */
+export async function executeQueryWithRetry(db, params = {}, { retry_limit, sleep, onAttempt } = {}) {
+  let limit;
+  let policyInfo;
+  if (retry_limit === undefined) {
+    const task = params.task_id ? await getTask(db, params.task_id) : null;
+    const policy = await getRunPolicy(db, { goal_id: task ? task.goal_id : null });
+    policyInfo = retryLimitOf(policy);
+    limit = policyInfo.retry_limit;
+  } else {
+    const n = Math.floor(Number(retry_limit));
+    limit = Number.isFinite(n) && n > 0 ? Math.min(n, RETRY_LIMIT_MAX) : 0;
+    policyInfo = {
+      retry_limit: limit,
+      policy_id: null,
+      policy_source: "explicit",
+      clamped: Number.isFinite(n) && n > RETRY_LIMIT_MAX,
+    };
+  }
+
+  const attempts = [];
+  let envelope = null;
+  let retried = 0;
+  for (let i = 0; i <= limit; i++) {
+    envelope = await executeQuery(db, params);
+    const att = {
+      attempt: i + 1,
+      result_status: envelope.result_status,
+      decision: envelope.decision ?? null,
+      restricted_flag: envelope.restricted_flag ?? 0,
+      fail_reason: envelope.fail_reason ?? null,
+      transport_called: envelope.transport_called !== false,
+    };
+    attempts.push(att);
+    if (onAttempt) await onAttempt(att, envelope);
+    if (!(envelope.result_status === "fail" && !isRestrictedEnvelope(envelope))) break; // 非「可重试失败」即止
+    if (i === limit) break; // 用尽
+    retried = i + 1;
+    if (sleep) await sleep(retried);
+  }
+
+  const restricted = isRestrictedEnvelope(envelope);
+  const outcome = restricted
+    ? RETRY_OUTCOME.restricted
+    : envelope.result_status === "ok"
+      ? RETRY_OUTCOME.ok
+      : envelope.result_status === "running"
+        ? RETRY_OUTCOME.running
+        : RETRY_OUTCOME.exhausted;
+
+  const upstream = Number.isInteger(envelope.retry_count) ? envelope.retry_count : 0;
+  envelope.retry_count = retried > 0 ? retried : upstream;
+  envelope.retry_count_source = retried > 0 ? "platform" : upstream > 0 ? "upstream_passthrough" : "none";
+  envelope.retry_limit = limit;
+  envelope.retry_policy = policyInfo;
+  envelope.attempts = attempts;
+
+  // 用尽仍失败：把重试次数写进原因，便于回查（对齐种子 BL-001「接口超时，重试 3/3」的表述方式）
+  if (outcome === RETRY_OUTCOME.exhausted && retried > 0) {
+    const base = String(envelope.fail_reason ?? "").trim();
+    envelope.fail_reason = base ? `${base}（重试 ${retried}/${limit}）` : `调用失败（重试 ${retried}/${limit} 后仍失败）`;
+  }
+
+  return { envelope, attempts, retried, retry_limit: limit, retry_policy: policyInfo, outcome };
+}
+
+/**
+ * F-26 核心之二：**失败/受限后的任务态处置**（与 M1 F-06 共用状态机口径）。
+ *
+ * - 受阻原因按 BRD F-06 受阻矩阵取：失败 → `call_failed`（第 4 行）；受限 → `source_unavailable`（第 3 行）。
+ * - 任务态判定（**schema §12 Q-12**，BRD 未给可判定门槛，本实现取此确定性规则）：
+ *   该任务**已有未解除的同类受阻记录** → `stopped`（真卡死，保留已完成部分停止，不自动重启）；
+ *   否则 → `blocked`（持续失败暂停受影响研究，记为受阻，满足继续条件可继续）。
+ * - 同时**保留已完成部分**（`PD-01.done_part` 只追加、不覆盖），并把受阻/停止事实写进 `PD-03`。
+ */
+export async function handleQueryFailure(db, { task_id, envelope, retry_limit, at, done_fragment } = {}) {
+  if (!task_id) throw new TaskStateError("handleQueryFailure：task_id 必填（任务态处置须归属真实任务）", { reason_code: "missing_task" });
+  const when = at || nowStamp();
+  const restricted = isRestrictedEnvelope(envelope);
+  const block_reason_code = restricted ? BLOCK_REASON_CODE.source_unavailable : BLOCK_REASON_CODE.call_failed;
+  const retried = Number.isInteger(envelope.retry_count) ? envelope.retry_count : 0;
+  const limit = Number.isInteger(retry_limit) ? retry_limit : retried;
+  const reasonText = String(envelope.fail_reason ?? "").trim() || "未给出具体原因";
+
+  const openBlocks = await listTaskBlocks(db, { task_id, is_resolved: 0 });
+  const had_open_same_reason = openBlocks.some((b) => b.block_reason_code === block_reason_code);
+  const task_status = had_open_same_reason ? "stopped" : "blocked";
+  const before = await getTask(db, task_id); // 改前态：用于回查「状态跃迁」这条白盒事实
+
+  const block_note = restricted
+    ? `接口不可用（受限返回）：${reasonText} —— 受影响的研究内容已保留`
+    : `查询或服务调用失败：${reasonText}（重试 ${retried}/${limit}）—— 已完成部分保留`;
+  const resume_condition = had_open_same_reason
+    ? "持续失败后停止（保留已完成部分，不自动重启）"
+    : restricted
+      ? "接入或权限问题解决"
+      : "服务恢复且满足任务继续条件";
+
+  const block = await recordBlock(db, {
+    task_id,
+    block_reason_code,
+    block_note,
+    resume_condition,
+    blocked_at: when,
+    is_resolved: 0,
+  });
+  const task = await setTaskStatus(db, task_id, task_status, { ended_at: task_status === "stopped" ? when : null });
+  const after = await appendDonePart(
+    db,
+    task_id,
+    done_fragment ?? `${when} ${block_note}`,
+  );
+
+  return {
+    outcome: task_status,
+    block_reason_code,
+    block,
+    task: after,
+    had_open_same_reason,
+    blocked_at: when,
+    resume_condition,
+    previous_task_status: before ? before.task_status : null,
+  };
+}
+
+/**
+ * F-26 一步编排：**重试执行（F-24+重试） → 留痕（F-25） → 失败/受限处置任务态（F-26）**。
+ * 返回 `{ envelope, attempts, retried, retry_limit, outcome, persisted, query_id, record, persist_skip, recovery }`。
+ *
+ * 边界（白盒）：任务态**只在失败 / 受限时**才动；成功与执行中一律不改任务态（`recovery.outcome='none'`）。
+ * 失败本身**不作为否定研究结论的依据**——本函数只写 `PD-01/PD-03/EXT-01`，**不碰 `EXT-02 evidence` 与 `MD-07 research`**。
+ */
+export async function runQueryWithRecovery(db, params = {}) {
+  const {
+    task_id = null,
+    source_id = null,
+    message_id = null,
+    query_id = null,
+    created_at = null,
+    retry_limit,
+    ...rest
+  } = params;
+
+  const exec = await (async () => {
+    // 前置守卫：已停止 / 已完成的任务**根本不进入执行**——避免「先执行、后拒写」留下半截状态
+    if (task_id) await assertTaskRunnable(db, task_id);
+    return executeQueryWithRetry(db, { ...rest, task_id }, { retry_limit });
+  })();
+
+  // 1) 留痕（F-25）：无论终局都落一行；无处落痕时显式标 persist_skip，不静默丢
+  let ledger;
+  if (!task_id) {
+    ledger = { persisted: false, query_id: null, record: null, persist_skip: { reason_code: "missing_task", message: "runQueryWithRecovery：task_id 必填（EXT-01 每条查询须归属真实任务）" } };
+  } else {
+    try {
+      const record = await saveQueryRecord(db, exec.envelope, { task_id, source_id, message_id, query_id, created_at });
+      ledger = { persisted: true, query_id: record.query_id, record, persist_skip: null };
+    } catch (e) {
+      if (!(e instanceof PersistSkip)) throw e; // 其余错误（FK 拒绝 / 值域不合）如实上抛
+      ledger = { persisted: false, query_id: null, record: null, persist_skip: { reason_code: e.reason_code || "no_source", message: e.message } };
+    }
+  }
+
+  // 2) 任务态处置：只有「用尽仍失败」与「受限返回」才动任务态
+  let recovery;
+  if (exec.outcome === RETRY_OUTCOME.exhausted || exec.outcome === RETRY_OUTCOME.restricted) {
+    recovery = task_id
+      ? await handleQueryFailure(db, { task_id, envelope: exec.envelope, retry_limit: exec.retry_limit, at: exec.envelope.queried_at })
+      : { outcome: "skipped", reason_code: "missing_task", message: "无 task_id：仅返回执行结果，不做任务态处置" };
+  } else {
+    recovery = {
+      outcome: "none",
+      reason_code: null,
+      message: `${exec.outcome}：不改任务态（成功 / 执行中不判失败）`,
+    };
+  }
+
+  return { ...exec, ...ledger, recovery };
+}
+
+/** 受限返回对外的统一说明（路由用于 403 文案；与 `external-deps` §6.2「受限返回，非失败」同口径）。 */
+export const RESTRICTED_NOTE = "受限返回：返回了受限说明而非数据（非失败；重试不改变权限）";
