@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/pages/propose.html
+  功能点：F-29 研究建议提交页
+  上游：../../AGENTS.md（宪法）｜ ../../docs/01-brd/BRD.md（M6-F-29、M1-F-03/F-04）
+        ../README.md ｜ ../assets/data.js（opportunities）
+  验收要点：选机会 → 研究问题（必需）→ 可选补候选行为假设、人群限制；
+        问题不明确时只补问题不重填材料；提交触发 F-04；重复提交幂等
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-29 研究建议提交</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="propose">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-29</span>研究建议提交</h1>
+    </div>
+    <div class="page-actions"><a class="btn" href="opportunities.html">重选机会</a></div>
+  </div>
+
+  <div class="side-layout">
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">研究建议</div><div class="card-note">机会来自 F-28，此处不可改</div></div>
+
+        <div class="form-row">
+          <label class="lbl">1 · 已选机会</label>
+          <div id="opp-box"></div>
+        </div>
+
+        <div class="form-row">
+          <label class="lbl">2 · 研究问题（必需）</label>
+          <textarea id="q" placeholder="例：搜索进入的新客复购更低，是因为缺少「首单后二次找品」这一行为，还是入口本身带来了不同需求强度的人群？"></textarea>
+          <div id="q-check"></div>
+        </div>
+
+        <div class="form-row">
+          <label class="lbl">3 · 候选行为假设（可选）</label>
+          <input type="text" id="hypo" placeholder="例：首单后 7 日内二次找品（搜索点击≥3 次或加购未下单）">
+        </div>
+
+        <div class="form-row">
+          <label class="lbl">4 · 人群限制（可选）</label>
+          <input type="text" id="limit" placeholder="例：仅限 APP 端；剔除大促 8/18–8/20 时段">
+        </div>
+
+        <div class="card-section">
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn btn-primary" id="submit">提交研究建议并启动 HVA 研究</button>
+            <span class="text-3 small" id="submit-note">提交后将触发 M1-F-04，组织二阶段上下文并调用 HVA 分析 Agent</span>
+          </div>
+          <div id="result-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title plain">提交规则</div></div>
+        <ul class="small text-2" style="padding-left:18px;margin:0">
+          <li>研究问题<b>必需</b>；候选行为假设与人群限制可选。</li>
+          <li>建议与机会版本关联，不混淆不同版本。</li>
+          <li>同一份建议重复提交<b>幂等</b>：不重复启动相同任务。</li>
+          <li>第二阶段启动时点＝建议提交时刻。</li>
+          <li>已允许的查询工具按任务规则执行。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+</main>
+<script src="../assets/data.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  const oppId = U.qs("opp") || "OPP-014";
+  const o = DB.opportunities.filter(function (x) { return x.id === oppId; })[0]
+         || DB.opportunities[0];
+
+  document.getElementById("opp-box").innerHTML =
+    '<div class="readonly-box">' +
+      '<div style="font-weight:500;margin-bottom:6px">' + U.esc(o.title) + "</div>" +
+      '<div class="field-list">' +
+        '<div class="field"><div class="field-label">机会编号</div><div class="field-value mono">' + o.id + " · " + o.target + "</div></div>" +
+        '<div class="field"><div class="field-label">涉及对象</div><div class="field-value">' + U.esc(o.object) + "</div></div>" +
+        '<div class="field"><div class="field-label">观察现象</div><div class="field-value">' + U.esc(o.phenomenon) + "</div></div>" +
+        '<div class="field"><div class="field-label">未知项</div><div class="field-value text-2">' + U.esc(o.unknown) + "</div></div>" +
+      "</div>" +
+    "</div>";
+
+  const q = document.getElementById("q");
+  const box = document.getElementById("q-check");
+  function check() {
+    const v = q.value.trim();
+    if (!v) { box.innerHTML = ""; return; }
+    const hasCrowd = /人群|用户|新客|客群/.test(v);
+    const hasBehav = /行为|找品|搜索|加购|访问|复购|购买|下单/.test(v);
+    const tips = [];
+    if (!hasCrowd) tips.push("未指明针对哪个人群");
+    if (!hasBehav) tips.push("未指明要检验的行为或结果");
+    if (v.length < 15) tips.push("问题描述过短，难以确定查证方向");
+    box.innerHTML = tips.length
+      ? '<div class="alert alert-warn"><div class="flex-1"><span class="alert-title">需补充的要点：</span>' +
+        tips.join("；") + "。只需在问题中补清这些内容，无需重填机会材料。</div></div>"
+      : '<div class="alert alert-ok"><div class="flex-1">问题指向了明确的人群与行为，可作为第二阶段的研究起点。</div></div>';
+  }
+  q.addEventListener("input", check);
+
+  document.getElementById("submit").addEventListener("click", function () {
+    const v = q.value.trim();
+    const out = document.getElementById("result-box");
+    if (!v) {
+      out.innerHTML = '<div class="alert alert-danger"><div class="flex-1">研究问题为必填项，请先填写后再提交。</div></div>';
+      q.focus();
+      return;
+    }
+    const key = o.id + "::" + v + "::" + document.getElementById("hypo").value.trim() + "::" + document.getElementById("limit").value.trim();
+    const submitted = U.Store.get("proposals", []);
+    if (submitted.indexOf(key) !== -1) {
+      out.innerHTML = '<div class="alert alert-info"><div class="flex-1">' +
+        "<span class='alert-title'>幂等：同一份研究建议已提交过</span>，不会重复启动相同任务。" +
+        "如需新的研究，请修改研究问题或补充信息后再提交。</div></div>";
+      return;
+    }
+    submitted.push(key);
+    U.Store.set("proposals", submitted);
+
+    const taskId = "T-" + (1100 + submitted.length);
+    const tasks = U.Store.get("newTasks", []);
+    tasks.push({
+      id: taskId, type: "HVA 研究", ref: o.id + " · 新研究", stage: "M4",
+      goal: o.target.split(" · ")[0],
+      status: "running", startedAt: "刚刚", trigger: "PM 于刚刚提交研究建议（" + o.id + "）",
+      agentVersion: "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1",
+      queries: [], done: "已注入二阶段上下文，等待首轮查询", blockedBy: null, progress: "1 / 5 步",
+      question: v
+    });
+    U.Store.set("newTasks", tasks);
+    /* 运行动作产生新任务：该目标的任务与状态有了更新待查看 */
+    U.markUnread("tasks", 1, o.target.split(" · ")[0]);
+
+    out.innerHTML = '<div class="alert alert-ok"><div class="flex-1">' +
+      "<span class='alert-title'>已提交，触发 M1-F-04</span>　研究建议已与机会版本 " + o.id + " 关联。<br>" +
+      "已创建 HVA 研究任务 <span class='mono'>" + taskId + "</span> 并注入二阶段上下文。" +
+      "</div></div>";
+  });
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记
+  - 被 ../index.html 链接（默认 OPP-014）
+  - 被 opportunities.html 链接（列表右栏「提交研究建议」）
+  - 下游：tasks.html（F-32，展示新生成的任务）
+-->

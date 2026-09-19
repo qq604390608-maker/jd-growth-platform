@@ -1,0 +1,12 @@
+# 探针配置：仅用于 T-12（中文默认排序对枚举展示顺序的影响）实测，不属于业务配置
+# 上游：../../../docs/03-locks/tech-stack.md §3.2 / §8 T-12
+#       ../../../docs/03-locks/schema.md §9 字典项清单、CFG-07/08
+# 同级范式：../type/wrangler.toml（T-11）、../fk/wrangler.toml（T-14）
+name = "collation-probe"
+main = "worker/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "collation-probe"
+database_id = "00000000-0000-0000-0000-000000000000"

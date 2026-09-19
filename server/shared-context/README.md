@@ -1,0 +1,105 @@
+# server/shared-context · M2 共享上下文（信息存储中枢）
+
+> 阶段1 · M2。本目录是 dev-plan 阶段1 的落位模块（`server/shared-context`，被 `server/api` / `server/agent-orchestrator` 调用）。
+> 当前进度：**F-07 业务背景管理、F-08 可用来源与工具登记、F-09 证据管理、F-10 机会记录管理、F-11 研究结果与历史管理**（阶段1 前五个功能点）。
+
+## 文档卡
+
+| 项 | 内容 |
+| ---- | ---- |
+| 上游约束 | `../../AGENTS.md`（宪法：白盒原则｜双向引用｜术语口径「共享上下文＝数据库」）｜ `../../docs/03-locks/schema.md`（MD-04 `business_context` / MD-05 `touchpoint`；CFG-01 `source_registry`；EXT-02 `evidence` / LNK-01 `opportunity_evidence` / LNK-02 `finding_evidence`；MD-06 `opportunity` / PD-05 `opportunity_status_log` / LNK-03 `opportunity_relation`；**MD-07 `research` / MD-08 `research_finding` / EXT-03 `external_validation`**；Q-03「背景不做定版快照」；Q-05 六要素必填见 MD-06 表尾注；§11 应用层校验）｜ `../../docs/07-decisions/ADR-003-机会六要素必填与未知项二态.md`（§3 清单与判定式 / §3.1 两件套 / §3.2 未加二态 CHECK）｜ `../../docs/03-locks/tech-stack.md`（§2.2 `shared-context` 模块 / DS-01 D1）｜ `../../docs/03-locks/external-deps.md`（§2 五系统 can/cannot/status）｜ `../../docs/04-plan/dev-plan.md`（阶段1 · M2 F-07~F-12）｜ `../../docs/02-prd/PRD-M2-共享上下文.md`（F-07~F-12）｜ `../../docs/05-test-cases/test-M2.md` |
+| 职责 | 共享上下文存储中枢（D1）的读写。**严格逐 F-xx 落地**，不跨功能点预实现。 |
+| 硬红线 | 只在本平台自有 D1 内增删查；**不调面向生产环境会改线上数据的接口**（BRD §5.3）；**证据一律只新增行、不覆盖**（EXT-02 头注）；暂不研究的机会**只改状态、不删除**（MD-06 头注）；**追问不覆盖原研究**（MD-07 表注 L271）；外部验证**只登记业务侧结论与来源引用**，平台不执行验证、不计算效果（EXT-03 表注 L737-738）。 |
+
+## 文件清单
+
+| 文件 | 职责 | 状态 |
+| ---- | ---- | ---- |
+| `index.js` | M2 模块本体：MD-04 背景条目 + MD-05 触点清单的读写 + 背景简报（F-07）；CFG-01 来源登记 + 缺口语义 + 来源与工具说明（F-08）；EXT-02 证据登记 + 回查链路 + LNK-01/LNK-02 证据关联（F-09）；MD-06 机会记录 + PD-05 状态留痕 + LNK-03 机会关系（F-10）；**MD-07 研究登记 + MD-08 发现只读 + EXT-03 外部验证引用 + `parent_research_no` 追问链追溯（F-11）** | ✅ F-07 / F-08 / F-09 / F-10 / **F-11** 已建 |
+| `test-f07.mjs` | F-07 用例执行器（`node:sqlite` + D1 适配层，载入真实 DDL 跑约束） | ✅ 已建 |
+| `test-f08.mjs` | F-08 用例执行器（载入真实 DDL + `0001_mock.sql` 种子，跑 CFG-01 约束与缺口语义） | ✅ 已建 |
+| `test-f09.mjs` | F-09 用例执行器（载入真实 DDL + 种子，跑 EXT-02 外键 / 四要素 / 回查链路 / 新旧依据并存 / LNK-04 复合 UK） | ✅ 已建 |
+| `test-f10.mjs` | F-10 用例执行器（载入真实 DDL + 种子，跑 MD-06 六要素 NOT NULL+CHECK / `unknown_item` 二态 / LNK-01/LNK-03 复合 UK / 自环应用层拒 / PD-05 状态链留痕） | ✅ 已建 |
+| `test-f11.mjs` | F-11 用例执行器（载入真实 DDL + 种子，跑 MD-07 `opportunity_id`/自引用 FK / EXT-03 `research_no` FK / 追问不覆盖 / `parent_research_no` 祖先与派生链追溯 / MD-08 只读与 `UK(research_no, order_no)`） | ✅ 已建 |
+
+## F-07 覆盖（业务背景管理）
+
+- **落库对象**：`MD-04 business_context`（背景条目；`goal_id` 可空＝平台级通用背景）、`MD-05 touchpoint`（触点清单，`touchpoint_name` 唯一）。
+- **实现**：`createBusinessContext` / `listBusinessContext` / `createTouchpoint` / `listTouchpoints` / `getBackgroundBriefing`。
+- **oracle（test-M2）**：`TC-D-M2-001`（`goal_id` NULL 允许 / 不存在 FK 拒绝）、`TC-D-M2-002`（重复 `touchpoint_name` UNIQUE 拒绝）。实跑：`node server/shared-context/test-f07.mjs` → **VERIFY PASS**。
+
+## F-08 覆盖（可用来源与工具登记）
+
+- **落库对象**：`CFG-01 source_registry`（五类来源 CDP/HJE/PIM/MKT/ACT；`source_id` PK、`source_name` UK、`capability_can`/`capability_cannot`/`availability_status`）。只读交叉引用 `CFG-02 tool_registry` 产出「来源与工具说明」。
+- **实现**：`registerSource` / `updateSourceCapability`（接入能力确认）/ `listSources` / `getSource` / `getSourceGaps`（缺口地图）/ `getSourceToolBriefing`（来源与工具说明）。
+- **oracle（test-M2）**：`TC-D-M2-010`（`source_id` PK 拒 NULL / 拒重复；五来源种子齐全）、`TC-I-M2-003`（**来源登记不代替实际证据**——缺口 `is_evidence=false`、缺口如实登记）。实跑：`node server/shared-context/test-f08.mjs` → **VERIFY PASS**。
+- **缺口语义（F-08 验收要点「Agent 能知道缺少什么信息」）**：缺口来源＝未接入（`unauthorized` → `source_unavailable`，整源不可查）或能力边界（`capability_cannot` → `capability_limit`）。缺口只登记、**不计入证据**。
+- **边界（不跨项）**：`CFG-02` 工具的**写/注册**（MCP 化、`is_enabled`）归 **F-23（M5 阶段2）**，本项只做只读交叉引用。
+- **未决项（挂起，未锁死）**：`T-07`（ACT `degraded` 是常态还是临时）、`T-08`（ACT 是否确认无用户参与明细）、`T-09`（是否还有第六个可用来源）——`external-deps` §7，故实现**不硬编码「恰好 5 个来源」**（`source_id` 走 `dict:SOURCE_CODE`，新增来源可直接登记）。
+
+## F-09 覆盖（证据管理）
+
+- **落库对象**：`EXT-02 evidence`（证据：来源 + 查询条件 + 信息时点 + 适用范围 + 缺失说明）、`LNK-01 opportunity_evidence`（机会↔证据，`link_kind` 区分「初步依据 / 关联更新」）、`LNK-02 finding_evidence`（关键发现↔证据）。
+- **实现**：
+  - `validateEvidenceCompleteness`（**纯函数**：证据四要素齐全校验，返回 `{valid, missing, missing_labels}`）
+  - `createEvidence`（四要素不齐 → **直接 fail、不落库**；只 INSERT，无 UPDATE/DELETE）
+  - `getEvidence` / `listEvidence`（可按 `source_id` / `query_id` 过滤）
+  - `getEvidenceTrace`（**回查链路**：证据 → 查询记录 EXT-01 → 来源 CFG-01，`traceable` 判据）
+  - `linkOpportunityEvidence`（LNK-01）/ `linkFindingEvidence`（LNK-02）
+  - `listEvidenceByOpportunity` / `listEvidenceByFinding`（**新旧依据全量并存**，不覆盖）
+- **oracle（test-M2）**：`TC-D-M2-007`（`query_id` / `source_id` 不存在 → FK 拒绝）、`TC-I-M2-001`（**证据四要素齐全**：来源/条件/时点/适用范围任一缺失 → 该证据不可作有效依据；**新证据加入不覆盖原依据**）、`TC-D-M2-015`（LNK-04 复合 UK，标 F-09/F-12）。实跑：`node server/shared-context/test-f09.mjs` → **VERIFY PASS**（11 组断言）。
+- **证据四要素**（BRD §7.3 / PRD-M2 F-09）：`source_id`（来源）/ `query_condition`（查询条件）/ `info_time_point`（信息时点）/ `applicability_scope`（适用范围）。四要素的**中文名**见 `EVIDENCE_ELEMENT_LABELS`。
+- **证据自洽**：`query_condition` / `info_time_point` 在 EXT-02 **冗余一份**（与 EXT-01 同名同口径）——查询记录后来补录，证据表述也不随之漂移（schema EXT-02 头注）。
+- **新证据不覆盖**：EXT-02 只新增行；同一机会/发现出现新证据时**追加关联**（LNK-01 记 `related_update`），旧 `initial_basis` 关联与旧证据原文**均保留**。
+- **边界（不跨项）**：`query_record`（EXT-01）的**写入**归 **M5 `tool-executor`（F-24/F-25）**，本项只读回查；LNK-04 `task_object` 的**写入路径归 M1 `task-runner`（F-02/F-04/F-06）**，本执行器只按 oracle 断言其库级复合 UK。
+
+## F-10 覆盖（机会记录管理）
+
+- **落库对象**：`MD-06 opportunity`（机会：六要素 + `unknown_item` 二态 + `defer_reason`）、`PD-05 opportunity_status_log`（状态变更逐次留痕）、`LNK-03 opportunity_relation`（机会↔机会：去重/关联）。
+- **实现**：
+  - `assessOpportunitySixElements`（**纯函数**：六要素齐全判定 + 二态分类，返回 `{six_elements_present, missing, unknown_state, six_elements_complete, pending_supplement}`）
+  - `classifyUnknownItem`（**纯函数**：`NULL`→`not_assessed` / `''`→`none_confirmed` / 文本→`has_unknown` / 纯空白串→`invalid_blank`）
+  - `createOpportunity`（六要素不齐 → 应用层 fail；`unknown_item` 纯空白串 → 应用层拒；**库级 `NOT NULL` + `CHECK` 是最终防线**）
+  - `getOpportunity` / `listOpportunities`（可按目标/状态过滤；`pendingSupplementOnly` 只看 `unknown_item IS NULL` 的**待补**机会）
+  - `changeOpportunityStatus`（读当前状态作 `from_status` → 改 MD-06 → **追加** PD-05 日志；**不删除**记录）
+  - `logOpportunityStatus` / `listOpportunityStatusLog`
+  - `linkOpportunityRelation`（**自环拒绝**＝应用层） / `listOpportunityRelations`
+  - `getOpportunityRecord`（读模型：本体 + 六要素判定 + 状态链 + 关系 + 证据关联）
+- **oracle（test-M2）**：`TC-D-M2-003`（六要素任一 `NULL` → `NOT NULL` 拒）、`TC-D-M2-004`（六要素任一空串 → `CHECK(length(trim(x))>0)` 拒）、`TC-D-M2-005`（`unknown_item` 三态 + `'   '` **须应用层拒**）、`TC-D-M2-012`（LNK-01 复合 UK）、`TC-D-M2-014`（LNK-03 自环应用层拒 + 复合 UK 拒）。实跑：`node server/shared-context/test-f10.mjs` → **VERIFY PASS**（20 组断言）。
+- **六要素的准确清单**（ADR-003 §3）：**「对应目标」占两列**（`goal_id` + `goal_version_no`），其余四项 `target_object` / `phenomenon` / `initial_basis_note` / `research_reason`——共六个字段受必填约束；`opportunity_title` **不在六要素内**（但仍 `NOT NULL`）。
+- **必填＝两件套**（ADR-003 §3.1）：`NOT NULL` 拦 `NULL`；`CHECK(length(trim(x))>0)` 拦空串。**二者不可互相替代**——`length(NULL) > 0` 求值为 `NULL`，故 CHECK 会放行 `NULL`。
+- **`unknown_item` 二态**（ADR-003 §3）：`NULL` = 未评估（判**不齐**、触发待补）；`''` = 已评估且确无（**计入齐全**）；非空文本 = 已评估且有未知项。**禁止编造未知项充数**。
+- **暂不研究的仍保留**（PRD-M2 F-10 / MD-06 头注）：状态置 `deferred` 时填 `defer_reason`，**记录不删除**；条件变化或新证据后可再选（状态链可回查）。
+- **边界（不跨项）**：机会的**人工选择**（F-03 人工节点）归 **M1 `task-runner`**；机会的**形成与去重判断**（F-16）归 **M3 机会发现 Agent**；`LNK-03` 关系的**判断**归 M3，本文件只提供关系登记/读取；本文件只做机会记录（MD-06）＋状态日志（PD-05）＋关系（LNK-03）的读写。
+
+## F-11 覆盖（研究结果与历史管理）
+
+- **落库对象**：`MD-07 research`（研究主体，编号 `R-xxx`，含七要素 ①②④⑥ + `parent_research_no` 追问链 + 目标启动快照）、`MD-08 research_finding`（关键发现，**只读**）、`EXT-03 external_validation`（外部验证结果引用）。
+- **实现**：
+  - `createResearch`（MD-07 登记；必填＝DDL `NOT NULL` 全集；**一律 INSERT、不提供覆盖更新**）
+  - `getResearch` / `listResearch`（可按 `opportunity_id` / `research_status` 过滤）
+  - `listResearchFindings`（**MD-08 只读**：发现的生成与写入归 F-20/F-21 M4）
+  - `addExternalValidation` / `listExternalValidations`（EXT-03 只登记结论与来源引用）
+  - `getResearchLineage`（**追问链追溯**：`ancestors` 由近及远、`descendants` 广度优先、`chain_from_root` 根→本研究；`has_history` / `has_followup` 供「是否已有历史可引用」判定）
+  - `getResearchRecord`（读模型：研究本体 + 关键发现 + 外部验证 + 追问链）
+- **oracle（test-M2）**：`TC-D-M2-006`（MD-07 `opportunity_id` 不存在 → FK 拒；补充：`parent_research_no` 自引用 FK 亦拒）、`TC-D-M2-008`（EXT-03 `research_no` 不存在 → FK 拒）、`TC-I-M2-004`（历史研究可回查、避免重复研究——按 `parent_research_no` 链追溯）。实跑：`node server/shared-context/test-f11.mjs` → **VERIFY PASS**（14 组断言）。
+- **追问不覆盖原研究**（schema MD-07 表注 L271）：追问形成**新的 `research` 行**，`parent_research_no` 指向原研究；原研究的七要素正文**保持不变**（`test-f11.mjs` 的 TC-I-M2-004a 逐字段比对验证）。
+- **编号口径**（schema §0.5 第 1 条）：全库只用 `R-xxx`，原型 `ST-xxx` 内部编号**已弃用**；`test-f11.mjs` 断言所有 `research_no` 符合 `^R-`。
+- **外部验证平台不参与**（schema EXT-03 表注 L737-738）：**验证的执行与效果计算由业务工作完成**，本表只有结论引用与来源出处，**没有指标值**；多条并存、不覆盖，按 `validated_at` 倒序。
+- **边界（不跨项）**：MD-08 发现 / MD-09 候选行为 / MD-10 支持情况条目 / MD-11 改善方向的**生成与写入**归 **F-20/F-21（M4）**，本项只读回查；追问的**发起与对话**（PD-07 `followup_message`）归 F-22/F-31；MD-07 的 `start_task_id`（F-04）由 M1 `task-runner` 写入，本文件只接受传入值。
+
+## 已知口径 / 实测注意（本模块相关）
+
+1. **数值列的空串不被库级拦**（实测 2026-09-19，`node:sqlite`）：`goal_version_no` 为 `INTEGER` 列，`CHECK (goal_version_no >= 1)` 在 SQLite **类型序（TEXT > INTEGER）** 下对 `''` 求值为 `TRUE` → **库级放行空串**。本模块由应用层 `assessOpportunitySixElements` / `assertRequired`（以 `trim() === ''` 判缺失）兜底拒。**已写入 `test-f10.mjs` 断言**（不靠声称）。
+2. **`unknown_item` 的二态无库级 CHECK**（ADR-003 §3.2 明示未加）→ 纯空白串 `'   '` 库级放行，**须应用层拒**（`createOpportunity` 已拒）。**已写入 `test-f10.mjs` 断言**：先证库级放行，再证应用层拒绝。
+3. **种子数据口径异常（已登记，未擅自改）**：`db/seed/generate_mock.py` 的 LNK-03 种子行 `LK-OR-001` 的 `relation_kind = "related_update"` 属**值域外**——`dict:OPP_RELATION` 仅 `same_issue`（相同问题关联）/ `superseded`（被取代）两项；`related_update` 实为 `dict:EVIDENCE_LINK_KIND` 的取值（LNK-01 用）。该表无物理约束可拦（字典值域靠应用层），故种子可载入。**待用户裁定是否订正为 `same_issue`**；本模块 `linkOpportunityRelation` 不内联值域、不做域校验（值域真源在 `dict_item`）。
+4. **本地 D1 的种子是一次性的**：`wrangler d1 execute --local --file=db/seed/0001_mock.sql` 重灌会撞 `UNIQUE constraint failed: dict_type.dict_type_name`（第一次已灌入）——先 `SELECT COUNT(*)` 核对，够了就直接起 dev server。
+5. **EXT-03 种子为空**（原型无外部验证数据，`generate_mock.py` L489 `emit("external_validation", ..., [])`）：F-11 用例先证基线 0 行，再由本项登记正例；其 FK 反例与种子无关，可独立验证。
+
+## 反向清单（被谁引用）
+
+- `../api/index.js`（F-07 路由：`/api/business-context`、`/api/touchpoints`、`/api/background-briefing`；F-08 路由：`/api/sources`、`/api/sources/capability`、`/api/source-gaps`、`/api/source-tool-briefing`；F-09 路由：`/api/evidence`、`/api/evidence-trace/{id}`、`/api/evidence/{id}`、`/api/evidence-links/opportunity`、`/api/evidence-links/finding`；F-10 路由：`/api/opportunities`、`/api/opportunities/{id}`、`/api/opportunity-status`、`/api/opportunity-relations`；**F-11 路由：`/api/research`、`/api/research/{research_no}`、`/api/research/{research_no}/findings`、`/api/research-lineage/{research_no}`、`/api/external-validations`**）
+- `../agent-orchestrator`（后续：M3/M4 启动时注入背景简报与来源能力边界；引用证据时回查证据链；消费机会记录；**M4 追问时按 `parent_research_no` 追溯历史研究避免重复研究**）
+- `../README.md`（`server/` 枝杈登记）
+- `.github/workflows/ci.yml`（`validate` 步骤复用 `test-f07.mjs` / `test-f08.mjs` / `test-f09.mjs` / `test-f10.mjs` / **`test-f11.mjs`**）
+- `../../docs/02-prd/PRD-M2-共享上下文.md` 反向清单（下游 `server/（shared-context）`）

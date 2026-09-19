@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/pages/goal.html
+  功能点：F-27 目标配置页
+  上游：../../AGENTS.md（宪法）｜ ../../docs/01-brd/BRD.md（M6-F-27、M1-F-01）
+        ../README.md ｜ ../assets/data.js（goals / checkGaps / gapRules）
+  验收要点：不替业务方定指标；版本变化可见；
+        下拉选择目标配置（序号 + 业务目标 + 目标 ID + 版本；末项「＋ 新增六要素」）；
+        每次保存六要素执行一次口径检查任务，有缺失才展示待补任务，无缺失整块不出现；
+        两个动作：① 配置（编辑 + 保存为新版本）② 应用配置（选中配置即可点，按该配置执行机会发现
+        并进入其机会列表 F-28）；机会列表只呈现该目标配置下产出的机会
+  先后运行关系（本页是这条链的起点）：
+        ① 目标配置（本页保存六要素）→ ② 应用配置＝执行一次机会发现（M1-F-02 / M3）
+        → ③ 机会列表才成立（F-28 的准入条件，见 assets/app.js 的 runState / gateOf）
+        本页页内「运行链」状态条把这三步的进度摆在明面上
+  跨页口径：目标解析、运行链状态、未读标记一律调 assets/app.js，本页不再各自实现
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-27 目标配置页</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="goal">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-27</span>目标配置</h1>
+      <p class="page-desc" id="goal-meta"></p>
+    </div>
+    <div class="page-actions">
+      <button class="btn" id="btn-edit">编辑六要素</button>
+      <button class="btn" id="btn-save" disabled>保存为新版本</button>
+      <button class="btn btn-primary" id="btn-apply" title="按当前目标配置执行机会发现，并进入该目标的机会列表">应用配置</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">选择目标配置</div>
+    </div>
+    <select id="goal-select" style="width:100%"></select>
+  </div>
+
+  <div class="chain-bar" id="chain"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">目标六要素</div>
+      <div class="card-note" id="six-note"></div>
+    </div>
+
+    <div class="form-row">
+      <label class="lbl">① 业务目标</label>
+      <div class="readonly-box" data-view="businessGoal"></div>
+      <input type="text" data-field="businessGoal" style="display:none">
+    </div>
+    <div class="form-row">
+      <label class="lbl">② 指标口径</label>
+      <div class="readonly-box" data-view="metricDef"></div>
+      <textarea data-field="metricDef" style="display:none"></textarea>
+      <div class="hint">若尚无精确定义，此处留空，保存后由口径检查任务列入待补。</div>
+    </div>
+    <div class="form-row">
+      <label class="lbl">③ 业务范围</label>
+      <div class="readonly-box" data-view="scope"></div>
+      <input type="text" data-field="scope" style="display:none">
+    </div>
+    <div class="form-row">
+      <label class="lbl">④ 关注时段</label>
+      <div class="readonly-box" data-view="period"></div>
+      <input type="text" data-field="period" style="display:none">
+    </div>
+    <div class="form-row">
+      <label class="lbl">⑤ 已知约束</label>
+      <div class="readonly-box" data-view="constraints"></div>
+      <textarea data-field="constraints" style="display:none"></textarea>
+    </div>
+    <div class="form-row">
+      <label class="lbl">⑥ 提供方与材料</label>
+      <div class="readonly-box" data-view="provider"></div>
+      <input type="text" data-field="provider" style="display:none">
+      <div id="materials" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card-section small text-3" id="check-note"></div>
+  </div>
+
+  <div id="gap-card"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">版本历史与影响范围</div>
+    </div>
+    <div class="timeline" id="version-timeline"></div>
+  </div>
+
+</main>
+<script src="../assets/data.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  const K = { fix: "goalFixes", fld: "goalFields", ver: "goalVer", tl: "goalTimeline", ng: "newGoals" };
+
+  const FIELDS = ["businessGoal", "metricDef", "scope", "period", "constraints", "provider"];
+
+  /* 默认落在已应用的那套目标配置上；解析口径统一走 assets/app.js（含本机新建目标） */
+  let curId = U.currentGoalId();
+  let isNew = false;
+  let draft = { businessGoal: "", metricDef: "", scope: "", period: "", constraints: "", provider: "" };
+  let editing = false;
+  let checkState = "idle";     // idle | running | done
+  let checkTask = "";
+  let curGaps = [];
+  const APPLY_TIP = "按当前目标配置执行机会发现，并进入该目标的机会列表";
+  const APPLY_TIP_NEW = "新建的目标需先「保存为新版本」，保存后才能应用配置";
+  let openGap = null;
+  let manualOpen = false;
+
+  /* ---------- 工具 ---------- */
+  function nowStr() {
+    const d = new Date(), p = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
+      " " + p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  /* 全量目标（mock + 本机新建）统一由 app.js 提供，不在本页另写一遍 */
+  function allGoals() { return U.allGoals(); }
+  function cur() {
+    if (isNew) return null;
+    return allGoals().filter(function (g) { return g.id === curId; })[0] || null;
+  }
+  function key() { return isNew ? "__draft__" : curId; }
+  function fieldsOf(g) {
+    const over = U.Store.get(K.fld, {})[g.id];
+    return over || g.fields || {};
+  }
+  function verOf(g) {
+    const over = U.Store.get(K.ver, {})[g.id];
+    return over || g.version;
+  }
+  function verNum() {
+    const v = isNew ? "v0" : verOf(cur() || { version: "v0" });
+    return parseInt(String(v).slice(1), 10) || 0;
+  }
+  function timelineOf(g) {
+    const over = U.Store.get(K.tl, {})[g.id];
+    return over || g.versions || [];
+  }
+  function baseMaterials() {
+    const g = cur();
+    return g && g.materials ? g.materials : [];
+  }
+  function extraMaterials() {
+    const raw = U.Store.get("materials", {});
+    const v = (raw && !Array.isArray(raw)) ? raw[key()] : [];
+    return Array.isArray(v) ? v : [];
+  }
+  function removedMaterials() {
+    const raw = U.Store.get("materialsRemoved", {});
+    const v = (raw && !Array.isArray(raw)) ? raw[key()] : [];
+    return Array.isArray(v) ? v : [];
+  }
+  function collect() {
+    if (isNew) {
+      const o = {};
+      FIELDS.forEach(function (f) { o[f] = draft[f]; });
+      return o;
+    }
+    const g = cur();
+    if (!g) return {};
+    if (!editing) return fieldsOf(g);
+    const o = {};
+    FIELDS.forEach(function (f) {
+      const el = document.querySelector('[data-field="' + f + '"]');
+      o[f] = el ? el.value : (fieldsOf(g)[f] || "");
+    });
+    return o;
+  }
+  function writeFields(obj) {
+    const m = U.Store.get(K.fld, {});
+    m[curId] = obj;
+    U.Store.set(K.fld, m);
+  }
+  function setEditing(on) {
+    editing = on;
+    document.getElementById("btn-edit").textContent = on ? "取消编辑" : "编辑六要素";
+    document.getElementById("btn-save").disabled = !on;
+    document.querySelectorAll("[data-view]").forEach(function (v) { v.style.display = on ? "none" : "block"; });
+    document.querySelectorAll("[data-field]").forEach(function (v) { v.style.display = on ? "block" : "none"; });
+  }
+  function bump(goalId, version, change, impact) {
+    const m = U.Store.get(K.tl, {});
+    const list = m[goalId] || timelineOf(cur() || { versions: [] });
+    m[goalId] = [{ version: version, at: nowStr(), by: "张运营", change: change, impact: impact }].concat(list);
+    U.Store.set(K.tl, m);
+  }
+  function nextTaskId(band) {
+    return "T-" + (band + (U.Store.get("newTasks", []) || []).length);
+  }
+
+  /* ---------- 目标配置下拉 ---------- */
+  function renderGoalSelect() {
+    const rows = allGoals();
+    document.getElementById("goal-select").innerHTML = rows.map(function (g) {
+      const name = fieldsOf(g).businessGoal || "（未填写业务目标）";
+      return '<option value="' + g.id + '"' + (!isNew && g.id === curId ? " selected" : "") + ">" +
+        g.seq + " · " + U.esc(name) + "（" + g.id + " · " + verOf(g) + "）</option>";
+    }).join("") +
+      '<option value="__new__"' + (isNew ? " selected" : "") + ">＋ 新增六要素</option>";
+  }
+
+  function useGoal(id) {
+    if (editing && !confirm("当前有未保存的编辑，切换目标将丢弃，是否继续？")) {
+      renderGoalSelect();
+      return;
+    }
+    if (id === "__new__") {
+      isNew = true; openGap = null;
+      draft = { businessGoal: "", metricDef: "", scope: "", period: "", constraints: "", provider: "" };
+      checkState = "idle"; curGaps = [];
+      renderAll(); setEditing(true);
+      const first = document.querySelector('[data-field="businessGoal"]');
+      if (first) first.focus();
+      return;
+    }
+    isNew = false; curId = id; openGap = null;
+    setEditing(false); renderAll(); runGapCheck();
+  }
+
+  /* ---------- 六要素 ---------- */
+  function renderSix() {
+    const f = isNew ? draft : collect();
+    FIELDS.forEach(function (k) {
+      const view = document.querySelector('[data-view="' + k + '"]');
+      const input = document.querySelector('[data-field="' + k + '"]');
+      if (view) view.textContent = f[k] || "（未填写）";
+      if (input) input.value = f[k] || "";
+    });
+    const g = cur();
+    document.getElementById("six-note").innerHTML = isNew
+      ? '<span class="badge badge-running">新建目标</span>'
+      : '<span class="mono">' + g.id + "</span> · " + verOf(g) + " · 更新于 " + (g.updatedAt || "—") + " · " + (g.updatedBy || "");
+    renderMaterials();
+  }
+
+  function renderMaterials() {
+    const removed = removedMaterials();
+    const list = baseMaterials().filter(function (m) { return removed.indexOf(m.id) === -1; })
+      .concat(extraMaterials());
+
+    let html = '<div class="small text-2" style="margin-bottom:6px">已关联材料 ' + list.length + " 份</div>";
+    html += list.length
+      ? list.map(function (m) {
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px">' +
+            '<span class="tag">' + U.esc(m.kind) + "</span>" +
+            '<span style="flex:1;min-width:0">' + U.esc(m.name) + "</span>" +
+            '<span class="small text-3 nowrap">' + U.esc(m.at) + "</span>" +
+            '<button class="btn btn-sm" data-rm="' + m.id + '">移除</button></div>';
+        }).join("")
+      : '<div class="small text-3" style="margin-bottom:8px">暂无材料</div>';
+
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn btn-sm" id="mat-add">添加材料</button>' +
+      '<button class="btn btn-sm" id="mat-manual">手动登记</button>' +
+      '</div><input type="file" id="mat-file" multiple style="display:none"><div id="mat-extra"></div>' +
+      '<div class="hint">选择的文件仅登记名称与来源，不会离开本机。</div>';
+
+    document.getElementById("materials").innerHTML = html;
+
+    document.querySelectorAll("[data-rm]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const id = b.dataset.rm;
+        if (id.indexOf("MAT-U") === 0) {
+          const m = U.Store.get("materials", {});
+          m[key()] = extraMaterials().filter(function (x) { return x.id !== id; });
+          U.Store.set("materials", m);
+        } else {
+          const m = U.Store.get("materialsRemoved", {});
+          const r = m[key()] || [];
+          if (r.indexOf(id) === -1) r.push(id);
+          m[key()] = r;
+          U.Store.set("materialsRemoved", m);
+        }
+        renderMaterials();
+      });
+    });
+
+    document.getElementById("mat-add").addEventListener("click", function () {
+      document.getElementById("mat-file").click();
+    });
+
+    document.getElementById("mat-file").addEventListener("change", function (e) {
+      const files = Array.prototype.slice.call(e.target.files || []);
+      if (!files.length) return;
+      const added = extraMaterials().slice();
+      files.forEach(function (f, i) {
+        const dot = f.name.lastIndexOf(".");
+        added.push({
+          id: "MAT-U" + Date.now() + i, name: f.name,
+          kind: dot > -1 ? f.name.slice(dot + 1).toUpperCase() : "文件",
+          at: nowStr(), from: "本地选取"
+        });
+      });
+      const m = U.Store.get("materials", {});
+      m[key()] = added;
+      U.Store.set("materials", m);
+      e.target.value = "";
+      renderMaterials();
+    });
+
+    document.getElementById("mat-manual").addEventListener("click", function () {
+      manualOpen = !manualOpen;
+      renderMaterials();
+    });
+
+    if (manualOpen) {
+      document.getElementById("mat-extra").innerHTML =
+        '<div style="display:flex;gap:8px;align-items:flex-start;margin-top:8px">' +
+        "<input type='text' id='mat-name' placeholder='材料名称，例：Q3 运营目标拆解表 v3'>" +
+        '<div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">' +
+        "<button class='btn btn-sm btn-primary' id='mat-save'>确定</button>" +
+        "<button class='btn btn-sm' id='mat-cancel'>取消</button></div></div>";
+      document.getElementById("mat-cancel").addEventListener("click", function () { manualOpen = false; renderMaterials(); });
+      document.getElementById("mat-save").addEventListener("click", function () {
+        const v = document.getElementById("mat-name").value.trim();
+        if (!v) { document.getElementById("mat-name").focus(); return; }
+        const m = U.Store.get("materials", {});
+        const cur2 = m[key()] || [];
+        cur2.push({ id: "MAT-U" + Date.now(), name: v, kind: "登记", at: nowStr(), from: "手动登记" });
+        m[key()] = cur2;
+        U.Store.set("materials", m);
+        manualOpen = false;
+        renderMaterials();
+      });
+    }
+  }
+
+  /* ---------- 口径待补任务（保存后执行检查任务，有缺失才展示） ---------- */
+  function renderGap() {
+    const box = document.getElementById("gap-card");
+    if (isNew || checkState === "idle") { box.innerHTML = ""; return; }
+
+    if (checkState === "running") {
+      box.innerHTML = '<div class="card"><div class="alert alert-info mb0"><div class="flex-1">' +
+        '<span class="alert-title">口径检查任务 <span class="mono">' + checkTask + "</span> 执行中…</span>　" +
+        "正在按 " + DB.gapRules.length + " 条规则校验六要素，判断是否有需要补充的口径。</div></div></div>";
+      return;
+    }
+
+    if (!curGaps.length) { box.innerHTML = ""; return; }
+
+    const solvedMap = U.Store.get(K.fix, {})[key()] || {};
+    const solvedCount = Object.keys(solvedMap).length;
+
+    let html = '<div class="card">' +
+      '<div class="card-head"><div class="card-title">口径待补任务</div>' +
+      '<div class="card-note">检查任务 <span class="mono">' + checkTask + "</span> · 待补 " + curGaps.length + " 项" +
+      (solvedCount ? " · 已补充 " + solvedCount + " 项" : "") + " · 平台只列缺失，不替业务方定义</div></div>" +
+      '<table class="tbl tbl-sm"><thead><tr><th style="width:80px">编号</th><th>待补内容</th>' +
+      "<th>影响的判断</th><th style='width:90px'>提出时间</th><th style='width:96px'>补充</th></tr></thead><tbody>";
+
+    curGaps.forEach(function (x) {
+      html += "<tr><td class='mono'>" + x.id + "</td><td>" + U.esc(x.text) + "</td>" +
+        "<td class='text-2'>" + U.esc(x.impact) + "</td><td class='text-3'>" + x.raisedAt + "</td>" +
+        "<td class='nowrap'><button class='btn btn-sm' data-fill='" + x.id + "'>填写</button></td></tr>";
+      if (openGap === x.id) {
+        html += "<tr><td></td><td colspan='4'>" +
+          '<div style="display:flex;gap:8px;align-items:flex-start">' +
+          "<textarea id='gap-input' style='min-height:60px' placeholder='填写该口径的确认结果'></textarea>" +
+          '<div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">' +
+          "<button class='btn btn-sm btn-primary' data-gapsave='" + x.id + "'>确定</button>" +
+          "<button class='btn btn-sm' data-gapcancel='1'>取消</button></div></div>" +
+          "<div class='small text-3' style='margin-top:6px'>提交后并入「" + DB.FIELD_NAME[x.field] +
+          "」，并形成目标新版本、重新执行口径检查</div></td></tr>";
+      }
+    });
+    html += "</tbody></table></div>";
+    box.innerHTML = html;
+
+    document.querySelectorAll("[data-fill]").forEach(function (b) {
+      b.addEventListener("click", function () { openGap = b.dataset.fill; renderGap(); });
+    });
+    document.querySelectorAll("[data-gapcancel]").forEach(function (b) {
+      b.addEventListener("click", function () { openGap = null; renderGap(); });
+    });
+    document.querySelectorAll("[data-gapsave]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const id = b.dataset.gapsave;
+        const val = document.getElementById("gap-input").value.trim();
+        if (!val) { document.getElementById("gap-input").focus(); return; }
+        const gap = curGaps.filter(function (x) { return x.id === id; })[0];
+
+        const fix = U.Store.get(K.fix, {});
+        fix[key()] = fix[key()] || {};
+        fix[key()][id] = { text: val, at: nowStr(), field: gap.field };
+        U.Store.set(K.fix, fix);
+
+        // 并入对应六要素字段
+        const f = collect();
+        f[gap.field] = (f[gap.field] ? f[gap.field] + "；" : "") + val;
+        writeFields(f);
+        const n = verNum() + 1;
+        const v = "v" + n;
+        const vm = U.Store.get(K.ver, {}); vm[curId] = v; U.Store.set(K.ver, vm);
+        bump(curId, v, "补充口径：" + U.esc(gap.text), "影响在研研究：相关证据需按新口径复核");
+
+        openGap = null;
+        setEditing(false);
+        renderAll();
+        runGapCheck();
+      });
+    });
+  }
+
+  function runGapCheck() {
+    if (isNew) { checkState = "idle"; renderGap(); renderCheckNote(); return; }
+    const solved = Object.keys(U.Store.get(K.fix, {})[key()] || {});
+    checkTask = nextTaskId(1400);
+    checkState = "running";
+    curGaps = [];
+
+    const ts = U.Store.get("newTasks", []) || [];
+    ts.unshift({
+      id: checkTask, type: "口径检查", ref: curId + " · 六要素", stage: "M1",
+      goal: curId,
+      status: "running", startedAt: "刚刚",
+      trigger: "保存目标六要素后自动触发口径检查（M1-F-01）",
+      agentVersion: "goal-agent v1.0 / rules: gapRules × " + DB.gapRules.length,
+      queries: [], done: "正在按规则校验六要素口径", blockedBy: null, progress: "1 / 2 步"
+    });
+    U.Store.set("newTasks", ts);
+
+    renderGap();
+    renderCheckNote();
+
+    setTimeout(function () {
+      curGaps = DB.checkGaps(collect(), solved);
+      checkState = "done";
+      const t2 = U.Store.get("newTasks", []) || [];
+      for (let i = 0; i < t2.length; i++) {
+        if (t2[i].id === checkTask) {
+          t2[i].status = "done";
+          t2[i].progress = "2 / 2 步";
+          t2[i].endedAt = "刚刚";
+          t2[i].done = curGaps.length
+            ? "发现 " + curGaps.length + " 项口径待补：" + curGaps.map(function (x) { return x.id; }).join("、")
+            : "未发现待补项，目标口径已锁定";
+        }
+      }
+      U.Store.set("newTasks", t2);
+      renderGap();
+      renderCheckNote();
+    }, 700);
+  }
+
+  function renderCheckNote() {
+    const el = document.getElementById("check-note");
+    if (isNew || checkState === "idle") { el.innerHTML = "保存六要素后将执行一次口径检查任务，判断是否有需要补充的内容。"; return; }
+    if (checkState === "running") { el.innerHTML = "口径检查任务 <span class='mono'>" + checkTask + "</span> 执行中…"; return; }
+    el.innerHTML = curGaps.length
+      ? "口径检查任务 <span class='mono'>" + checkTask + "</span> 完成：发现 <b>" + curGaps.length + "</b> 项待补（见下方「口径待补任务」）。"
+      : "口径检查任务 <span class='mono'>" + checkTask + "</span> 完成：无待补项，口径已锁定。";
+  }
+
+  /* ---------- 版本历史 ---------- */
+  function renderTimeline() {
+    const el = document.getElementById("version-timeline");
+    if (isNew) { el.innerHTML = '<div class="small text-3">新建目标尚无版本历史，保存后生成 v1。</div>'; return; }
+    const list = timelineOf(cur() || { versions: [] });
+    el.innerHTML = list.length
+      ? list.map(function (v, i) {
+          return '<div class="tl-item' + (i === 0 ? " is-current" : "") + '">' +
+            '<div class="tl-head"><span class="tl-title">' + v.version + "</span>" +
+            '<span class="tag">' + v.at + "</span></div>" +
+            '<div class="tl-body">' + v.change + "<br><span class='text-3'>影响：</span>" + v.impact + "</div></div>";
+        }).join("")
+      : '<div class="small text-3">暂无版本记录</div>';
+  }
+
+  function renderMeta() {
+    const el = document.getElementById("goal-meta");
+    el.innerHTML = isNew ? "正在新建一套目标配置，填写六要素后保存为 v1。" : "";
+    el.style.display = isNew ? "block" : "none";
+  }
+
+  function syncApplyBtn() {
+    const b = document.getElementById("btn-apply");
+    b.disabled = isNew;
+    b.title = isNew ? APPLY_TIP_NEW : APPLY_TIP;
+  }
+
+  /* ---------- 运行链状态（先后运行关系） ----------
+     目标配置是这条链的第一步：配好才有得跑，跑过才有机会可言。
+     本条把「本套配置走到哪一步」摆在页面上，免得用户以为配完就等于跑完。 */
+  function renderChain() {
+    const el = document.getElementById("chain");
+    if (!el) return;
+    if (isNew) {
+      el.className = "chain-bar";
+      el.innerHTML = '<span class="chain-key">运行链</span>' +
+        '<span>① 配置六要素 → <b>保存为新版本</b>（当前：草稿，尚未保存）</span>' +
+        '<span class="chain-key">保存后才能 ② 应用配置执行机会发现</span>';
+      return;
+    }
+    const rs = U.runState(curId);
+    const steps = [
+      "① 目标配置 " + verOf(cur() || { version: "v1" }) + " 已登记",
+      rs.hasRun ? "② 机会发现已执行（" + rs.lastRun.id + " · " + rs.lastRun.status + "）" : "② 机会发现未执行",
+      rs.hasData ? "③ 已有 " + rs.oppCount + " 条机会产出" : "③ 暂无机会产出"
+    ];
+    const running = rs.state === "queued";
+    el.className = "chain-bar" + (running ? " is-running" : "");
+    el.innerHTML = '<span class="chain-key">运行链</span><span>' + steps.join("　→　") + "</span>" +
+      (rs.state === "no-run"
+        ? '<span class="chain-key">机会列表暂不可进入：点「应用配置」执行一次机会发现后开放</span>'
+        : (running
+          ? '<span>机会发现在运行中，机会列表可进入并会随结果补全</span>'
+          : '<span class="chain-key">机会列表已开放</span>'));
+  }
+
+  function renderAll() {
+    renderMeta();
+    renderGoalSelect();
+    renderChain();
+    syncApplyBtn();
+    renderSix();
+    renderTimeline();
+    renderCheckNote();
+    renderGap();
+  }
+
+  /* ---------- 动作 ---------- */
+  document.getElementById("btn-edit").addEventListener("click", function () {
+    setEditing(!editing);
+  });
+
+  document.getElementById("btn-save").addEventListener("click", function () {
+    const f = collect();
+    if (!f.businessGoal) {
+      alert("① 业务目标不能为空。");
+      document.querySelector('[data-field="businessGoal"]').focus();
+      return;
+    }
+
+    if (isNew) {
+      const seq = allGoals().reduce(function (m, g) { return Math.max(m, g.seq || 0); }, 0) + 1;
+      const id = "GOAL-2026Q3-" + ("0" + seq).slice(-2);
+      const mine = U.Store.get(K.ng, []);
+      if (!Array.isArray(mine)) mine = [];
+      mine.push({
+        id: id, seq: seq, version: "v1", updatedAt: nowStr(), updatedBy: "超市事业部运营组 · 张运营",
+        fields: f, materials: [], versions: []
+      });
+      U.Store.set(K.ng, mine);
+      isNew = false; curId = id;
+      writeFields(f);
+      bump(id, "v1", "新建目标配置并登记六要素", "尚未运行，暂无研究受影响");
+    } else {
+      const n = verNum() + 1;
+      const v = "v" + n;
+      writeFields(f);
+      const vm = U.Store.get(K.ver, {}); vm[curId] = v; U.Store.set(K.ver, vm);
+      bump(curId, v, "六要素更新", "已通知 2 个在研研究（ST-007、ST-006）：新口径需复核相关证据");
+    }
+
+    setEditing(false);
+    renderAll();
+    runGapCheck();
+    /* 保存六要素产生了新版本（可能还有新的待补项）：目标配置页有更新待查看 */
+    U.markUnread("goal", 1, curId);
+  });
+
+  document.getElementById("btn-apply").addEventListener("click", function () {
+    const g = cur();
+    if (!g) return;
+    const v = verOf(g);
+    const tid = nextTaskId(1300);
+    const ts = U.Store.get("newTasks", []) || [];
+    ts.unshift({
+      id: tid, type: "机会发现", ref: g.id + " " + v, stage: "M3",
+      goal: g.id,
+      status: "running", startedAt: "刚刚",
+      trigger: "目标配置页「应用配置」提交执行（目标 " + g.id + " " + v + "）",
+      agentVersion: "discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0",
+      queries: [], done: "已注入目标与口径上下文，等待首轮查询", blockedBy: null, progress: "1 / 5 步"
+    });
+    U.Store.set("newTasks", ts);
+    /* 记录本套配置为当前展示目标：机会列表按此配置过滤 */
+    U.Store.set("applied", {
+      goalId: g.id,
+      record: { goalId: g.id, version: v, taskId: tid, at: nowStr().slice(0, 10), count: DB.goalOppCount ? DB.goalOppCount(g.id) : 0 }
+    });
+    /* 运行动作产生新任务：该目标的机会列表有了更新待查看。
+       显式传 g.id —— 本页刚把 applied 改成 g.id，按被操作的那套目标记账 */
+    U.markUnread("opportunities", 1, g.id);
+    location.href = "opportunities.html?run=" + encodeURIComponent(tid) + "&goal=" + encodeURIComponent(g.id);
+  });
+
+  /* ---------- 初始化 ---------- */
+  document.getElementById("goal-select").addEventListener("change", function () {
+    useGoal(this.value);
+  });
+  renderAll();
+  runGapCheck();
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记
+  - 被 ../index.html 链接（总览入口）
+  - 下游跳转：opportunities.html（F-28 机会列表）、tasks.html（F-32，口径检查 / 机会发现任务）
+-->

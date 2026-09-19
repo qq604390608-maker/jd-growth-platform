@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/pages/opportunity-detail.html
+  状态：已并入 opportunities.html（F-28 列表 + 详情左右布局合并页）
+  本文件仅作兼容跳转，保留是为了不破坏旧链接与书签；不再出现在侧栏导航与 README 中。
+  上游：../README.md ｜ ./opportunities.html
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="0;url=opportunities.html">
+<title>F-28 机会详情（已合并）</title>
+<script>
+  (function () {
+    var id = (new RegExp("[?&]id=([^&]*)").exec(location.search) || [])[1];
+    location.replace("opportunities.html" + (id ? "?id=" + id : ""));
+  })();
+</script>
+</head>
+<body>
+  <p style="font:13px/1.6 -apple-system,'PingFang SC',sans-serif;padding:24px;color:#666">
+    机会详情已并入「机会列表」页。正在跳转…… 若未自动跳转，请
+    <a href="opportunities.html">点击前往机会列表</a>。
+  </p>
+</body>
+</html>

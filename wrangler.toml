@@ -1,0 +1,17 @@
+# 文档卡（阶段0-工程骨架 · 2026-09-19）
+# 上游：AGENTS.md（宪法索引：server/ 五模块名不得改）｜ docs/03-locks/tech-stack.md（§2.2 服务端模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点：wrangler dev 起本地 D1 + 迁移 apply 成功）｜ db/（迁移脚本 ./db/migrations、种子 ./db/seed）
+# 职责：Wrangler 部署配置。本文件为工程骨架最小可用版——单 Worker 入口 + D1 绑定，不含任何业务逻辑与密钥。
+# 硬红线落实（tech-stack §7.2 / BRD §5.3）：本配置不写入任何 CLOUDFLARE_API_TOKEN / 外部系统凭证；本地 dev 不需要 account_id，生产部署由 CI Secrets 注入。
+# 反向清单：被 AGENTS.md 索引 server/ 行引用；被 server/ 各模块（后续）与阶段0-CI（.github/workflows）复用；拆分多 Worker 时按 TS-20 调整 main 与 modules，不改变模块名与职责边界。
+
+name = "jd-growth-platform"
+main = "server/api/index.js"
+compatibility_date = "2026-09-19"
+
+# D1 数据库绑定（tech-stack §2.3 / §3；外键本地默认强制，已实测）
+# 本地：wrangler dev / wrangler d1 migrations apply --local 自动建本地库
+# 生产：合并主干后由 CI 用 CLOUDFLARE_API_TOKEN 创建并 apply（account_id 经 Secrets 注入，不落本文件）
+[[d1_databases]]
+binding = "DB"
+database_name = "jd-growth-platform"
+migrations_dir = "./db/migrations"

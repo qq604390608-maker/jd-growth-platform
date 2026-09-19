@@ -1,0 +1,10 @@
+# 探针配置：仅用于本地 D1 外键实测，不属于业务配置
+# 上游：../../../docs/03-locks/tech-stack.md §3.3 / §8 T-14
+name = "fk-probe"
+main = "worker/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fk-probe"
+database_id = "00000000-0000-0000-0000-000000000000"

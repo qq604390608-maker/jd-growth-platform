@@ -1,0 +1,11 @@
+# 探针配置：仅用于 T-11（D1 类型亲和与长度行为）实测，不属于业务配置
+# 上游：../../../docs/03-locks/tech-stack.md §3 / §8 T-11
+# 同级范式：../fk/wrangler.toml（T-14 外键实测）
+name = "type-probe"
+main = "worker/index.js"
+compatibility_date = "2026-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "type-probe"
+database_id = "00000000-0000-0000-0000-000000000000"

@@ -1,0 +1,8 @@
+# 阶段0-工程骨架 · 本地状态与依赖忽略
+.wrangler/
+node_modules/
+.dev.vars
+.env
+*.log
+.DS_Store
+__pycache__/

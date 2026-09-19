@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/pages/followup.html
+  功能点：F-31 追问对话页
+  上游：../../AGENTS.md（宪法）｜ ../../docs/01-brd/BRD.md（M6-F-31、M4-F-22、M1-F-05）
+        ../README.md ｜ ../assets/data.js（followups / studies / sources）
+  验收要点：基于通用 Agent 的场景化追问；拿到对应上下文、对话方式再调度、
+        查没发现的地方、注入新信息再跑；追问建新任务并关联原研究
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-31 追问对话</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="followup">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-31</span>追问对话 <span id="study-tag" class="tag"></span></h1>
+    </div>
+    <div class="page-actions"><a class="btn" href="result.html">查看原研究结果</a></div>
+  </div>
+
+  <div class="side-layout">
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">对话</div><div class="card-note" id="task-note"></div></div>
+        <div class="chat-wrap" id="chat"></div>
+        <div style="margin-top:14px">
+          <div class="suggest" id="suggest"></div>
+          <div class="chat-input">
+            <textarea id="input" placeholder="在已有研究上提新问题，例：把小程序端也纳入比较，结论还成立吗？"></textarea>
+            <button class="btn btn-primary" id="send">发送追问</button>
+          </div>
+          <div class="hint">发送后将创建新任务（关联原研究），已注入的上下文不会丢失，也不需要重新粘贴全部资料。</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title plain">本轮已注入上下文</div><div class="card-note">M2-F-12</div></div>
+        <div id="ctx"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title plain">可调度的工具</div><div class="card-note">M5-F-23</div></div>
+        <div id="tools"></div>
+        <div class="card-section small text-3">每次调用先检查当前任务权限与调用条件；不允许时保存原因并返回受限原因。返回保留查询条件、来源、时点、限制。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    功能点 F-31 ｜ 上游 M4-F-22 继续追问承接、M1-F-05 追问与版本管理 ｜ 下游：<a href="tasks.html">F-32 任务与状态</a>
+  </div>
+
+</main>
+<script src="../assets/data.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  const studyId = U.qs("study") || "ST-007";
+  const s = DB.studies[studyId];
+  const msgs = (DB.followups[studyId] || []).slice();
+  /* 该追问任务归属的目标配置：由所研究机会反推 */
+  const goalOfStudy = (function () {
+    const oo = DB.opportunities.filter(function (x) { return x.studyId === studyId; })[0];
+    return oo ? oo.target.split(" · ")[0] : "GOAL-2026Q3-01";
+  })();
+
+  document.getElementById("study-tag").textContent = s.studyNo + " · " + studyId;
+
+  document.getElementById("ctx").innerHTML =
+    '<div class="field-list">' +
+      '<div class="field"><div class="field-label">关联研究</div><div class="field-value mono">' + s.studyNo + "</div></div>" +
+      '<div class="field"><div class="field-label">研究问题</div><div class="field-value">' + U.esc(s.question) + "</div></div>" +
+      '<div class="field"><div class="field-label">已有证据</div><div class="field-value">' + Object.keys(DB.evidences).slice(0, 4).join(" / ") + "</div></div>" +
+      '<div class="field"><div class="field-label">相关历史</div><div class="field-value">' + (studyId === "ST-007" ? "R-006（未支持家庭装候选行为）" : "R-007（支持二次找品候选行为）") + "</div></div>" +
+      '<div class="field"><div class="field-label">目标版本</div><div class="field-value">GOAL-2026Q3-01 v3（启动时快照，不随目标更新而变）</div></div>' +
+    "</div>";
+
+  document.getElementById("tools").innerHTML = DB.sources.map(function (x) {
+    return '<div class="card-section"><div style="display:flex;justify-content:space-between"><b>' + x.name + "</b>" +
+      (x.status === "ok" ? '<span class="badge badge-done">已授权</span>' : '<span class="badge badge-blocked">降级</span>') +
+      '</div><div class="small text-3">' + U.esc(x.can) + "</div></div>";
+  }).join("");
+
+  const SUGGEST = [
+    "把小程序端也纳入比较，结论还成立吗？",
+    "剔除大促时段（8/18–8/20）后重新看入口差异",
+    "补查：二次找品行为发生在复购之前的比例有多高？",
+    "如果控制了消费力标签，行为差异还剩多少？"
+  ];
+  document.getElementById("suggest").innerHTML = SUGGEST.map(function (t) {
+    return '<button class="chip" data-s="' + U.esc(t) + '">' + U.esc(t) + "</button>";
+  }).join("");
+  document.querySelectorAll(".chip[data-s]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      document.getElementById("input").value = c.dataset.s;
+      document.getElementById("input").focus();
+    });
+  });
+
+  function renderChat() {
+    document.getElementById("chat").innerHTML = msgs.map(function (m) {
+      const q = (m.queries || []).map(function (x) {
+        return '<div class="small text-3" style="margin-top:6px">已调度：<span class="ev-src">' + x.src +
+          '</span> <span class="mono">' + x.id + "</span> " +
+          (x.status === "ok" ? '<span class="badge badge-done">成功</span>' : '<span class="badge badge-running">执行中</span>') + "</div>";
+      }).join("");
+      return '<div class="msg ' + (m.role === "pm" ? "pm" : "agent") + '">' +
+        '<div class="msg-avatar">' + (m.role === "pm" ? "PM" : "AI") + "</div>" +
+        '<div class="msg-body"><div class="msg-meta">' + (m.role === "pm" ? "产品经理" : "HVA 分析 Agent") + " · " + m.at + "</div>" +
+        '<div class="msg-bubble">' + U.esc(m.text).replace(/\n/g, "<br>") + q + "</div></div></div>";
+    }).join("");
+  }
+  renderChat();
+
+  function push(m) { msgs.push(m); renderChat(); }
+
+  document.getElementById("send").addEventListener("click", function () {
+    const el = document.getElementById("input");
+    const v = el.value.trim();
+    if (!v) return;
+    el.value = "";
+    const now = "刚刚";
+    push({ role: "pm", at: now, text: v });
+
+    const newTask = "T-" + (1200 + msgs.length);
+    setTimeout(function () {
+      push({
+        role: "agent", at: now,
+        text: "收到。已关联原研究 " + s.studyNo + "，本轮作为新任务 " + newTask + " 执行（原结果与依据保留）。\n\n" +
+              "先检查已有依据是否仍适用：目标版本未变化（v3），但追问引入了新的范围条件，需要补查。\n\n" +
+              "已调度工具：CDP 用户标签系统 —— 按新条件重新圈选人群。",
+        queries: [{ id: "Q-90" + (300 + msgs.length), src: "CDP", status: "ok" }]
+      });
+    }, 500);
+
+    setTimeout(function () {
+      push({
+        role: "agent", at: now,
+        text: "补查返回（真实结果，非模型预期）：\n\n" +
+              "· 新条件下两组人群的复购差异为 6.9pp，较原结论的 7.7pp 收窄 0.8pp\n" +
+              "· 先后关系仍然成立：二次找品行为发生在复购之前\n\n" +
+              "结论：原结论的方向成立，但幅度需按新范围下修。\n" +
+              "限制：本次仍无用户级明细，先后关系建立在聚合标签上；目标口径「复购是否剔除退款订单」仍待业务方确认。\n\n" +
+              "以上已保存为新一轮结果，原研究 R-007 未被覆盖。",
+        queries: [{ id: "Q-90" + (400 + msgs.length), src: "HJE", status: "ok" }]
+      });
+
+      const extra = U.Store.get("newTasks", []);
+      extra.push({
+        id: newTask, type: "HVA 研究 · 追问", ref: s.studyNo + " 追问", stage: "M4",
+        goal: goalOfStudy,
+        status: "done", startedAt: now, endedAt: now,
+        trigger: "PM 于" + now + "在原研究上提交追问（F-22）",
+        agentVersion: "hva-agent v1.3 / agent.md r12",
+        queries: [{ id: "Q-9030x", src: "CDP", cond: "按追问新条件圈选", at: now, result: "成功", status: "ok" }],
+        done: "形成新一轮结果；原研究结果与依据继续保留", blockedBy: null, progress: "5 / 5 步"
+      });
+      U.Store.set("newTasks", extra);
+      /* 追问跑出一轮新结果：该目标的任务与状态、研究结果都有更新待查看 */
+      U.markUnread("tasks", 1, goalOfStudy);
+      U.markUnread("result", 1, goalOfStudy);
+    }, 1400);
+  });
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记
+  - 被 ../index.html 链接（默认 ST-007）
+  - 被 result.html 链接（继续追问）
+  - 下游：tasks.html（F-32，追问生成的新任务）
+-->

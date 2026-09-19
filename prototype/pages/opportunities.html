@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/pages/opportunities.html
+  功能点：F-28 机会列表（原「机会列表 + 机会详情」两页合并为左右布局一页）
+  上游：../../AGENTS.md（宪法）｜ ../../docs/01-brd/BRD.md（M6-F-28、M2-F-09/F-10）
+        ../README.md ｜ ../assets/data.js（opportunities / evidences / sources）
+  验收要点：按目标浏览机会；三状态（候选 / 暂不研究 / 已提交研究）；
+        左列列表、右列详情，选中联动；六要素齐全；证据链可回查到查询记录
+  先后运行关系（本页的准入条件）：
+        机会列表是机会发现的产出。目标配置只登记了六要素、从未执行过机会发现、
+        也没有历史产出 → 本页不放行，给门禁态并指回去目标配置；(F-28 准入)
+        只要跑过（有历史产出，或本次正在运行）→ 放行；
+        正在运行时列表上方标出「机会发现运行中」，说明列表会随结果补全。
+  跨页口径：目标解析 / 运行链状态 / 未读标记一律调 assets/app.js
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-28 机会列表</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="opportunities">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-28</span>机会列表</h1>
+      <p class="page-desc" id="opp-meta"></p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" href="goal.html">查看目标口径</a>
+    </div>
+  </div>
+
+  <div class="chain-bar" id="chain"></div>
+  <div id="gate-box"></div>
+
+  <div class="split-layout">
+    <div>
+      <div class="card" data-filter-card>
+        <div class="card-head">
+          <div class="card-title">筛选</div>
+          <div class="card-note" id="count-note"></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="text-2">状态</span>
+            <button class="chip" data-filter="status" data-value="all">全部</button>
+            <button class="chip" data-filter="status" data-value="candidate">候选</button>
+            <button class="chip" data-filter="status" data-value="submitted">已提交研究</button>
+            <button class="chip" data-filter="status" data-value="deferred">暂不研究</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="text-2">对象</span>
+            <button class="chip" data-filter="obj" data-value="all">全部</button>
+            <button class="chip" data-filter="obj" data-value="人群">人群</button>
+            <button class="chip" data-filter="obj" data-value="品类">品类</button>
+            <button class="chip" data-filter="obj" data-value="旅程">旅程环节</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="opp-list" id="list"></div>
+    </div>
+
+    <div id="detail"></div>
+  </div>
+
+  <div class="footer-note">
+    功能点 F-28（列表 + 详情合并）｜ 上游 M3-F-16 机会形成与去重、M2-F-09 证据管理 ｜ 下游：<a href="propose.html">F-29 研究建议提交</a>（人工节点）、<a href="result.html">F-30 研究结果</a>
+  </div>
+
+</main>
+<script src="../assets/data.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  let fStatus = "all", fObj = "all";
+  let selected = U.qs("id") || "OPP-012";
+
+  /* ---------- 本页展示哪套目标配置的机会 ----------
+     解析口径统一走 assets/app.js：URL goal → 本机 applied → DB.applied → 默认目标，
+     且目标候选集合含本机新建目标。不在本页再写一遍。 */
+  const GOAL_ID = U.currentGoalId();
+  const goal = U.goalById(GOAL_ID);
+  const applied = (function () {
+    const s = U.Store.get("applied", null);
+    const rec = (s && s.goalId === GOAL_ID && s.record) ? s.record : (DB.appliedOf ? DB.appliedOf(GOAL_ID) : null);
+    /* 版本一律读共享口径（goalVer 覆盖 mock 原始值），不在本页另算一遍 */
+    return { goal: goal, rec: rec, version: U.goalVersion(GOAL_ID) };
+  })();
+
+  /* ---------- 先后运行关系：本页的准入条件 ----------
+     目标配置配了、但从未执行过机会发现、也没有历史产出 → 这一步还不成立，不给进。
+     只要历史运行过有产出（或本次已在运行）→ 放行。 */
+  const gate = U.gateOf("opportunities", GOAL_ID);
+
+  /* 「查看目标口径」回到目标配置页时，带上当前展示的目标 */
+  (function () {
+    const a = document.querySelector('a[href="goal.html"]');
+    if (a) a.setAttribute("href", "goal.html?goal=" + encodeURIComponent(GOAL_ID));
+  })();
+
+  /* 本页只呈现该目标配置下产出的机会 */
+  const goalOpps = U.goalOpps(GOAL_ID);
+
+  /* 标题下方：业务目标 · 目标 ID · 版本 */
+  (function () {
+    document.getElementById("opp-meta").innerHTML =
+      U.esc(U.goalFields(GOAL_ID).businessGoal) + "　·　<span class='mono'>" + GOAL_ID + "</span>　·　" + applied.version;
+  })();
+
+  /* 未放行：把筛选 + 列表 + 详情整块收起，换成门禁说明 */
+  function renderGate() {
+    document.getElementById("chain").className = "chain-bar";
+    document.getElementById("chain").innerHTML =
+      '<span class="chain-key">运行链</span>' +
+      '<span>① 目标配置 ' + U.esc(applied.version) + ' 已登记　→　' +
+      '<b>② 机会发现未执行</b>　→　③ 暂无机会产出</span>';
+
+    document.getElementById("gate-box").innerHTML =
+      '<div class="card"><div class="gate">' +
+        '<div class="gate-mark">!</div>' +
+        '<div class="gate-title">' + U.esc(gate.reason) + "</div>" +
+        '<div class="gate-text">机会列表呈现的是机会发现的产出。该目标配置只登记了六要素，' +
+          "还没有执行过机会发现，所以这一步还不成立 —— 这里暂时没有可看的内容，也不等于「没有机会」。</div>" +
+        '<div class="gate-how">' + U.esc(gate.how) + "</div>" +
+        '<div class="gate-actions">' +
+          '<a class="btn btn-primary" href="goal.html?goal=' + encodeURIComponent(GOAL_ID) + '">去目标配置执行机会发现 →</a>' +
+          '<a class="btn" href="tasks.html">查看任务与状态</a>' +
+        "</div>" +
+      "</div></div>";
+    document.querySelector(".split-layout").style.display = "none";
+  }
+
+  /* 已放行：把「上一个动作跑到哪了」摆在列表上方 */
+  function renderChain() {
+    const el = document.getElementById("chain");
+    const rs = gate.rs;
+    const running = rs.state === "queued";
+    el.className = "chain-bar" + (running ? " is-running" : "");
+    el.innerHTML = '<span class="chain-key">运行链</span>' +
+      '<span>① 目标配置 ' + U.esc(applied.version) + ' 已登记　→　' +
+      "② 机会发现 " + (running
+        ? "<b>运行中</b>（任务 " + rs.running.map(function (t) { return t.id; }).join("、") + "）"
+        : (rs.lastDone ? "已完成（任务 " + rs.lastDone.id + "）" : "已执行")) +
+      "　→　③ 机会产出 " + rs.oppCount + " 条</span>" +
+      (running ? "<span>列表会随运行结果补全</span>" : "");
+  }
+
+  function statusOf(o) {
+    const override = U.Store.get("oppStatus", {});
+    return override[o.id] || o.status;
+  }
+  function setStatus(id, s) {
+    const m = U.Store.get("oppStatus", {});
+    m[id] = s;
+    U.Store.set("oppStatus", m);
+    render();
+  }
+  function byId(id) {
+    return DB.opportunities.filter(function (x) { return x.id === id; })[0] || null;
+  }
+
+  /* ---------- 左列：列表 ---------- */
+  function renderList() {
+    const rows = goalOpps.filter(function (o) {
+      const s = statusOf(o);
+      if (fStatus !== "all" && s !== fStatus) return false;
+      if (fObj !== "all" && o.object.indexOf(fObj) === -1) return false;
+      return true;
+    });
+
+    /* URL 带入的机会若不属于该目标，回退到第一条 */
+    if (rows.length && !rows.some(function (o) { return o.id === selected; })) {
+      selected = rows[0].id;
+    }
+
+    document.getElementById("count-note").textContent =
+      "共 " + rows.length + " 条（" + GOAL_ID + " 下 " + goalOpps.length + " 条）";
+
+    if (!rows.length) {
+      document.getElementById("list").innerHTML =
+        '<div class="card"><div class="empty">' +
+        (goalOpps.length
+          ? "当前筛选条件下没有机会记录"
+          : "该目标 <span class='mono'>" + GOAL_ID + "</span> 本轮发现未产出机会记录。" +
+            '<div class="small text-3" style="margin-top:6px">没有足够依据也是合法产出（M3-F-16）：本轮检查范围与信息缺口已留存在任务记录里。</div>') +
+        '<div class="small text-3" style="margin-top:6px">可到 <a href="goal.html?goal=' + encodeURIComponent(GOAL_ID) + '">目标配置</a> 切换其他配置，或再执行一次机会发现。</div>' +
+        "</div></div>";
+      document.getElementById("detail").innerHTML =
+        '<div class="card"><div class="empty">该目标本轮暂无机会记录</div></div>';
+      return;
+    }
+
+    document.getElementById("list").innerHTML = rows.map(function (o) {
+      const s = statusOf(o);
+      const evs = o.evidences.map(function (id) {
+        const e = DB.evidences[id];
+        return '<span class="ev-src">' + (e ? e.sourceName : id) + "</span>";
+      }).join(" ");
+      return '<div class="opp-item' + (o.id === selected ? " active" : "") + '" data-opp="' + o.id + '">' +
+        '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between">' +
+          '<div style="font-size:13px;font-weight:500;min-width:0">' + U.esc(o.title) + "</div>" +
+          "<div>" + U.badge(s) + "</div>" +
+        "</div>" +
+        '<div class="kv-inline" style="margin-top:4px"><span class="mono">' + o.id + "</span><span>" + o.createdAt + "</span></div>" +
+        '<div class="small text-2" style="margin-top:6px">' + U.esc(o.phenomenon) + "</div>" +
+        '<div style="margin-top:6px">' + evs + "</div>" +
+        "</div>";
+    }).join("");
+
+    document.querySelectorAll("[data-opp]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        selected = el.dataset.opp;
+        renderList();
+        renderDetail();
+        // 以 file:// 打开时部分浏览器禁止改写 history，失败不影响页面联动
+        try {
+          if (history.replaceState) {
+            history.replaceState(null, "", "opportunities.html?id=" + encodeURIComponent(selected));
+          }
+        } catch (e) {}
+      });
+    });
+  }
+
+  /* ---------- 右列：详情 ---------- */
+  function renderDetail() {
+    const o = byId(selected);
+    const box = document.getElementById("detail");
+
+    if (!o) {
+      box.innerHTML = '<div class="card"><div class="empty">从左侧选择一条机会查看六要素与证据链</div></div>';
+      return;
+    }
+
+    const status = statusOf(o);
+
+    const evidenceHtml = o.evidences.map(function (eid) {
+      const e = DB.evidences[eid];
+      if (!e) return "";
+      return '<details class="fold">' +
+        "<summary><span class='ev-src'>" + e.sourceName + "</span>" +
+        "<span>" + U.esc(e.title) + "</span>" +
+        "<span class='tag mono'>" + e.id + "</span></summary>" +
+        '<div class="fold-body">' +
+          '<div class="field-list">' +
+            '<div class="field"><div class="field-label">查询条件</div><div class="field-value">' + U.esc(e.condition) + "</div></div>" +
+            '<div class="field"><div class="field-label">信息时点</div><div class="field-value">' + U.esc(e.at) + "</div></div>" +
+            '<div class="field"><div class="field-label">适用范围</div><div class="field-value">' + U.esc(e.scope) + "</div></div>" +
+            '<div class="field"><div class="field-label">查询结果</div><div class="field-value">' + U.esc(e.result) + "</div></div>" +
+            '<div class="field"><div class="field-label">缺失说明</div><div class="field-value text-2">' + U.esc(e.missing) + "</div></div>" +
+          "</div>" +
+          '<div class="small text-3" style="margin-top:8px">查询记录编号 <span class="mono">' + e.queryId + "</span></div>" +
+        "</div></details>";
+    }).join("");
+
+    let action = "";
+    if (status === "candidate") {
+      action = '<div class="btn-row">' +
+          '<a class="btn btn-primary" href="propose.html?opp=' + o.id + '">提交研究建议 →</a>' +
+          '<button class="btn" data-defer="' + o.id + '">标记暂不研究</button>' +
+        "</div>";
+    } else if (status === "submitted") {
+      action = '<div class="small text-2">已提交研究建议，研究 <span class="mono">' + o.studyId + "</span> 已启动。</div>" +
+        '<div class="btn-row"><a class="btn btn-primary" href="result.html?study=' + o.studyId + '">查看研究结果 →</a></div>';
+    } else {
+      action = '<div class="small text-2">已标记暂不研究，记录保留。</div>' +
+        '<div class="btn-row"><button class="btn" data-restore="' + o.id + '">恢复为候选</button></div>';
+    }
+
+    box.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head">' +
+          '<div style="min-width:0">' +
+            '<div style="font-size:15px;font-weight:500"><span class="mono">' + o.id + '</span> ｜ ' + U.esc(o.title) + "</div>" +
+            '<div class="kv-inline" style="margin-top:4px"><span>创建 ' + o.createdAt +
+            "</span><span>来自发现任务 " + o.fromTask + "</span></div>" +
+          "</div>" +
+          "<div>" + U.badge(status) + "</div>" +
+        "</div>" +
+        (status === "deferred"
+          ? '<div class="alert alert-info"><div class="flex-1"><span class="alert-title">暂不研究</span>　' +
+            U.esc(o.deferReason || "记录保留，条件变化或出现新证据后可再选。") + "</div></div>"
+          : "") +
+        '<div class="field-list">' +
+          '<div class="field"><div class="field-label">涉及对象</div><div class="field-value">' + U.esc(o.object) + "</div></div>" +
+          '<div class="field"><div class="field-label">观察现象</div><div class="field-value">' + U.esc(o.phenomenon) + "</div></div>" +
+          '<div class="field"><div class="field-label">初步依据</div><div class="field-value">' + U.esc(o.basis) + "</div></div>" +
+          '<div class="field"><div class="field-label">研究理由</div><div class="field-value">' + U.esc(o.reason) + "</div></div>" +
+          '<div class="field"><div class="field-label">未知项</div><div class="field-value text-2">' + U.esc(o.unknown) + "</div></div>" +
+        "</div>" +
+        '<div class="card-section">' + action + "</div>" +
+      "</div>" +
+
+      '<div class="card">' +
+        '<div class="card-head"><div class="card-title">证据链</div></div>' +
+        evidenceHtml +
+      "</div>" +
+
+      '<details class="fold" style="margin-top:14px">' +
+        "<summary>可用来源与工具（M2-F-08）</summary>" +
+        '<div class="fold-body">' +
+          DB.sources.map(function (s) {
+            return '<div class="card-section">' +
+              '<div style="display:flex;justify-content:space-between;align-items:center">' +
+                "<b>" + s.name + "</b>" +
+                (s.status === "ok" ? '<span class="badge badge-done">可用</span>' : '<span class="badge badge-blocked">降级</span>') +
+              "</div>" +
+              '<div class="small" style="margin-top:4px">可查：' + U.esc(s.can) + "</div>" +
+              '<div class="small text-3">不可查：' + U.esc(s.cannot) + "</div>" +
+            "</div>";
+          }).join("") +
+        "</div>" +
+      "</details>";
+
+    document.querySelectorAll("[data-defer]").forEach(function (b) {
+      b.addEventListener("click", function () { setStatus(b.dataset.defer, "deferred"); });
+    });
+    document.querySelectorAll("[data-restore]").forEach(function (b) {
+      b.addEventListener("click", function () { setStatus(b.dataset.restore, "candidate"); });
+    });
+  }
+
+  function render() {
+    renderList();
+    renderDetail();
+  }
+
+  document.querySelectorAll(".chip[data-filter]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      if (c.dataset.filter === "status") fStatus = c.dataset.value; else fObj = c.dataset.value;
+      document.querySelectorAll('.chip[data-filter="' + c.dataset.filter + '"]').forEach(function (x) {
+        x.style.borderColor = ""; x.style.color = "";
+      });
+      c.style.borderColor = "#E1251B"; c.style.color = "#E1251B";
+      render();
+    });
+  });
+
+  if (gate.locked) renderGate();
+  else { renderChain(); render(); }
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记（原「机会列表」与「机会详情」两页已合并为本页）
+  - 被 ../index.html 链接
+  - 被 goal.html 链接（运行后跳转）
+  - 被 result.html、propose.html 链接
+  - 下游：propose.html（F-29）、result.html（F-30）、tasks.html（F-32）
+-->

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<!--
+  文件：prototype/index.html · 工作台总览
+  功能点：M6 运营端工作台入口（服务 F-27~F-32）
+  上游：../AGENTS.md（宪法：白盒原则 / 双向引用 / 编号体系）
+        ../docs/01-brd/BRD.md（M6 章节、F-32 三类事实口径）
+        ./README.md（本目录索引）
+  结构：当前目标 → 四个维度（已完成 / 待办 / 未完成的任务 / 待补口径）
+        四个维度全部按「当前生效目标配置」过滤，口径与 pages/tasks.html 一致：
+          已完成 ＝ 研究结果数 + 已完成的机会发现轮次（口径检查不计为产出）
+          未完成的任务 ＝ 运行中 + 受阻 + 已停止（BRD F-32「任务未完成」）
+        目标解析 / 运行链状态 / 六要素与版本 一律调 assets/app.js，与本目录其他页同源；
+        来源降级为平台级登记（M2-F-08），不随目标变化，摆在四维度之外单列（#platform-note）；
+        条目与计数由 assets/data.js 计算，不在 HTML 中硬编码
+  先后运行关系：页内「运行链」状态条展示 ① 目标配置 → ② 机会发现 → ③ 机会产出 的进度；
+        ② 未执行时，本页不把人引向进不去的机会列表（改引到目标配置页）
+  约束：建议型系统——只呈现机会与研究结论供人决策，不出现立项/执行类操作
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作台总览 · 用户增长机会挖掘平台</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body data-page="home">
+<main class="content">
+
+  <div class="page-head">
+    <h1 class="page-title">工作台总览</h1>
+  </div>
+
+  <div class="alert alert-info" id="goal-alert">
+    <div class="flex-1" id="goal-alert-text">正在加载当前目标…</div>
+  </div>
+
+  <div class="chain-bar" id="chain"></div>
+
+  <div class="grid-2" id="board"></div>
+
+  <div class="platform-note" id="platform-note"></div>
+
+</main>
+<script src="assets/data.js"></script>
+<script src="assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  /* 当前生效的目标配置：解析口径统一走 assets/app.js（URL goal → 本机 applied
+     → DB.applied → 默认目标，候选集合含本机新建目标）。本页不再自己写一遍，
+     否则四页对"当前是哪个目标"会给出不同答案。 */
+  const appliedGid = U.currentGoalId();
+  const goal = U.goalById(appliedGid);
+  const goalFields = U.goalFields(appliedGid);
+  const goalVer = U.goalVersion(appliedGid);
+  /* 已确认补充的口径同样计入「已补」，与 F-27 的 goalFixes 同一判定 */
+  const solved = Object.keys((U.Store.get("goalFixes", {}) || {})[appliedGid] || {});
+  const gaps = DB.checkGaps(goalFields, solved);
+
+  /* 归属判定：任务与机会一律走 assets/app.js 的共享实现（goalTasks 认任务自身的 goal
+     字段，并能从 ref 里回认目标 ID），与 pages/tasks.html 同一口径；机会按 target 前缀。 */
+  const goalTasks = U.goalTasks(goal.id);
+
+  /* ---------- 已完成（按当前目标） ----------
+     产出＝已完成的研究结果 ＋ 已完成的机会发现轮次。
+     口径检查不计为产出 —— 它的产出是「待补项」，已在「待补口径」维度单独呈现；
+     HVA 研究类任务的成果就是研究结果本身，也不重复计数（列在 doneOthers 里说明）。 */
+  const doneStudies = U.goalStudies(goal.id)
+    .filter(function (s) { return s.status === "done"; });
+  const doneTasks = goalTasks.filter(function (t) { return t.status === "done"; });
+  const doneDiscovery = doneTasks.filter(function (t) { return t.type === "机会发现"; });
+  const doneOthers = doneTasks.filter(function (t) { return t.type !== "机会发现"; });
+  const doneCount = doneStudies.length + doneDiscovery.length;
+
+  function typeTally(list) {
+    const m = {};
+    list.forEach(function (t) { m[t.type] = (m[t.type] || 0) + 1; });
+    return Object.keys(m).map(function (k) { return k + " " + m[k]; }).join("、");
+  }
+
+  /* ---------- 待办（需人决定） ---------- */
+  const oppStatus = U.Store.get("oppStatus", {});
+  const statusOf = function (o) { return oppStatus[o.id] || o.status; };
+  const goalOpps = U.goalOpps(goal.id);
+  const todoCand = goalOpps.filter(function (o) { return statusOf(o) === "candidate"; });
+  const todoDefer = goalOpps.filter(function (o) { return statusOf(o) === "deferred"; });
+
+  /* ---------- 未完成的任务（按当前目标） ----------
+     「任务未完成」（BRD F-32 三类事实之一）＝非已完成：运行中 ＋ 受阻 ＋ 已停止。
+     已停止是 F-32 列明的受阻原因之一，且「保留已完成部分、不自动重启」，仍属未完成。
+     口径与 pages/tasks.html 的 ② 一致，两页计数必须相同。
+     来源降级（M2-F-08）是平台级登记、不随目标变化，已挪到页脚单列，不进这里的计数。 */
+  const running = goalTasks.filter(function (t) { return t.status === "running"; });
+  const blocked = goalTasks.filter(function (t) { return t.status === "blocked"; });
+  const stopped = goalTasks.filter(function (t) { return t.status === "stopped"; });
+  const unfinished = running.length + blocked.length + stopped.length;
+
+  function block(cls, title, num, unit, body, action) {
+    return '<div class="card mb0">' +
+      '<div class="card-head"><div class="card-title">' + title + "</div>" +
+      '<div class="card-note"><b style="font-size:15px">' + num + "</b> " + unit + "</div></div>" +
+      '<div class="' + cls + '">' + body + "</div>" +
+      (action || "") +
+      "</div>";
+  }
+
+  function itemLink(href, title, sub, badgeHtml) {
+    return '<div class="kv-item">' +
+      '<a href="' + href + '">' + U.esc(title) + "</a>　" + (badgeHtml || "") +
+      '<div class="small text-2">' + U.esc(sub) + "</div></div>";
+  }
+
+  function empty(text) {
+    return '<div class="kv-item"><span class="text-2">' + text + "</span></div>";
+  }
+
+  /* 1 · 已完成（研究结果 + 机会发现轮次 = 产出） */
+  const doneBody = (doneStudies.map(function (s) {
+    const ok = s.e5_hva.status === "candidate_supported";
+    return itemLink(
+      "pages/result.html?study=" + s.id,
+      s.studyNo + " · " + s.id,
+      s.e5_hva.name + " ｜ 完成于 " + s.finishedAt + " ｜ " +
+        (ok ? "候选行为获得支持（仍属候选）" : "未找到足够依据支持候选行为"),
+      ok ? '<span class="badge badge-done">支持</span>' : '<span class="badge badge-neutral">未支持</span>'
+    );
+  }).join("") + (doneDiscovery.length
+    ? '<div class="kv-item"><span class="text-2">机会发现已完成 ' + doneDiscovery.length + " 轮</span>" +
+      '<div class="small text-3">最近 ' + doneDiscovery[0].id + "：" + U.esc(doneDiscovery[0].done) + "</div></div>"
+    : "") + (doneOthers.length
+    ? '<div class="kv-item"><span class="text-2">其他已完成任务 ' + doneOthers.length +
+      " 个（" + typeTally(doneOthers) + "）</span>" +
+      '<div class="small text-3">不计为产出：口径检查产出的是待补项（见「待补口径」），' +
+      "HVA 研究类任务的成果即上方研究结果</div></div>"
+    : "")) || empty("当前目标下暂无已完成的研究与产出");
+
+  /* 2 · 待办 */
+  const todoBody = (todoCand.map(function (o) {
+    return itemLink("pages/opportunities.html?id=" + o.id, o.id + " " + o.title,
+      "候选 · 待决定是否提交研究", '<span class="badge badge-candidate">候选</span>');
+  }).join("") +
+    todoDefer.map(function (o) {
+      return itemLink("pages/opportunities.html?id=" + o.id, o.id + " " + o.title,
+        "暂不研究 · 条件变化或新证据后可再选", '<span class="badge badge-deferred">暂不研究</span>');
+    }).join("") +
+    (todoCand.length
+      ? '<div class="kv-item"><a href="pages/propose.html">把候选机会变成研究问题 →</a>' +
+        '<div class="small text-3">研究问题为必需人工节点，不能跳过</div></div>'
+      : "")) || empty("当前目标下没有待决定的机会，可到目标配置页「应用配置」执行一次机会发现");
+
+  /* 3 · 任务未完成（受阻 / 已停止 / 运行中） */
+  const troubleBody = (running.map(function (t) {
+    return itemLink("pages/tasks.html", t.id + " " + t.type,
+      "进行中 · 进度 " + (t.progress || "1 / 5 步") + " ｜ 已完成：" + (t.done || "—"),
+      '<span class="badge badge-running">运行中</span>');
+  }).join("") +
+    blocked.map(function (t) {
+      return itemLink("pages/tasks.html", t.id + " " + t.type,
+        "受阻：" + (t.blockedBy || "—") + " ｜ 已完成部分保留", '<span class="badge badge-blocked">受阻</span>');
+    }).join("") +
+    stopped.map(function (t) {
+      return itemLink("pages/tasks.html", t.id + " " + t.type,
+        "持续失败后停止，不自动重启", '<span class="badge badge-stopped">已停止</span>');
+    }).join("")) || empty("当前目标下没有未完成的任务");
+
+  /* 4 · 待补口径 */
+  const gapBody = gaps.length
+    ? gaps.map(function (x) {
+        return '<div class="kv-item"><span>' + U.esc(x.text) + '</span>　<span class="tag mono">' + x.id + "</span>" +
+          '<div class="small text-3">' + U.esc(x.impact) + " ｜ 并入「" + DB.FIELD_NAME[x.field] + "」</div></div>";
+      }).join("")
+    : '<div class="kv-item"><span class="text-2">口径已锁定，无待补项</span>' +
+      '<div class="small text-3">目标 ' + goal.id + " " + goalVer + " 的六要素已通过口径检查</div></div>";
+
+  /* 机会列表未放行时，不应把人引到一个进不去的页面 */
+  const oppGate = U.gateOf("opportunities", goal.id);
+  const oppAction = oppGate.locked
+    ? '<div class="card-section"><a class="btn btn-sm" href="pages/goal.html?goal=' +
+      encodeURIComponent(goal.id) + '">去目标配置执行机会发现</a></div>'
+    : '<div class="card-section"><a class="btn btn-sm" href="pages/opportunities.html">去机会列表</a></div>';
+
+  document.getElementById("board").innerHTML =
+    '<div>' + block("kv-list", "已完成", doneCount, "项产出", doneBody,
+      '<div class="card-section"><a class="btn btn-sm" href="pages/result.html">查看研究结果</a></div>') + "</div>" +
+    '<div>' + block("kv-list", "待办 · 需人决定", todoCand.length + todoDefer.length, "条待决定", todoBody, oppAction) + "</div>" +
+    '<div>' + block("kv-list", "任务未完成",
+      unfinished, "个", troubleBody,
+      '<div class="card-section"><a class="btn btn-sm" href="pages/tasks.html">查看任务与状态</a></div>') + "</div>" +
+    '<div>' + block("kv-list", "待补口径", gaps.length, "项待补", gapBody,
+      '<div class="card-section"><a class="btn btn-sm" href="pages/goal.html">去补齐口径</a></div>') + "</div>";
+
+  /* 平台级登记：来源降级（M2-F-08）不随目标变化，所以摆在四维度之外，
+     否则任何目标（含空目标）都会带上它，四维度也就出不了空态。 */
+  const degraded = DB.sources.filter(function (s) { return s.status !== "ok"; });
+  document.getElementById("platform-note").innerHTML =
+    '<span class="pn-key">平台级 · 不随目标变化</span>' +
+    "来源与工具登记（M2-F-08）：" +
+    (degraded.length
+      ? degraded.map(function (s) {
+          return "<b>" + U.esc(s.name) + '</b> <span class="badge badge-blocked">降级</span>　不可查：' + U.esc(s.cannot);
+        }).join("　")
+      : "全部来源可用");
+
+  document.getElementById("goal-alert-text").innerHTML =
+    '<span class="alert-title">当前目标：</span><b>' + U.esc(goalFields.businessGoal || goal.fields.businessGoal) +
+    " · <span class='mono'>" + goal.id + " " + goalVer + "</span>（" + goal.updatedAt + " 更新）</b>· " +
+    (gaps.length ? "<b>" + gaps.length + " 项口径待补</b>，需业务方补充" : "口径已锁定");
+
+  /* 运行链：本目标走到哪一步；② 未完成则机会列表不放行 */
+  const rs = U.runState(goal.id);
+  const chain = document.getElementById("chain");
+  const running2 = rs.state === "queued";
+  chain.className = "chain-bar" + (running2 ? " is-running" : "");
+  chain.innerHTML = '<span class="chain-key">运行链</span>' +
+    "<span>① 目标配置 " + U.esc(goalVer) + " 已登记　→　" +
+    "② 机会发现 " + (running2
+      ? "<b>运行中</b>（任务 " + rs.running.map(function (t) { return t.id; }).join("、") + "）"
+      : (rs.lastDone ? "已完成（任务 " + rs.lastDone.id + "）" : (rs.hasRun ? "已执行" : "<b>未执行</b>"))) +
+    "　→　③ 机会产出 " + rs.oppCount + " 条</span>" +
+    (rs.state === "no-run"
+      ? '<span class="chain-key">机会列表暂不可进入</span>'
+      : '<span class="chain-key">机会列表已开放</span>');
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ./README.md 登记为本目录入口
+  - 链接目标：pages/goal.html、pages/opportunities.html、
+              pages/propose.html、pages/result.html、pages/tasks.html
+              （均需在 README 登记）
+  - 目标作用域、任务归属与三类事实口径：与 pages/tasks.html 同源
+              （目标取自 localStorage applied / newGoals，任务取自 data.js 的 task.goal）
+-->

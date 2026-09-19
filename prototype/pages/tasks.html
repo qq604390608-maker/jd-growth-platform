@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-32 任务与状态</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="tasks">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-32</span>任务与状态</h1>
+    </div>
+    <div class="page-actions">
+      <button class="chip" data-f="all">全部</button>
+      <button class="chip" data-f="running">运行中</button>
+      <button class="chip" data-f="blocked">受阻</button>
+      <button class="chip" data-f="stopped">已停止</button>
+      <button class="chip" data-f="done">已完成</button>
+    </div>
+  </div>
+
+  <div class="scope-bar" id="goal-scope"></div>
+
+  <div class="grid-3" id="stats" style="margin-bottom:14px"></div>
+
+  <div id="list"></div>
+
+  <div class="footer-note">
+    功能点 F-32 ｜ 上游 M1-F-06 任务记录与异常恢复、M5-F-25 查询记录保存 ｜ 状态口径与 BRD F-06 一致；停止状态不自动重启，运行失败不作否定依据 ｜ 相关：<a href="opportunities.html">F-28</a>、<a href="result.html">F-30</a>、<a href="followup.html">F-31</a>
+  </div>
+
+</main>
+<script src="../assets/data.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = function (DB, U) {
+  /* 目标解析统一走 assets/app.js：含本机新建目标，与总览/机会列表/目标配置同一答案 */
+  const GOAL_ID = U.currentGoalId();
+  const applied = U.goalById(GOAL_ID);
+
+  function taskGoalId(t) { return t.goal || ""; }
+
+  let filter = "all";
+
+  function urlTask() {
+    const id = U.qs("new");
+    if (!id) return null;
+    const stored = U.Store.get("newTasks", []) || [];
+    for (let i = 0; i < stored.length; i++) if (stored[i].id === id) return null;
+    const opp = U.qs("opp") || "—";
+    return {
+      id: id, type: "HVA 研究", ref: opp + " · 新研究", stage: "M4", isNew: true, goal: GOAL_ID,
+      status: "running", startedAt: "刚刚",
+      trigger: "PM 于刚刚提交研究建议（" + opp + "）",
+      agentVersion: "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1",
+      queries: [],
+      done: "已注入二阶段上下文，等待首轮查询。研究问题：" + (U.qs("q") || "—"),
+      blockedBy: null, progress: "1 / 5 步"
+    };
+  }
+
+  /* 任务归属走 assets/app.js 的共享实现（认任务自身的 goal，并可从 ref 里回认目标 ID），
+     与总览四维度同一口径；仅额外并入 URL 带入的本次新任务 */
+  function scopedTasks() {
+    const fromUrl = urlTask();
+    return (fromUrl ? [fromUrl] : []).concat(U.goalTasks(GOAL_ID));
+  }
+
+  function f32Reason(t) {
+    if (t.status === "stopped") return "已停止";
+    if (t.status === "blocked") {
+      if (t.blockedReason === "目标或指标口径不清") return "等待必要信息";
+      return "等待接口恢复";
+    }
+    return "";
+  }
+
+  const TYPE_STEPS = {
+    "口径检查": ["按规则校验六要素口径", "产出待补项"],
+    "机会发现": ["载入目标与时间窗", "规划采集范围", "采集入口与流量", "识别与聚合线索", "生成机会候选"],
+    "HVA 研究": ["载入机会与目标口径", "调度工具采集证据", "交叉验证候选行为", "形成结论与适用范围", "产出研究结果与依据"],
+    "HVA 研究 · 追问": ["关联原研究与依据", "调度工具采集证据", "重算并校验差异", "更新结论适用范围", "产出新一轮结果"]
+  };
+
+  function stepPlan(t) {
+    const names = TYPE_STEPS[t.type] || [];
+    const m = /(\d+)\s*\/\s*(\d+)/.exec(t.progress || "");
+    const done = m ? parseInt(m[1], 10) : 0;
+    return names.map(function (name, i) {
+      let state = "pending";
+      if (i < done) state = "done";
+      else if (i === done) {
+        if (t.status === "running") state = "active";
+        else if (t.status === "blocked" || t.status === "stopped") state = "blocked";
+      }
+      return { no: i + 1, name: name, state: state };
+    });
+  }
+
+  function renderStats() {
+    /* 机会状态同样认本机改过的状态（oppStatus），与总览「待办」同一口径 */
+    const oppStatus = U.Store.get("oppStatus", {});
+    const statusOf = function (o) { return oppStatus[o.id] || o.status; };
+    const opps = U.goalOpps(GOAL_ID);
+    const cand = opps.filter(function (o) { return statusOf(o) === "candidate"; }).length;
+    const defer = opps.filter(function (o) { return statusOf(o) === "deferred"; }).length;
+    const notSelected = cand + defer;
+
+    const ts = scopedTasks();
+    const running = ts.filter(function (t) { return t.status === "running"; });
+    const blocked = ts.filter(function (t) { return t.status === "blocked"; });
+    const stopped = ts.filter(function (t) { return t.status === "stopped"; });
+    /* 「任务未完成」＝非已完成：运行中 ＋ 受阻 ＋ 已停止。
+       已停止是 F-32 列明的受阻原因之一，且「保留已完成部分、不自动重启」，仍属未完成。
+       口径与总览第三块一致，两页计数必须相同。 */
+    const unfinished = running.length + blocked.length + stopped.length;
+
+    let notSupported = 0;
+    const nsNos = [];
+    U.goalStudies(GOAL_ID).forEach(function (st) {
+      if (st.e5_hva && st.e5_hva.status === "not_supported") { notSupported++; nsNos.push(st.studyNo); }
+    });
+
+    const sub1 = (cand ? cand + " 条候选未提交" : "") + (defer ? (cand ? " + " : "") + defer + " 条暂存" : "") || "暂无未选中机会";
+    const sub2 = unfinished
+      ? "运行中 " + running.length + " · 受阻 " + blocked.length + " · 已停止 " + stopped.length
+      : "暂无未完成的任务";
+    const sub3 = (nsNos.length ? nsNos.join(" · ") + " · 完整且合法的结果" : "暂无未支持候选行为的研究");
+
+    document.getElementById("stats").innerHTML =
+      '<div class="stat"><div class="stat-label">① 机会未被选中</div><div class="stat-num">' + notSelected + '</div><div class="stat-sub">' + sub1 + '</div></div>' +
+      '<div class="stat"><div class="stat-label">② 任务未完成</div><div class="stat-num">' + unfinished + '</div><div class="stat-sub">' + sub2 + '</div></div>' +
+      '<div class="stat"><div class="stat-label">③ 研究未支持候选行为</div><div class="stat-num">' + notSupported + '</div><div class="stat-sub">' + sub3 + '</div></div>';
+
+    document.getElementById("goal-scope").innerHTML =
+      '<span class="tag-strong">当前目标配置</span>' +
+      '<span class="scope-goal">　' + U.esc(U.goalFields(GOAL_ID).businessGoal) +
+      '　·　<span class="mono">' + GOAL_ID + '</span>　·　' + U.esc(U.goalVersion(GOAL_ID)) + '</span>';
+  }
+
+  function taskCard(t) {
+    const queriesHtml = t.queries.length
+      ? '<table class="tbl tbl-sm"><thead><tr><th style="width:70px">编号</th><th style="width:108px">来源</th><th>条件</th><th style="width:120px">时间</th><th>返回</th></tr></thead><tbody>' +
+        t.queries.map(function (q) {
+          return "<tr><td class='mono'>" + q.id + "</td><td>" + q.src + "</td><td class='text-2'>" + U.esc(q.cond || "—") +
+            "</td><td class='text-3'>" + q.at + "</td><td>" +
+            (q.status === "ok" ? '<span class="badge badge-done">成功</span> '
+              : q.status === "fail" ? '<span class="badge badge-deferred">失败</span> '
+              : '<span class="badge badge-running">执行中</span> ') +
+            U.esc(q.result || "") + "</td></tr>";
+        }).join("") + "</tbody></table>"
+      : '<div class="small text-3">暂无查询记录</div>';
+
+    const statusExtra = t.endedAt ? "（结束 " + t.endedAt + "）" : "";
+    const reason = f32Reason(t);
+
+    let reasonBlock = "";
+    if (reason) {
+      reasonBlock = '<div class="field"><div class="field-label">受阻原因</div><div class="field-value">' +
+        '<span class="badge ' + (t.status === "stopped" ? "badge-stopped" : "badge-blocked") + '">' + reason + '</span>' +
+        (t.blockedBy ? '<div class="small text-2" style="margin-top:4px">' + U.esc(t.blockedBy) + '</div>' : '') +
+        '</div></div>';
+    }
+
+    const doneNote = t.status === "stopped" ? '　<span class="text-3">（保留已完成部分，不自动重启）</span>' : '';
+
+    const plan = stepPlan(t);
+    const stepsHtml = plan.length
+      ? '<div class="steps">' + plan.map(function (s) {
+          const mark = s.state === "done" ? "✓ " : s.state === "active" ? "▶ " : s.state === "blocked" ? "! " : "";
+          const tail = s.state === "active" ? "（进行中）" : s.state === "blocked" ? "（受阻）" : "";
+          return '<span class="step step-' + s.state + '">' + mark + "<b>" + s.no + "</b>" + U.esc(s.name) + tail + "</span>";
+        }).join("") + "</div>"
+      : "";
+
+    return '<div class="card task-card">' +
+      '<div class="card-head">' +
+        "<div style=\"min-width:0\">" +
+          '<div style="font-size:14px;font-weight:500;margin-bottom:4px">' +
+            t.type + " · " + U.esc(t.ref) +
+            (t.isNew ? '　<span class="badge badge-running">本次新提交</span>' : "") + "</div>" +
+          '<div class="kv-inline"><span class="mono">' + t.id + "</span><span>" + t.stage +
+          "</span><span>启动 " + t.startedAt + "</span>" +
+          (t.endedAt ? "<span>结束 " + t.endedAt + "</span>" : "") +
+          "<span>进度 " + t.progress + "</span></div>" +
+        "</div>" +
+        "<div>" + U.badge(t.status) + "</div>" +
+      "</div>" +
+      stepsHtml +
+
+      '<div class="field-list">' +
+        '<div class="field"><div class="field-label">运行状态</div><div class="field-value">' + U.badge(t.status) +
+          (statusExtra ? '　<span class="text-3">' + statusExtra + '</span>' : '') + "</div></div>" +
+        reasonBlock +
+        '<div class="field"><div class="field-label">已完成部分</div><div class="field-value">' + U.esc(t.done) + doneNote + "</div></div>" +
+      "</div>" +
+
+      '<div class="small text-2" style="margin:12px 0 6px">启动依据：' + U.esc(t.trigger) + "</div>" +
+      queriesHtml +
+    "</div>";
+  }
+
+  function render() {
+    renderStats();
+    const rows = scopedTasks().filter(function (t) {
+      return filter === "all" || t.status === filter;
+    });
+
+    if (!rows.length) {
+      document.getElementById("list").innerHTML =
+        '<div class="card"><div class="empty">当前目标配置（' + GOAL_ID + " " +
+        U.esc(U.goalVersion(GOAL_ID)) + "）下没有任务</div></div>";
+      return;
+    }
+
+    document.getElementById("list").innerHTML = rows.map(taskCard).join("");
+  }
+
+  document.querySelectorAll(".chip[data-f]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      filter = c.dataset.f;
+      document.querySelectorAll(".chip[data-f]").forEach(function (x) { x.style.borderColor = ""; x.style.color = ""; });
+      c.style.borderColor = "#E1251B"; c.style.color = "#E1251B";
+      render();
+    });
+  });
+
+  render();
+};
+</script>
+</body>
+</html>
