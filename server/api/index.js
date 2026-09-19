@@ -1,7 +1,7 @@
 /**
- * 文档卡（阶段0-工程骨架 → 阶段1 F-07~F-12 → **阶段2 F-23/F-24** 接入 · 2026-09-19）
- * 上游：AGENTS.md（宪法：一条硬红线｜索引三层）｜ docs/03-locks/tech-stack.md（§2.2 服务端 api 模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点；阶段1 · M2 F-07~F-12）｜ docs/03-locks/schema.md（CFG-01 source_registry；EXT-02 evidence / LNK-01 / LNK-02；MD-06 opportunity / PD-05 opportunity_status_log / LNK-03 opportunity_relation；MD-07 research / MD-08 research_finding / EXT-03 external_validation；**CFG-06 context_template / PD-06 context_injection**）｜ docs/07-decisions/ADR-003（六要素必填与未知项二态）｜ docs/07-decisions/ADR-001（背景不做定版快照，以 PD-06 记录为准）｜ ../wrangler.toml（D1 绑定 DB）｜ ../../db/（迁移与种子）｜ ../shared-context/index.js（F-07 业务背景管理 / F-08 来源登记 / F-09 证据管理 / F-10 机会记录 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** 实现）｜ ../tool-executor/index.js（**F-23 工具注册与权限检查** 实现：CFG-02 工具登记 / CFG-03 授权登记 / 调用前权限判定，允许与受限互斥、受限必带原因；**F-24 查询执行与真实返回** 实现：`describeTools` 生成工具描述、`executeQuery` 先判权限再决定是否发请求，返回 EXT-01 字段口径的信封 + 证据四要素，**只返回不落库**（落痕归 F-25））｜ ../tool-executor/mcp-client.js（**DS-06 自建 MCP 客户端传输层**：五项协议面，零 SQL 零写）｜ docs/03-locks/external-deps.md §5（12 工具 TOL-01~12，TOL-12 为「不存在」）+ §6（mock 契约七类行为 + 超时失败 + 执行中）
- * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**）；**F-24 起**接入真实查询接口（`/api/tool-descriptions` 生成工具描述、`/api/query` 先判权限再取真实返回，受限→403 且不调外部接口，返回体保留条件/来源/时点/限制四要素，**只用外部真实返回、不用模型预期替代**，且**不落 EXT-01**——落痕归 F-25）。其余 F-xx 的真实接口随后续阶段接入。
+ * 文档卡（阶段0-工程骨架 → 阶段1 F-07~F-12 → **阶段2 F-23/F-24/F-25** 接入 · 2026-09-19）
+ * 上游：AGENTS.md（宪法：一条硬红线｜索引三层）｜ docs/03-locks/tech-stack.md（§2.2 服务端 api 模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点；阶段1 · M2 F-07~F-12）｜ docs/03-locks/schema.md（CFG-01 source_registry；EXT-02 evidence / LNK-01 / LNK-02；MD-06 opportunity / PD-05 opportunity_status_log / LNK-03 opportunity_relation；MD-07 research / MD-08 research_finding / EXT-03 external_validation；**CFG-06 context_template / PD-06 context_injection**）｜ docs/07-decisions/ADR-003（六要素必填与未知项二态）｜ docs/07-decisions/ADR-001（背景不做定版快照，以 PD-06 记录为准）｜ ../wrangler.toml（D1 绑定 DB）｜ ../../db/（迁移与种子）｜ ../shared-context/index.js（F-07 业务背景管理 / F-08 来源登记 / F-09 证据管理 / F-10 机会记录 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** 实现）｜ ../tool-executor/index.js（**F-23 工具注册与权限检查** 实现：CFG-02 工具登记 / CFG-03 授权登记 / 调用前权限判定，允许与受限互斥、受限必带原因；**F-24 查询执行与真实返回** 实现：`describeTools` 生成工具描述、`executeQuery` 先判权限再决定是否发请求，返回 EXT-01 字段口径的信封 + 证据四要素，**只返回不落库**（落痕归 F-25））｜ **F-25 查询记录保存** 实现：`recordQuery` 执行 + 落 `EXT-01 query_record`（**失败 / 受限 / 执行中一律留痕**）、`saveQueryRecord` 落痕不变量校验（值域取自 `dict:QUERY_STATUS`、失败须带原因、条件不可为空）、`getQueryRecord` / `listQueryRecords` / `readbackQuery` 提供回查）｜ ../tool-executor/mcp-client.js（**DS-06 自建 MCP 客户端传输层**：五项协议面，零 SQL 零写）｜ docs/03-locks/external-deps.md §5（12 工具 TOL-01~12，TOL-12 为「不存在」）+ §6（mock 契约七类行为 + 超时失败 + 执行中）
+ * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**）；**F-24 起**接入真实查询接口（`/api/tool-descriptions` 生成工具描述、`/api/query` 先判权限再取真实返回，受限→403 且不调外部接口，返回体保留条件/来源/时点/限制四要素，**只用外部真实返回、不用模型预期替代**，且**不落 EXT-01**——落痕归 F-25）；**F-25 起**接入查询记录接口（`POST /api/query-records` 执行并落痕（失败/受限/执行中一律落行；无 `source_id` 可写时不冒充已留痕，返回 202 + `persist_skip`）、`GET /api/query-records` 列表组合筛选、`GET /api/query-records/{query_id}` 回查并派生条件/来源/时点）。其余 F-xx 的真实接口随后续阶段接入。
  * 硬红线落实（BRD §5.3 / tech-stack §7.2）：只读写**本平台自有 D1**（「共享上下文＝数据库」），**不调任何面向生产环境会改线上数据的接口**；证据一律只新增行、不覆盖；暂不研究的机会**只改状态、不删除**；**追问不覆盖原研究**（MD-07 表注：追问新增行、`parent_research_no` 指向原研究）；外部验证**只登记业务侧结论与来源引用**，平台不执行验证、不计算效果。
  * 反向清单：被 AGENTS.md 索引 server/ 行 / server/README.md 引用；后续 task-runner｜agent-orchestrator｜tool-executor 复用本入口或按 TS-20 拆分。
  *
@@ -57,6 +57,9 @@ import {
   checkToolPermissions,
   describeTools,
   executeQuery,
+  recordQuery,
+  readbackQuery,
+  listQueryRecords,
 } from "../tool-executor/index.js";
 
 /**
@@ -401,6 +404,36 @@ export default {
         // 受限返回用 403（对应 §6.2），其余按 200 + 信封内的 result_status 表达（含 ok / fail / running）
         if (result.decision === "restricted") return Response.json(result, { status: 403 });
         return Response.json(result);
+      }
+
+      // F-25 查询记录回查：按 query_id 取单条（含派生四要素）；`limits_not_persisted` 提示 Q-10 方向②
+      if (pathname.startsWith("/api/query-records/") && request.method === "GET") {
+        const readback = await readbackQuery(env.DB, decodeURIComponent(pathname.slice("/api/query-records/".length)));
+        if (!readback) return new Response("Not Found", { status: 404 });
+        return Response.json(readback);
+      }
+
+      // F-25 查询记录列表：可按 task_id / source_id / result_status / message_id 组合筛选（失败也留痕，故失败行同样可查）
+      if (pathname === "/api/query-records" && request.method === "GET") {
+        const pick = (k) => url.searchParams.get(k) || undefined;
+        return Response.json({
+          items: await listQueryRecords(env.DB, {
+            task_id: pick("task_id"),
+            source_id: pick("source_id"),
+            result_status: pick("result_status"),
+            message_id: pick("message_id"),
+          }),
+        });
+      }
+
+      // F-25 执行 + 落痕：**每一次执行（含失败 / 受限 / 执行中）都写一行 EXT-01**。
+      // 与 `/api/query` 的区别：`/api/query` 只返回不落痕（F-24）；本路由落痕（F-25）。
+      // 留痕不了时（工具/来源未登记，无 source_id 可写）返回 202 + `persist_skip`，**不冒充已留痕**。
+      if (pathname === "/api/query-records" && request.method === "POST") {
+        const out = await recordQuery(env.DB, await request.json());
+        if (!out.persisted) return Response.json(out, { status: 202 });
+        if (out.envelope && out.envelope.decision === "restricted") return Response.json(out, { status: 403 });
+        return Response.json(out, { status: 201 });
       }
 
       return new Response("Not Found", { status: 404 });

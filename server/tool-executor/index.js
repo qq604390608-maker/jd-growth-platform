@@ -2,11 +2,9 @@
  * 文档卡（阶段2 · M5 工具执行程序 · F-23 工具注册与权限检查 / **F-24 查询执行与真实返回（DS-06 编排层）** · 2026-09-19）
  * 上游：`../../AGENTS.md`（宪法：一条硬红线｜编号体系｜双向引用｜术语口径「查询证据必须带来源、条件、时点、适用范围」）
  *   ｜ `../../docs/02-prd/PRD-M5-工具执行程序.md`（F-23 验收要点：权限分支互斥——允许/不允许，不允许时保存原因并返回受限原因）
- *   ｜ `../../docs/03-locks/schema.md` CFG-02 `tool_registry`（L533-545：`tool_id` PK、`tool_code` UK、`source_id` FK→CFG-01、
- *        `is_enabled` 0/1）、CFG-03 `tool_permission`（L547-561：`tool_id` FK→CFG-02、`grantee_type` 走 `dict:GRANTEE_TYPE`、
- *        `allow_flag` 与不允许互斥、`restrict_reason` 不允许时填、`effective_from`/`effective_until`）、
- *        CFG-01 `source_registry`（L516-531：`is_mcp_ready`、`availability_status` 走 `dict:SOURCE_STATUS`）、
- *        CFG-04 `run_policy`（L563-577）、CFG-05 `gap_rule`（L579-591）、§11 字典枚举
+ *   ｜ `../../docs/03-locks/schema.md` EXT-01 `query_record`（L700-714：`query_id` PK 形如 `Q-90217`、
+ *        `task_id` FK→PD-01、`source_id` FK→CFG-01、`query_condition` 须完整到可复现、`result_status` 走
+ *        `dict:QUERY_STATUS`、`result_summary` **失败时为空**、`restricted_flag` 0/1、`message_id` FK→PD-07）枚举
  *   ｜ `../../docs/03-locks/external-deps.md` §5（12 工具 TOL-01~12 文档视图，与 CFG-02 同源；
  *        **TOL-12 是「不存在」而非「待接入」**；TOL-03/TOL-10 是「存在但能力不足」；TOL-11 降级）
  *   ｜ `../../docs/03-locks/tech-stack.md`（DS-06 自建 MCP 客户端；**§2.6 五项协议面落在 `./mcp-client.js`**）
@@ -17,14 +15,17 @@
  *   以及**每次调用前的权限判定**（判定链互斥、受限必带原因、不静默放行）。
  *   **F-24** —— `executeQuery` 编排层：**先判权限再决定要不要发外部请求**，允许才走传输层拿到真实返回，
  *   并把返回体（连同四要素）以 EXT-01 字段口径的信封返回；**只返回不落库**。
- * 边界：F-24 不含 `EXT-01 query_record` 落痕（＝F-25）、不含失败重试与暂停（＝F-26，与 M1 F-06 共用状态机）；
+ *   **F-25** —— `EXT-01 query_record` 落痕：把每次**执行**的条件/来源/时点/结果或失败原因写成一行，
+ *   **失败也留痕**、记录可回查；`result_status` 值域不内联，从 `dict:QUERY_STATUS` 读。
+ * 边界：F-25 不含失败重试与暂停（＝F-26，与 M1 F-06 共用状态机）；EXT-01 无承载「限制」的字段，
+ *   四要素之「限制」仍在信封里（schema §12 **Q-10 方向②**）；`EXT-02 evidence` 提炼归 F-09；
  *   传输、超时、错误码映射五项协议面在 `./mcp-client.js`，**那一个文件零 SQL、零写**。
  * 门禁状态：`external-deps.md` §7 的 T-01/T-02/T-05 未关闭——`tool_code` 为 demo 占位（`*` 后缀），
  *   **demo 值不进断言**；TS-10/TS-22 未决，本模块不锁死模型选型与 MCP 协议版本。
  *
- * 反向清单：被 `../api/index.js`（F-23 路由 / **F-24 路由**）与后续 `../agent-orchestrator`
- *   （调用前先查权限；M3/M4 发起真实查询）引用；`./mcp-client.js`（F-24 传输层）被本文件引用；
- *   登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`、**`./test-f24.mjs`**。
+ * 反向清单：被 `../api/index.js`（F-23 路由 / F-24 路由 / **F-25 路由**）与后续 `../agent-orchestrator`
+ *   （调用前先查权限；M3/M4 发起真实查询并落痕）引用；`./mcp-client.js`（F-24 传输层）被本文件引用；
+ *   登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`、`./test-f24.mjs`、**`./test-f25.mjs`**。
  */
 
 import {
@@ -319,3 +320,174 @@ export async function executeQuery(db, {
 }
 
 export { MCP_FACES, DEFAULT_TIMEOUT_MS, TransportTimeout, describeTool, createHttpTransport, serializeCondition };
+
+// ================================================================== F-25 查询记录保存（EXT-01 落痕）
+
+/**
+ * 本次**留痕不了**的显式标记，用于「不静默丢留痕」：跑到 EXT-01 门前缺必填项时抛出并可被 `recordQuery` 捕获。
+ * 与「拉不到数据」无关——只表示**这条执行在库里无处落**（见 schema §12 Q-11）。
+ */
+export class PersistSkip extends Error {
+  constructor(message, { reason_code = null } = {}) {
+    super(message);
+    this.name = "PersistSkip";
+    this.reason_code = reason_code;
+  }
+}
+
+/** `result_status` 的值域取自 `dict:QUERY_STATUS`，不在本文件内联复制（schema 是真源）。 */
+export async function queryStatusDict(db) {
+  const rows = await db
+    .prepare("SELECT item_code FROM dict_item WHERE dict_type_code = 'QUERY_STATUS' ORDER BY order_no")
+    .all();
+  return (rows.results || []).map((r) => r.item_code);
+}
+
+/** 下一个 `query_id`：沿用 `Q-` + 5 位数字形（PK 形如 `Q-90217`），取库内已用最大值 +1，确定性可复现。 */
+export async function nextQueryId(db) {
+  const rows = (await db.prepare("SELECT query_id FROM query_record").all()).results || [];
+  let max = 0;
+  for (const r of rows) {
+    const m = /^Q-(\d+)$/.exec(String(r.query_id || "").trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `Q-${String(max + 1).padStart(5, "0")}`;
+}
+
+/** 落痕前的不变量校验（缺一项就抛，绝不留「回查不出有用信息」的行）。 */
+function assertRecordable(envelope, statuses) {
+  if (!statuses.includes(envelope.result_status)) {
+    throw new Error(
+      `result_status '${String(envelope.result_status)}' 不在 dict:QUERY_STATUS 值域内（${statuses.join(" / ")}）`,
+    );
+  }
+  if (!String(envelope.query_condition ?? "").trim()) {
+    throw new Error("query_condition 为空：记录无法复现，不允许落 EXT-01");
+  }
+  if (envelope.result_status === "fail" && !String(envelope.fail_reason ?? "").trim()) {
+    // PRD-M5 约束 3「失败也留痕」＋ EXT-01 `fail_reason` 口径：失败不带原因＝留了等于没留
+    throw new Error("失败必须带具体原因（fail_reason 为空的失败不允许落 EXT-01）");
+  }
+  const rows = envelope.returned_rows;
+  if (rows !== null && rows !== undefined && (!Number.isInteger(rows) || rows < 0)) {
+    throw new Error(`returned_rows 须为 ≥0 的整数或空（实测 ${String(rows)}）`);
+  }
+}
+
+/**
+ * F-25 核心：把 F-24 的结果信封**落成一行 `EXT-01`**（成功 / 失败 / 执行中 / 受限**都落**）。
+ * 入参：`envelope`（`executeQuery` 的返回值）+ `opts.{ task_id, source_id, message_id, query_id, created_at }`。
+ * `source_id` 优先取信封（工具已登记时必有）；信封没有时用 `opts.source_id` 兜底（本次冲着哪个来源去的）；
+ * **两者都没有 → 抛 `PersistSkip`**（工具/来源根本未登记，`EXT-01.source_id` 为 NOT NULL FK，无处落）。
+ * FK（`task_id` / `source_id` / `message_id`）一律交给库级拒绝，不在应用层复制口径。
+ */
+export async function saveQueryRecord(db, envelope, opts = {}) {
+  if (!envelope || typeof envelope !== "object") throw new Error("saveQueryRecord：缺少 F-24 结果信封");
+
+  const statuses = await queryStatusDict(db);
+  assertRecordable(envelope, statuses);
+
+  const task_id = opts.task_id ?? envelope.task_id ?? null;
+  if (!task_id) throw new Error("saveQueryRecord：task_id 必填（EXT-01 每条查询须归属真实任务）");
+
+  const source_id = envelope.source_id ?? opts.source_id ?? null;
+  if (!source_id) {
+    throw new PersistSkip(
+      `工具/来源未登记（reason_code=${String(envelope.reason_code ?? "unknown")}）：` +
+        "EXT-01.source_id 为 NOT NULL 外键，本次执行无处落痕（schema §12 Q-11）",
+      { reason_code: envelope.reason_code || "no_source" },
+    );
+  }
+
+  const query_id = opts.query_id || (await nextQueryId(db));
+  const r = await db
+    .prepare(
+      `INSERT INTO query_record
+       (query_id, task_id, source_id, query_condition, queried_at, result_status, result_summary,
+        returned_rows, fail_reason, retry_count, restricted_flag, message_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      query_id,
+      task_id,
+      source_id,
+      envelope.query_condition,
+      envelope.queried_at,
+      envelope.result_status,
+      envelope.result_summary ?? null,
+      envelope.returned_rows ?? null,
+      envelope.fail_reason ?? null,
+      Number.isInteger(envelope.retry_count) ? envelope.retry_count : 0,
+      envelope.restricted_flag ? 1 : 0,
+      opts.message_id ?? null,
+      opts.created_at || nowStamp(),
+    )
+    .run();
+  if (r && r.success === false) throw new Error(r.error || "query_record 插入失败");
+  return getQueryRecord(db, query_id);
+}
+
+/** 回查单条（`TC-I-M5-003` 的可回查面）。 */
+export async function getQueryRecord(db, query_id) {
+  return db.prepare("SELECT * FROM query_record WHERE query_id = ?").bind(query_id).first();
+}
+
+/** 列表回查：按 `task_id` / `source_id` / `result_status` / `message_id` 过滤，排序稳定（`query_id` DESC）。 */
+export async function listQueryRecords(db, { task_id, source_id, result_status, message_id } = {}) {
+  const where = [];
+  const args = [];
+  if (task_id !== undefined) { where.push("task_id = ?"); args.push(task_id); }
+  if (source_id !== undefined) { where.push("source_id = ?"); args.push(source_id); }
+  if (result_status !== undefined) { where.push("result_status = ?"); args.push(result_status); }
+  if (message_id !== undefined) { where.push("message_id = ?"); args.push(message_id); }
+  const sql = `SELECT * FROM query_record ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY query_id DESC`;
+  return (await db.prepare(sql).bind(...args).all()).results;
+}
+
+/**
+ * 回查并派生证据四要素的前三样（条件 / 来源 / 时点）。
+ * **「限制」不在库里**（`EXT-01` 无承载字段，schema §12 Q-10 方向②），故此处显式给出 `limits_not_persisted`。
+ */
+export async function readbackQuery(db, query_id) {
+  const record = await getQueryRecord(db, query_id);
+  if (!record) return null;
+  return {
+    record,
+    four_elements: {
+      condition: record.query_condition,
+      source: record.source_id,
+      time_point: record.queried_at,
+    },
+    limits_not_persisted: true,
+    persist_note: "EXT-01 无「限制」承载字段（schema §12 Q-10 方向②），限制仍存在于 F-24 返回信封",
+  };
+}
+
+/**
+ * F-25 一步编排：**执行 + 落痕**。`params` 透传给 `executeQuery`，额外接受落痕所需的归属信息。
+ * 返回 `{ envelope, persisted, query_id, record, persist_skip }`：
+ * - `persisted=true` —— 已落一行 EXT-01（**无论成功还是失败**，含受限与执行中）；
+ * - `persisted=false` —— 显式带 `persist_skip.reason_code` 说明**为什么没落**（不静默丢失留痕）。
+ */
+export async function recordQuery(db, params = {}) {
+  const { task_id = null, source_id = null, message_id = null, query_id = null, created_at = null, ...rest } = params;
+  // task_id 同时交给执行层：信封里也要带归属任务，否则回查时「哪次查询属于哪个任务」会断链
+  const envelope = await executeQuery(db, { ...rest, task_id });
+
+  const skip = (reason_code, message) => ({
+    envelope,
+    persisted: false,
+    query_id: null,
+    record: null,
+    persist_skip: { reason_code, message },
+  });
+
+  if (!task_id) return skip("missing_task", "recordQuery：task_id 必填（EXT-01 每条查询须归属真实任务）");
+  try {
+    const record = await saveQueryRecord(db, envelope, { task_id, source_id, message_id, query_id, created_at });
+    return { envelope, persisted: true, query_id: record.query_id, record, persist_skip: null };
+  } catch (e) {
+    if (e instanceof PersistSkip) return skip(e.reason_code || "no_source", e.message);
+    throw e; // 其余错误（FK 拒绝 / 值域不合）如实上抛，不吞成「没落痕」
+  }
+}
