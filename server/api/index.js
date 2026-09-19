@@ -1,7 +1,7 @@
 /**
- * 文档卡（阶段0-工程骨架 → 阶段1 F-07/F-08/F-09/F-10/F-11/F-12 → **阶段2 F-23** 接入 · 2026-09-19）
- * 上游：AGENTS.md（宪法：一条硬红线｜索引三层）｜ docs/03-locks/tech-stack.md（§2.2 服务端 api 模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点；阶段1 · M2 F-07~F-12）｜ docs/03-locks/schema.md（CFG-01 source_registry；EXT-02 evidence / LNK-01 / LNK-02；MD-06 opportunity / PD-05 opportunity_status_log / LNK-03 opportunity_relation；MD-07 research / MD-08 research_finding / EXT-03 external_validation；**CFG-06 context_template / PD-06 context_injection**）｜ docs/07-decisions/ADR-003（六要素必填与未知项二态）｜ docs/07-decisions/ADR-001（背景不做定版快照，以 PD-06 记录为准）｜ ../wrangler.toml（D1 绑定 DB）｜ ../../db/（迁移与种子）｜ ../shared-context/index.js（F-07 业务背景管理 / F-08 来源登记 / F-09 证据管理 / F-10 机会记录 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** 实现）｜ ../tool-executor/index.js（**F-23 工具注册与权限检查** 实现：CFG-02 工具登记 / CFG-03 授权登记 / 调用前权限判定，允许与受限互斥、受限必带原因）｜ docs/03-locks/external-deps.md §5（12 工具 TOL-01~12，TOL-12 为「不存在」）
- * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**，真实取数归 F-24）。其余 F-xx 的真实接口随后续阶段接入。
+ * 文档卡（阶段0-工程骨架 → 阶段1 F-07~F-12 → **阶段2 F-23/F-24** 接入 · 2026-09-19）
+ * 上游：AGENTS.md（宪法：一条硬红线｜索引三层）｜ docs/03-locks/tech-stack.md（§2.2 服务端 api 模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点；阶段1 · M2 F-07~F-12）｜ docs/03-locks/schema.md（CFG-01 source_registry；EXT-02 evidence / LNK-01 / LNK-02；MD-06 opportunity / PD-05 opportunity_status_log / LNK-03 opportunity_relation；MD-07 research / MD-08 research_finding / EXT-03 external_validation；**CFG-06 context_template / PD-06 context_injection**）｜ docs/07-decisions/ADR-003（六要素必填与未知项二态）｜ docs/07-decisions/ADR-001（背景不做定版快照，以 PD-06 记录为准）｜ ../wrangler.toml（D1 绑定 DB）｜ ../../db/（迁移与种子）｜ ../shared-context/index.js（F-07 业务背景管理 / F-08 来源登记 / F-09 证据管理 / F-10 机会记录 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** 实现）｜ ../tool-executor/index.js（**F-23 工具注册与权限检查** 实现：CFG-02 工具登记 / CFG-03 授权登记 / 调用前权限判定，允许与受限互斥、受限必带原因；**F-24 查询执行与真实返回** 实现：`describeTools` 生成工具描述、`executeQuery` 先判权限再决定是否发请求，返回 EXT-01 字段口径的信封 + 证据四要素，**只返回不落库**（落痕归 F-25））｜ ../tool-executor/mcp-client.js（**DS-06 自建 MCP 客户端传输层**：五项协议面，零 SQL 零写）｜ docs/03-locks/external-deps.md §5（12 工具 TOL-01~12，TOL-12 为「不存在」）+ §6（mock 契约七类行为 + 超时失败 + 执行中）
+ * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**）；**F-24 起**接入真实查询接口（`/api/tool-descriptions` 生成工具描述、`/api/query` 先判权限再取真实返回，受限→403 且不调外部接口，返回体保留条件/来源/时点/限制四要素，**只用外部真实返回、不用模型预期替代**，且**不落 EXT-01**——落痕归 F-25）。其余 F-xx 的真实接口随后续阶段接入。
  * 硬红线落实（BRD §5.3 / tech-stack §7.2）：只读写**本平台自有 D1**（「共享上下文＝数据库」），**不调任何面向生产环境会改线上数据的接口**；证据一律只新增行、不覆盖；暂不研究的机会**只改状态、不删除**；**追问不覆盖原研究**（MD-07 表注：追问新增行、`parent_research_no` 指向原研究）；外部验证**只登记业务侧结论与来源引用**，平台不执行验证、不计算效果。
  * 反向清单：被 AGENTS.md 索引 server/ 行 / server/README.md 引用；后续 task-runner｜agent-orchestrator｜tool-executor 复用本入口或按 TS-20 拆分。
  *
@@ -55,6 +55,8 @@ import {
   listPermissions,
   checkToolPermission,
   checkToolPermissions,
+  describeTools,
+  executeQuery,
 } from "../tool-executor/index.js";
 
 /**
@@ -369,6 +371,36 @@ export default {
       // 批量判定：逐条独立，单条受限不影响其它条（实体级隔离，非整包失败）
       if (pathname === "/api/tool-permission/check-batch" && request.method === "POST") {
         return Response.json(await checkToolPermissions(env.DB, await request.json()));
+      }
+
+      // F-24 工具描述（DS-06 协议面 1）：按 CFG-02 生成描述结构（demo 契约，见 mcp-client.js 文档卡）
+      if (pathname === "/api/tool-descriptions" && request.method === "GET") {
+        const source_id = url.searchParams.get("source_id") || undefined;
+        const is_enabled = url.searchParams.get("is_enabled");
+        const grantee_type = url.searchParams.get("grantee_type") || undefined;
+        const grantee_ref = url.searchParams.get("grantee_ref") || undefined;
+        return Response.json({
+          items: await describeTools(env.DB, {
+            source_id,
+            is_enabled: is_enabled === null ? undefined : Number(is_enabled),
+            grantee_type,
+            grantee_ref,
+          }),
+        });
+      }
+
+      // F-24 真实查询：**先判权限再决定要不要发请求**；允许才取真实返回，受限则不调外部接口。
+      // 只返回不落 EXT-01（落痕归 F-25）；返回体保留四要素（条件/来源/时点/限制）。
+      if (pathname === "/api/query" && request.method === "POST") {
+        const body = await request.json();
+        const result = await executeQuery(env.DB, {
+          ...body,
+          // 研发期默认打本机 mock server（external-deps §6）；真实契约到手后由调用方注入 endpoint / transport
+          transport: undefined,
+        });
+        // 受限返回用 403（对应 §6.2），其余按 200 + 信封内的 result_status 表达（含 ok / fail / running）
+        if (result.decision === "restricted") return Response.json(result, { status: 403 });
+        return Response.json(result);
       }
 
       return new Response("Not Found", { status: 404 });

@@ -1,5 +1,5 @@
 /**
- * 文档卡（阶段2 · M5 工具执行程序 · F-23 工具注册与权限检查 · 2026-09-19）
+ * 文档卡（阶段2 · M5 工具执行程序 · F-23 工具注册与权限检查 / **F-24 查询执行与真实返回（DS-06 编排层）** · 2026-09-19）
  * 上游：`../../AGENTS.md`（宪法：一条硬红线｜编号体系｜双向引用｜术语口径「查询证据必须带来源、条件、时点、适用范围」）
  *   ｜ `../../docs/02-prd/PRD-M5-工具执行程序.md`（F-23 验收要点：权限分支互斥——允许/不允许，不允许时保存原因并返回受限原因）
  *   ｜ `../../docs/03-locks/schema.md` CFG-02 `tool_registry`（L533-545：`tool_id` PK、`tool_code` UK、`source_id` FK→CFG-01、
@@ -9,18 +9,33 @@
  *        CFG-04 `run_policy`（L563-577）、CFG-05 `gap_rule`（L579-591）、§11 字典枚举
  *   ｜ `../../docs/03-locks/external-deps.md` §5（12 工具 TOL-01~12 文档视图，与 CFG-02 同源；
  *        **TOL-12 是「不存在」而非「待接入」**；TOL-03/TOL-10 是「存在但能力不足」；TOL-11 降级）
- *   ｜ `../../docs/03-locks/tech-stack.md`（DS-06 自建 MCP 客户端；§2.6 协议面归 F-24）
+ *   ｜ `../../docs/03-locks/tech-stack.md`（DS-06 自建 MCP 客户端；**§2.6 五项协议面落在 `./mcp-client.js`**）
+ *   ｜ `../../docs/03-locks/external-deps.md` §6（mock 契约：请求含 `tool_code` + `query_condition`；响应须能映射到
+ *        EXT-01 的 result_status/result_summary/returned_rows/fail_reason/retry_count/restricted_flag；七类行为 + 超时/执行中）
  *   ｜ `../../db/migrations/0001_init.sql` L49-92（CFG-02/03/04/05 DDL）
- * 职责：F-23 —— CFG-02 工具注册（只读查询 + 登记接口）、CFG-03 按「任务/Agent × 工具」的授权登记，
+ * 职责：**F-23** —— CFG-02 工具注册（只读查询 + 登记接口）、CFG-03 按「任务/Agent × 工具」的授权登记，
  *   以及**每次调用前的权限判定**（判定链互斥、受限必带原因、不静默放行）。
- * 边界（严格只做 F-23）：不含 MCP 客户端与真实查询（F-24）、不含 `EXT-01 query_record` 落痕（F-25）、
- *   不含失败重试与暂停（F-26，与 M1 F-06 共用状态机）；本模块**不发起任何外部调用**。
+ *   **F-24** —— `executeQuery` 编排层：**先判权限再决定要不要发外部请求**，允许才走传输层拿到真实返回，
+ *   并把返回体（连同四要素）以 EXT-01 字段口径的信封返回；**只返回不落库**。
+ * 边界：F-24 不含 `EXT-01 query_record` 落痕（＝F-25）、不含失败重试与暂停（＝F-26，与 M1 F-06 共用状态机）；
+ *   传输、超时、错误码映射五项协议面在 `./mcp-client.js`，**那一个文件零 SQL、零写**。
  * 门禁状态：`external-deps.md` §7 的 T-01/T-02/T-05 未关闭——`tool_code` 为 demo 占位（`*` 后缀），
  *   **demo 值不进断言**；TS-10/TS-22 未决，本模块不锁死模型选型与 MCP 协议版本。
  *
- * 反向清单：被 `../api/index.js`（F-23 路由）与后续 `../agent-orchestrator`（调用前先查权限）引用；
- *   登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`。
+ * 反向清单：被 `../api/index.js`（F-23 路由 / **F-24 路由**）与后续 `../agent-orchestrator`
+ *   （调用前先查权限；M3/M4 发起真实查询）引用；`./mcp-client.js`（F-24 传输层）被本文件引用；
+ *   登记 `../README.md` 与本目录 `README.md`；测试 `./test-f23.mjs`、**`./test-f24.mjs`**。
  */
+
+import {
+  MCP_FACES,
+  DEFAULT_TIMEOUT_MS,
+  TransportTimeout,
+  describeTool,
+  createHttpTransport,
+  serializeCondition,
+  mapResponseToResult,
+} from "./mcp-client.js";
 
 /** 判定链（互斥，依次短路）：每条拒绝都必带原因，允许也可能带「限制」提示。 */
 export const REASON = {
@@ -213,3 +228,94 @@ export async function checkToolPermissions(db, { tools = [], grantee_type, grant
   }
   return out;
 }
+
+// ================================================================== F-24 查询执行与真实返回
+
+/**
+ * 协议面 1 对外的工具描述：按 CFG-02 逐条生成（demo 结构，见 `mcp-client.js` 文档卡）。
+ * `source_id` / `is_enabled` 可筛，便于 M3/M4 只看到自己能用的工具。
+ */
+export async function describeTools(db, { source_id, is_enabled, grantee_type, grantee_ref } = {}) {
+  const tools = await listTools(db, { source_id, is_enabled });
+  const out = [];
+  for (const tool of tools) {
+    const source = await db
+      .prepare("SELECT * FROM source_registry WHERE source_id = ?")
+      .bind(tool.source_id)
+      .first();
+    const entry = { description: describeTool(tool, source), tool, source };
+    if (grantee_type && grantee_ref) {
+      entry.permission = await checkToolPermission(db, { tool_id: tool.tool_id, grantee_type, grantee_ref });
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * F-24 编排：`tool_id` 或 `tool_code` 二选一（与 F-23 判定同入参形态），加授权对象与查询条件。
+ * 顺序：**先判权限 → 允许才发请求**（`TC-I-M5-001` 权限分支互斥，不允许则根本不调外部接口）。
+ *
+ * 返回信封字段与 `EXT-01 query_record` 同名同义（`result_status` / `result_summary` / `returned_rows` /
+ * `fail_reason` / `retry_count` / `restricted_flag`），但 **`persisted: false`——落痕是 F-25 的事**，
+ * 本函数不写库；`four_elements` 承载证据四要素（条件 / 来源 / 时点 / 限制）。
+ *
+ * `transport` 可注入（测试用）；不注入时用 `createHttpTransport`（HTTP POST，只读，默认打本机 mock server）。
+ */
+export async function executeQuery(db, {
+  tool_id,
+  tool_code,
+  grantee_type,
+  grantee_ref,
+  query_condition,
+  task_id = null,
+  at,
+  transport,
+  timeout_ms = DEFAULT_TIMEOUT_MS,
+  force_behavior,
+} = {}) {
+  const queried_at = at || nowStamp();
+  const perm = await checkToolPermission(db, { tool_id, tool_code, grantee_type, grantee_ref, at: queried_at });
+  const condition = serializeCondition(query_condition);
+  const ctx = {
+    task_id,
+    tool: perm.tool,
+    source: perm.source,
+    query_condition: condition,
+    queried_at,
+    permission_limits: perm.limits || [],
+  };
+
+  // 协议面 5：权限拒绝形态——不允许时**不发起外部调用**，原样返回受限原因（不静默放行）
+  if (!perm.allowed) {
+    return {
+      ...mapResponseToResult(
+        { result_status: "restricted", reason_text: perm.restrict_reason, tool_code: perm.tool?.tool_code ?? tool_code ?? null },
+        ctx,
+      ),
+      decision: perm.decision,
+      reason_code: perm.reason_code,
+      transport_called: false,
+    };
+  }
+
+  const call = transport || createHttpTransport({ timeout_ms });
+  let payload;
+  try {
+    payload = await call({
+      tool_code: perm.tool.tool_code,
+      query_condition: condition,
+      ...(force_behavior ? { force_behavior } : {}),
+    });
+  } catch (e) {
+    // 传输层异常也映射成「失败 + 具体原因」，失败也留痕的字段面由 F-25 落库时承接
+    const errPayload = {
+      result_status: "fail",
+      fail_reason: e instanceof TransportTimeout ? e.message : `调用失败：${String((e && e.message) || e)}`,
+    };
+    return { ...mapResponseToResult(errPayload, ctx), decision: "allowed", reason_code: null, transport_called: true };
+  }
+  return { ...mapResponseToResult(payload, ctx), decision: "allowed", reason_code: null, transport_called: true };
+}
+
+export { MCP_FACES, DEFAULT_TIMEOUT_MS, TransportTimeout, describeTool, createHttpTransport, serializeCondition };
