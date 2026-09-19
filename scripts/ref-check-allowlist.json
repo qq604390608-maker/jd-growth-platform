@@ -1,0 +1,17 @@
+[
+  {
+    "kind": "dangling",
+    "file": "docs/03-locks/schema.md",
+    "target": "../07-decisions/ADR-001.md",
+    "reason": "反向清单引用 ADR 时缺文件名后缀，实际为 ADR-001-业务背景不与目标版本联动.md（ADR-002 / ADR-003 同口径）",
+    "registered_at": "2026-09-19",
+    "todo": "待用户点头后补后缀；补完删本条"
+  },
+  {
+    "kind": "dangling",
+    "target": "scripts/validate_output.py",
+    "reason": "05-test-cases/00-索引.md §4 与 test-M3/test-M4 §L23 均声明「scripts/validate_output.py 与 cases/ 不存在」，属已知未建产物",
+    "registered_at": "2026-09-19",
+    "todo": "阶段2 建成该脚本（或用例改口径）后删本条"
+  }
+]
