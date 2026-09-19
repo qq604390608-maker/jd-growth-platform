@@ -1,7 +1,7 @@
 /**
  * 文档卡（阶段0-工程骨架 → 阶段1 F-07~F-12 → 阶段2 F-23~F-26 → **阶段3 · M1 F-01~F-03** 接入 · 2026-09-19）
  * 上游：AGENTS.md（宪法：一条硬红线｜索引三层）｜ docs/03-locks/tech-stack.md（§2.2 服务端 api 模块 / §6 工程结构 / §7.3 部署形态 TS-20 待确认）｜ docs/04-plan/dev-plan.md（阶段0 验收要点；阶段1 · M2 F-07~F-12）｜ docs/03-locks/schema.md（CFG-01 source_registry；EXT-02 evidence / LNK-01 / LNK-02；MD-06 opportunity / PD-05 opportunity_status_log / LNK-03 opportunity_relation；MD-07 research / MD-08 research_finding / EXT-03 external_validation；**CFG-06 context_template / PD-06 context_injection**）｜ docs/07-decisions/ADR-003（六要素必填与未知项二态）｜ docs/07-decisions/ADR-001（背景不做定版快照，以 PD-06 记录为准）｜ ../wrangler.toml（D1 绑定 DB）｜ ../../db/（迁移与种子）｜ ../shared-context/index.js（F-07 业务背景管理 / F-08 来源登记 / F-09 证据管理 / F-10 机会记录 / F-11 研究结果与历史管理 / **F-12 上下文按任务组织注入** 实现）｜ ../tool-executor/index.js（**F-23 工具注册与权限检查** 实现：CFG-02 工具登记 / CFG-03 授权登记 / 调用前权限判定，允许与受限互斥、受限必带原因；**F-24 查询执行与真实返回** 实现：`describeTools` 生成工具描述、`executeQuery` 先判权限再决定是否发请求，返回 EXT-01 字段口径的信封 + 证据四要素，**只返回不落库**（落痕归 F-25））｜ **F-25 查询记录保存** 实现：`recordQuery` 执行 + 落 `EXT-01 query_record`（**失败 / 受限 / 执行中一律留痕**）、`saveQueryRecord` 落痕不变量校验（值域取自 `dict:QUERY_STATUS`、失败须带原因、条件不可为空）、`getQueryRecord` / `listQueryRecords` / `readbackQuery` 提供回查）｜ ../tool-executor/task-state.js（**F-26 任务态写入面**：PD-01 任务态跃迁（含「停止状态不自动重启」守卫）、PD-03 受阻留痕与只读回查；**单独成文件以便写入面可静态验证**——改行语句只落在 `task` 且必带主键条件，`index.js` 因而不含改行 / 删行类 SQL）｜ **F-26 失败重试与受限返回** 实现：`getRunPolicy` / `retryLimitOf` 读 `CFG-04 retry_limit`（封顶 100，越界截断并标注）、`executeQueryWithRetry` 按**代码逻辑**重试（**受限不重试**、**成功不算失败**）、`runQueryWithRecovery` 编排「重试 → 落痕 → 任务态处置」、`handleQueryFailure` 写 `PD-03` + 置 `PD-01.task_status` 并保留 `done_part`）｜ ../tool-executor/mcp-client.js（**DS-06 自建 MCP 客户端传输层**：五项协议面，零 SQL 零写）｜ ../task-runner/goal.js（**F-01 研究目标登记与口径管理**：MD-01/02/03 目标身份与六要素定版式版本化、CFG-05 规则驱动口径检查→PD-04、待补项补充并入并 bump 新版本）｜ ../task-runner/schedule.js（**F-02 机会发现任务调度**：CFG-04 运行策略登记与选取、运行频率四式→Cron Triggers、发现任务五步派发（消息只含 task_id+step_no）、Agent 调用守卫）｜ ../task-runner/proposal.js（**F-03 研究建议管理（人工节点）**：MD-12 建议登记与幂等（同键不新建、不重复启动相同任务）、建议与机会版本绑定（版本号从机会现读）、机会状态迁移留 PD-05；机会改行经 F-10 单一写入面）｜ docs/03-locks/external-deps.md §5（12 工具 TOL-01~12，TOL-12 为「不存在」）+ §6（mock 契约七类行为 + 超时失败 + 执行中）
- * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**）；**F-24 起**接入真实查询接口（`/api/tool-descriptions` 生成工具描述、`/api/query` 先判权限再取真实返回，受限→403 且不调外部接口，返回体保留条件/来源/时点/限制四要素，**只用外部真实返回、不用模型预期替代**，且**不落 EXT-01**——落痕归 F-25）；**F-25 起**接入查询记录接口（`POST /api/query-records` 执行并落痕（失败/受限/执行中一律落行；无 `source_id` 可写时不冒充已留痕，返回 202 + `persist_skip`）、`GET /api/query-records` 列表组合筛选、`GET /api/query-records/{query_id}` 回查并派生条件/来源/时点）；**F-26 起**接入失败重试与受限返回接口（`POST /api/query-recovery` 按 `CFG-04 retry_limit` 重试（封顶 100）、受限不重试，落 EXT-01 后对失败/受限处置任务态（PD-03 受阻 + PD-01 态，保留已完成部分），`GET /api/run-policy` 看生效策略与上限，`GET /api/task-blocks` 回查受阻记录，`GET /api/tasks/{task_id}` 看任务态）；**阶段3 · M1 起**接入平台任务程序接口——**F-01**（`/api/goals` 登记与列表、`/api/goals/{id}` 读模型、`/versions` 落新版本、`/apply` 应用配置（先清零再置一）、`/check` 跑口径检查任务、`/api/goal-gaps` 待补项列表与 `/fill` 补充）、**F-02**（`/api/run-policies` 策略登记与列表（写入侧从严：retry_limit>100 / max_duration_min>15 / 频率不可解析一律 400）、`/api/effective-run-policy` 生效策略（目标级优先回落平台级）、`/api/discovery-tasks` 到点创建发现任务、`/api/task-dispatch` 派发面回查、`/api/agent-delegations` Agent 调用占位）、**F-03**（`POST /api/research-proposals` 提交建议——同幂等键返回 200 且 `created=false`、新建返回 201；`GET /api/research-proposals` 按机会 / 目标 / 是否已触发过滤；`GET /api/research-proposals/{id}` 读模型；`POST /api/research-proposals/{id}/trigger` 登记触发任务（同任务幂等、异任务拒绝）；`POST /api/research-proposal-checks` 研究问题即时提示（**不阻断**））。其余 F-xx 的真实接口随后续阶段接入。
+ * 职责：Worker HTTP 入口（api 模块）。骨架职责＝健康检查 + 只读 D1 探测；**F-07 起**接入 `server/shared-context` 的业务背景库接口（背景条目 MD-04 / 触点清单 MD-05 / 背景简报）；**F-08 起**接入来源登记接口（CFG-01 来源清单/登记/接入能力确认/缺口地图/来源与工具说明）；**F-09 起**接入证据接口（EXT-02 证据登记/回查链路 + LNK-01/LNK-02 证据关联）；**F-10 起**接入机会记录接口（MD-06 机会登记/读模型 + PD-05 状态变更留痕 + LNK-03 机会关系）；**F-11 起**接入研究结果与历史接口（MD-07 研究登记/列表/读模型 + MD-08 发现只读 + EXT-03 外部验证引用登记 + `parent_research_no` 追问链追溯）；**F-12 起**接入上下文注入接口（CFG-06 注入模板登记/列表 + PD-06 按任务装配/初始化/回读，初始化确定性可复现且幂等）；**F-23 起**接入工具注册与权限检查接口（CFG-02 工具登记/列表、CFG-03 授权登记/列表、调用前权限判定与批量判定；判定**不发起任何外部调用**）；**F-24 起**接入真实查询接口（`/api/tool-descriptions` 生成工具描述、`/api/query` 先判权限再取真实返回，受限→403 且不调外部接口，返回体保留条件/来源/时点/限制四要素，**只用外部真实返回、不用模型预期替代**，且**不落 EXT-01**——落痕归 F-25）；**F-25 起**接入查询记录接口（`POST /api/query-records` 执行并落痕（失败/受限/执行中一律落行；无 `source_id` 可写时不冒充已留痕，返回 202 + `persist_skip`）、`GET /api/query-records` 列表组合筛选、`GET /api/query-records/{query_id}` 回查并派生条件/来源/时点）；**F-26 起**接入失败重试与受限返回接口（`POST /api/query-recovery` 按 `CFG-04 retry_limit` 重试（封顶 100）、受限不重试，落 EXT-01 后对失败/受限处置任务态（PD-03 受阻 + PD-01 态，保留已完成部分），`GET /api/run-policy` 看生效策略与上限，`GET /api/task-blocks` 回查受阻记录，`GET /api/tasks/{task_id}` 看任务态）；**阶段3 · M1 起**接入平台任务程序接口——**F-01**（`/api/goals` 登记与列表、`/api/goals/{id}` 读模型、`/versions` 落新版本、`/apply` 应用配置（先清零再置一）、`/check` 跑口径检查任务、`/api/goal-gaps` 待补项列表与 `/fill` 补充）、**F-02**（`/api/run-policies` 策略登记与列表（写入侧从严：retry_limit>100 / max_duration_min>15 / 频率不可解析一律 400）、`/api/effective-run-policy` 生效策略（目标级优先回落平台级）、`/api/discovery-tasks` 到点创建发现任务、`/api/task-dispatch` 派发面回查、`/api/agent-delegations` Agent 调用占位）、**F-03**（`POST /api/research-proposals` 提交建议——同幂等键返回 200 且 `created=false`、新建返回 201；`GET /api/research-proposals` 按机会 / 目标 / 是否已触发过滤；`GET /api/research-proposals/{id}` 读模型；`POST /api/research-proposals/{id}/trigger` 登记触发任务（同任务幂等、异任务拒绝）；`POST /api/research-proposal-checks` 研究问题即时提示（**不阻断**））｜ **F-04**（`POST /api/hva-research-tasks` 由研究建议触发建 HVA 研究任务——第二阶段启动时点＝建议提交、组织二阶段上下文 PD-06、取 HVA 工具权限 CFG-03、发 Queue 消息恰两键；`GET /api/hva-research-tasks/{task_id}` 回查任务态 / 步骤 / 权限）。其余 F-xx 的真实接口随后续阶段接入。
  * 硬红线落实（BRD §5.3 / tech-stack §7.2）：只读写**本平台自有 D1**（「共享上下文＝数据库」），**不调任何面向生产环境会改线上数据的接口**；证据一律只新增行、不覆盖；暂不研究的机会**只改状态、不删除**；**追问不覆盖原研究**（MD-07 表注：追问新增行、`parent_research_no` 指向原研究）；外部验证**只登记业务侧结论与来源引用**，平台不执行验证、不计算效果。
  * 反向清单：被 AGENTS.md 索引 server/ 行 / server/README.md 引用；后续 task-runner｜agent-orchestrator｜tool-executor 复用本入口或按 TS-20 拆分。
  *
@@ -74,6 +74,10 @@ import {
   markProposalTriggered,
   checkResearchQuestion,
 } from "../task-runner/proposal.js";
+import {
+  createHvaResearchTask,
+  resolveHvaToolPermissions,
+} from "../task-runner/hva.js";
 import {
   registerTool,
   listTools,
@@ -608,6 +612,19 @@ export default {
       }
       if (pathname.startsWith("/api/research-proposals/") && request.method === "GET") {
         return Response.json(await getProposalRecord(env.DB, decodeURIComponent(pathname.slice("/api/research-proposals/".length))));
+      }
+
+      // ---------------------------------------- F-04 HVA 研究任务调度（阶段3 · M1）
+      // 第二阶段启动时点 = 建议提交时刻；组织二阶段上下文（PD-06）+ 取 HVA 工具权限（CFG-03）+ 启动 Agent。
+      // 「研究建议不存在」→ 404、「已触发任务…不得重复启动」→ 409（由 errorResponse 映射）。
+      if (pathname === "/api/hva-research-tasks" && request.method === "POST") {
+        return Response.json(await createHvaResearchTask(env.DB, await request.json()), { status: 201 });
+      }
+      if (pathname.startsWith("/api/hva-research-tasks/") && request.method === "GET") {
+        const task_id = decodeURIComponent(pathname.slice("/api/hva-research-tasks/".length));
+        const dispatch = await getTaskDispatch(env.DB, task_id); // { task, steps }；task 不存在 → 404
+        const perms = await resolveHvaToolPermissions(env.DB); // 默认 hva-agent
+        return Response.json({ ...dispatch, permissions: perms });
       }
 
       return new Response("Not Found", { status: 404 });
