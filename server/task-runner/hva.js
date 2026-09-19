@@ -27,8 +27,8 @@
  *   ⑤ **幂等守卫**：同一建议不得重复启动任务（`MD-12.triggered_task_id` 已由 F-03 `markProposalTriggered` 守）——重复调用报错。
  *   ⑥ **Queue 消息恰 `{task_id, step_no}` 两键**（≤1KB，与 F-02 同款），上下文从 D1 现读；Agent 只在任务内被调用
  *      （`delegateToAgent` 守卫，阶段4 接入真实 HVA Agent）。
- *   ⑦ **hva_followup（追问任务）的创建归 F-05**（追问与版本管理）；本文件提供的调度内核（`dispatchHvaCore`）可被
- *      F-05 复用，但不在本文件写未建文件名（避免悬空引用）。
+ *   ⑦ **hva_followup（追问任务）的创建归 F-05**（`../task-runner/followup.js` 的 `createFollowupTask`，
+ *      复用本文件的 `resolveHvaToolPermissions` 与 `HVA_AGENT_PROFILE_ID`）；本文件不写未建文件名。
  *
  * 硬红线：本文件**零外部调用**、**生产零写**——改行只落在 PD-01 / LNK-04 / PD-06 / MD-12.triggered_task_id，
  *   且 PD-06 写入经 `initTaskContext` 单一写入面；MD-12 触发标记经 F-03 `markProposalTriggered` 单一写入面。

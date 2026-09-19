@@ -29,10 +29,12 @@
 | `schedule.js` | **F-02 机会发现任务调度**：`CFG-04` 运行策略登记（**写入侧从严**）与选取（目标级优先 → 回落平台级）、运行频率 → **Cron Triggers 表达式**解析与校验（四式 / 最小粒度 1 分钟 / 250 条上限）、`MD-13`+`MD-14` 能力版本快照、Queue 消息守卫与**可注入 `enqueue` 端口**、`createDiscoveryTask`（建任务 → `LNK-04` → 五步 → `CFG-06` 上下文 → 发消息）、`delegateToAgent` 调用守卫 | ✅ F-02 已建 2026-09-19（86 断言全绿） |
 | `proposal.js` | **F-03 研究建议管理（人工节点）**：`MD-12` 建议登记（研究问题**必需**、两个可选列按 `varchar(300)` 口径拒超长）、**幂等键**（机会+问题+假设+限制 → SHA-256 摘要，`UK` 落地「同键不新建、不重复启动相同任务」）、**建议与机会版本绑定**（版本号从机会现读、入参不符即拒）、研究问题的**不明确提示**（只补问题、不重填材料，**不阻断**）、机会状态迁移「候选→已提交研究」并留 `PD-05`（改行经 F-10 单一写入面）、`markProposalTriggered` 触发登记守卫 | ✅ F-03 已建 2026-09-19（82 断言全绿） |
 | `hva.js` | **F-04 HVA 研究任务调度**：`createHvaResearchTask`（建议提交后建 `hva_research` 任务 → `LNK-04` 锚点 → 五步 → 按 `CFG-06` hva_research 模板落 `PD-06` 二阶段上下文 → 取 `CFG-03` 按 `hva-agent` 工具权限 → 幂等守卫同一建议不重复启动 → 发 Queue 消息恰两键 + `delegateToAgent` 守卫）；`resolveHvaToolPermissions`（按所用 Agent 授权）；**第二阶段启动时点＝建议提交**、**版本冲突以机会为准并提示**、**hva_followup 创建归 F-05**（调度内核可复用） | ✅ F-04 已建 2026-09-19（**45 断言全绿**） |
+| `followup.js` | **F-05 追问与版本管理**：`nextResearchNo` / `nextFollowupMessageId`（编号取号，库内最大 +1，确定性不撞号）；`recordFollowupMessage`（**PD-07 单一写入面**：追问对话逐条留痕，PM/Agent 双向、双外键由库级强制）；`createFollowupTask`（主入口：校验原研究存在且已关联启动任务 → 建 `hva_followup` 任务（`parent_task_id` 挂原任务）→ 建新 `MD-07` 研究壳（`parent_research_no` 指原研究、`start_task_id` 指新任务、七要素缺省从原研究承接）→ `LNK-04` 锚点 → `planTaskSteps` 五步 → `initTaskContext` 落 `PD-06`（含 `related_history`）→ 取 `CFG-03` hva-agent 权限 → 落 PD-07 追问消息 → 发 Queue 消息恰两键 + `delegateToAgent` 守卫）；版本口径：新任务/新研究默认沿用原研究 `goal_version_no`，可显式传新版本（原研究/原任务维持启动版本不变） | ✅ F-05 已建 2026-09-19（**57 断言全绿**） |
 | `test-f01.mjs` | F-01 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子） | ✅ 已建（**88 断言全绿**） |
 | `test-f02.mjs` | F-02 用例执行器（注入 spy `enqueue`；断言频率解析四式与反例、平台上限、策略选取、消息形状、五步与上下文装配） | ✅ 已建（**86 断言全绿**） |
 | `test-f03.mjs` | F-03 用例执行器（断言幂等键确定性/空白不敏感/区分度与分隔符歧义反例、问题检查、版本绑定、幂等提交、状态迁移与 `PD-05` 留痕、`PD-05` 外键 L3 反例、触发登记守卫、读模型、写入面静态核验） | ✅ 已建（**82 断言全绿**） |
 | `test-f04.mjs` | F-04 用例执行器（自包含 fixture：机会 + 已提交建议；断言第二阶段启动点 / 五步逐字对齐原型 / LNK-04 锚点 / 二阶段上下文 PD-06 / CFG-03 工具权限 / 版本冲突以机会为准 / 重复启动报错 / 消息恰两键 / 零外部调用） | ✅ 已建（**45 断言全绿**） |
+| `test-f05.mjs` | F-05 用例执行器（自包含 fixture：父任务 `T-TEST-2001`（`hva_research`）+ 原研究 `R-TEST-001`（`start_task_id=T-TEST-2001`、`goal_version_no=3`）；不碰种子行；断言关联原研究建任务 / 继承版本 / 显式新版本 / 原研究不存在报错 / 原研究无启动任务报错 / PD-07 FK 反例 / PD-01 自引用父先落 / 编号推进 / 静态核验零外部调用） | ✅ 已建（**57 断言全绿**） |
 
 ## F-01 已通过用例（`test-f01.mjs`，88 断言）
 
@@ -80,6 +82,19 @@
 | Queue 消息恰两键 | dispatch 消息恰好 `{task_id, step_no}`；`Agent 只在任务内被调用` 守卫 |
 | 边界 | 建议不存在 → 报错（HVA 只由真实建议触发） |
 | 静态核验 | `hva.js` **不直接写库**（全委托 step-plan / proposal / shared-context 单一写入面）、零外部调用；`test-f04.mjs` 零外部调用 |
+
+## F-05 已通过用例（`test-f05.mjs`，57 断言）
+
+| 用例 | 断言要点 |
+| ---- | ---- |
+| **A（默认继承版本，完整建任务）** | `createFollowupTask` 在已有研究 `R-TEST-001`（`start_task_id=T-TEST-2001`、`goal_version_no=3`）上提新问题 → ① **原研究存在校验**：原研究须存在（否则报错）② **parent_task_id 挂原任务**（`T-TEST-2001`）③ **新研究壳** `parent_research_no=R-TEST-001`、`start_task_id=新任务`、`research_question=新问题`、七要素从原研究承接 ④ **原研究/原任务未被改写**（research_question / goal_version_no / start_task_id 逐字未变，新旧版本不混）⑤ `LNK-04`：research=output + opportunity=output 两条锚点 ⑥ `PD-06` 二阶段上下文按 `CFG-06 hva_followup` 模板落（含 `related_history`，自动带上原研究链）⑦ `CFG-03` 按 `hva-agent` 取到 12 条权限（`grantee_type=agent`）⑧ **PD-07 追问消息**：PM 新问题挂在**原研究** `research_no` 下、归属**新任务** `task_id`（对齐种子 MSG-001~003 口径）⑨ Queue 消息恰 `{task_id, step_no}` 两键、`delegateToAgent` 守卫 ⑩ 五步名 `TYPE_STEPS.hva_followup` 逐字对齐原型 |
+| **B（显式新版本）** | 传 `goal_version_no=4` → `version_changed=true`、新任务/新研究 `goal_version_no=4`；**原研究与原任务仍维持启动版本 3**（「已有任务继续使用启动时的版本」） |
+| **C（原研究不存在）** | `research_no` 指向不存在的研究 → 显式报错（追问只能建立在真实存在的研究上） |
+| **D（原研究未关联启动任务）** | 原研究 `start_task_id=NULL` → 报错（追问任务无父可挂，且 `MD-07.start_task_id` 是 FK→PD-01） |
+| **E（PD-07 双外键，TC-D-M1-008）** | `recordFollowupMessage` 的 `task_id='T-NOPE'` → 库级 FK 失败；`research_no='R-NOPE'` → 库级 FK 失败（双外键由库级强制，缺失即拒绝） |
+| **F（PD-01 自引用父先落，TC-D-M1-004）** | 子任务 `parent_task_id` 指向尚未落库的父行 → 库级 FK 失败；父行先落、子行后落 → 成功（追问任务挂原任务成立的前提） |
+| **G（编号推进）** | `nextResearchNo` 在种子 R-006/R-007 上返回 `R-008`（库内最大 +1）；`nextFollowupMessageId` 在种子 MSG-001~003 上返回 `MSG-004` |
+| **S（静态核验）** | `followup.js` **零外部调用**（无 `fetch(` / 无 URL）；**不直接写 PD-01/MD-07/LNK-04/PD-06**（仅 PD-07 写面 `recordFollowupMessage`）；含 PD-07 单一写入面；`test-f05.mjs` 零外部调用 |
 
 ## 关键口径（本模块已定，含登记在案的取舍）
 
@@ -181,6 +196,8 @@
 | `POST /api/research-proposal-checks` | 研究问题即时检查（F-29 边填边看；**只提示、不阻断**） | 200（`blocking` / `missing` / `hint`） |
 | `POST /api/hva-research-tasks` | 由研究建议触发建 HVA 研究任务（F-04：第二阶段启动点＝建议提交、组织二阶段上下文 PD-06、取 CFG-03 工具权限、发 Queue 消息恰两键） | 201；建议不存在 404；已触发任务的重复启动 409 |
 | `GET /api/hva-research-tasks/{task_id}` | HVA 任务回查（任务态 + 步骤现状 + 工具权限） | 200 / 404 |
+| `POST /api/followup-tasks` | 在已有研究上提新问题→关联原研究建 `hva_followup` 任务（`parent_task_id` 挂原任务）+ 新 `MD-07` 研究（`parent_research_no` 指原研究、`start_task_id` 指新任务）+ 写 `PD-07` 追问消息 + 落 `PD-06` 上下文（含 `related_history`） | 201；原研究不存在 404；缺 `new_question` / 原研究未关联启动任务 400 |
+| `GET /api/followup-tasks/{task_id}` | 追问任务回查（派发面：任务态 + 步骤现状 + 工具权限） | 200 / 404；FK 缺失 409 |
 
 > 幂等命中回 **200 而非 409**：重复提交不是错误，是「同一份建议」的正常结局（`TC-I-M1-002` 要的是
 > 「不重复启动相同任务」，不是「报错」）。故用 `created` 字段区分，让调用方能分辨「新建了」与「命中了既有」。
@@ -212,6 +229,39 @@ product_question / existing_evidence）——直接复用 `shared-context` 的 `
 
 **⑥ `hva_followup`（追问任务）的创建归 F-05**（追问与版本管理）；本文件提供的调度内核（`createHvaResearchTask`
 的骨架）可被 F-05 复用，但不在本文件写未建文件名（避免悬空引用）。
+
+### 8.2 追问与版本管理（F-05）
+
+**① 关联原研究建立新任务**（PRD-M1 §F-05「PM 在已有研究上提新问题」）：新 `hva_followup` 任务的
+`parent_task_id` = 原研究的 `start_task_id`（= 原任务）；新 `MD-07` 研究的 `parent_research_no` = 原研究、
+`start_task_id` = 新任务——形成「研究追问链」与「任务父子链」两条可追溯链（对齐种子 `R-007 → R-006`、
+`T-1023.parent_task_id=T-1021` 口径）。
+
+**② 原研究结果与依据继续保留**（BRD §7 第 4 条「失败不否定结论」的延伸：新追问不抹旧研究）：全程**只读**
+原研究与原任务，绝不改写其任何字段；新旧版本不混——原研究的 `research_question` / `goal_version_no` /
+`start_task_id` 在 `test-f05.mjs` A4 中逐字断言未变。
+
+**③ 版本管理**（用户口径「已有任务继续使用启动时的版本」）：新任务/新研究的 `goal_version_no` **默认沿用
+原研究快照**；若追问引入范围/口径变更，可显式传入新 `goal_version_no`（如 v3→v4，`test-f05.mjs` B 场景）。
+**原研究与原任务维持启动时的版本不变**——MD-02 新版本行的创建属 F-01 职责，本文件只读取/消费快照，不越权新建
+版本行（`test-f05.mjs` B4/B5 断言原研究/原任务仍为 3）。
+
+**④ 二阶段上下文按 `CFG-06 hva_followup` 模板落 `PD-06`**（含 `related_history`，自动带上原研究链）：直接复用
+`shared-context` 的 `initTaskContext`，上下文现读、不入消息——与 F-04 同一根写面。
+
+**⑤ 工具权限按所用 Agent 授权**（CFG-03，`grantee_type=agent`）：追问任务用 `AGP-HVA`（`agent_code=hva-agent`），
+取该 Agent 被授权的工具清单（同 F-04，`test-f05.mjs` A7 断言 12 条）。
+
+**⑥ 追问对话逐条留痕**（PD-07，`test-f05.mjs` A8 / E）：PM 的新问题 + 可选 Agent 应答，均挂在**原研究**
+`research_no` 下、归属**新任务** `task_id`（对齐种子 MSG-001~003 的 `research_no='R-007'` + `task_id='T-1023'`）。
+双外键（research_no→MD-07、task_id→PD-01）由库级强制——缺失即 FK 失败（`TC-D-M1-008`）。
+
+**⑦ Queue 消息恰 `{task_id, step_no}` 两键**（≤1KB，与 F-02/F-04 同款）+ `delegateToAgent` 守卫（`test-f05.mjs`
+A9）：Agent 只在任务内被调用（阶段4 介入真实 HVA Agent）。
+
+**⑧ 单一写入面**（硬红线落地）：`followup.js` 经 `test-f05.mjs` S1/S2/S3 静态核验——**零外部调用**、**不直接写
+PD-01/MD-07/LNK-04/PD-06**（全部走 step-plan / shared-context 既有写面），仅新增 **PD-07 单一写入面**
+`recordFollowupMessage`。本目录的「不直写库」纪律（S2）未被破坏。
 
 ### 9. 人工节点：建议的版本绑定、幂等键与「只补问题」（F-03）
 
@@ -252,7 +302,7 @@ product_question / existing_evidence）——直接复用 `shared-context` 的 `
   `hva_research`/`hva_followup`→`M4`——对齐种子既有任务的 `task_stage` 取值。
 - **`progress_text` 由 `PD-02` 现状重算**（`<已完成步数> / <总步数> 步`），不是手工维护的字符串。
 - **种子基线**：`task_step` / `goal_gap` / `research_proposal` / `context_injection` 四表种子均为 **0 行**，
-  由本模块写入；`task` 7 行、`task_object` 11 行、`followup_message` 2 行为只读基线。
+  由本模块写入；`task` 7 行、`task_object` 11 行、`followup_message` 3 行（MSG-001~003）为只读基线。
 - **本模块零外部调用**：`test-f01.mjs` / `test-f02.mjs` / `test-f03.mjs` 静态断言本目录不出现 `fetch(` / `http(s):`。
 - **建议的写入口径**：F-03 的登记（`submitProposal`）**只新增** `MD-12` 行、**从不改**已有建议行
   （改行仅用于 `triggered_task_id` 的登记，且带主键条件）；「事后改建议」不在需求内——
@@ -269,11 +319,11 @@ product_question / existing_evidence）——直接复用 `shared-context` 的 `
   `../../docs/04-plan/dev-plan.md` 阶段 3 · M1｜`../../docs/02-prd/PRD-M1-平台任务程序.md`｜
   `../../docs/03-locks/schema.md`｜`../../docs/03-locks/tech-stack.md` §2.4 / §4.2｜
   `../../docs/05-test-cases/test-M1.md`｜`../../prototype/pages/tasks.html` / `../../prototype/assets/data.js`（钉死需求）
-- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 路由**）｜阶段4 `../agent-orchestrator`（消费任务与上下文）｜
+- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 路由**）｜阶段4 `../agent-orchestrator`（消费任务与上下文）｜
   阶段5 `frontend/`（F-27 目标配置页经 `api` 取数）
   > 反向清单**只记既有事实**：本目录内 F-05~F-06 的引用关系在各自落地时补记（避免出现对未建文件的悬空引用）。
-- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js` 与 `./hva.js` 引用；
-  `./schedule.js`、`./proposal.js` 与 `./hva.js` 被 `../api/index.js` 引用
+- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js` 与 `./followup.js` 引用；
+  `./schedule.js`、`./proposal.js`、`./hva.js` 与 `./followup.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写）
