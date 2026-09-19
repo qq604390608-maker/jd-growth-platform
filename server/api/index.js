@@ -49,6 +49,25 @@ import {
   getTaskContext,
 } from "../shared-context/index.js";
 import {
+  registerGoal,
+  listGoals,
+  getGoalRecord,
+  saveGoalVersion,
+  applyGoalVersion,
+  runGoalCheckTask,
+  listGoalGaps,
+  fillGoalGap,
+} from "../task-runner/goal.js";
+import {
+  parseRunFrequency,
+  saveRunPolicy,
+  listRunPolicies,
+  resolveRunPolicy,
+  createDiscoveryTask,
+  getTaskDispatch,
+  delegateToAgent,
+} from "../task-runner/schedule.js";
+import {
   registerTool,
   listTools,
   registerPermission,
@@ -78,7 +97,8 @@ function errorResponse(e) {
   let status = 500;
   if (/不存在/.test(msg)) status = 404;
   else if (/NOT NULL|UNIQUE|FOREIGN KEY|CHECK|constraint/i.test(msg)) status = 409;
-  else if (/必填|四要素不齐|六要素不齐|未知项|自环|不自动重启|不改写已结束|不在 dict:/.test(msg)) status = 400;
+  else if (/已存在|已补充|重复/.test(msg)) status = 409;
+  else if (/必填|四要素不齐|六要素不齐|未知项|自环|不自动重启|不改写已结束|不在 dict:|无法解析|超出|须为|只能含|不得|拒绝落库/.test(msg)) status = 400;
   return Response.json({ error: msg }, { status });
 }
 
@@ -478,6 +498,76 @@ export default {
         if (!out.persisted) return Response.json(out, { status: 202 });
         if (out.outcome === "restricted") return Response.json({ ...out, note: RESTRICTED_NOTE }, { status: 403 });
         return Response.json(out, { status: 201 });
+      }
+
+      // ---------------------------------------- F-01 研究目标登记与口径管理（阶段3 · M1）
+      // 目标身份跨版本稳定：登记只落一次 MD-01；口径变更一律经 `/versions` 落新版本，旧版本只读。
+      if (pathname === "/api/goals") {
+        if (request.method === "GET") {
+          return Response.json({ items: await listGoals(env.DB, { status: url.searchParams.get("status") || undefined }) });
+        }
+        if (request.method === "POST") {
+          return Response.json(await registerGoal(env.DB, await request.json()), { status: 201 });
+        }
+      }
+      if (pathname === "/api/goal-gaps" && request.method === "GET") {
+        return Response.json({
+          items: await listGoalGaps(env.DB, {
+            goal_id: url.searchParams.get("goal_id"),
+            unsolvedOnly: url.searchParams.get("unsolved") === "1",
+          }),
+        });
+      }
+      // 补充待补项：写 filled_* + is_solved=1，并把补充内容并入六要素、**形成目标新版本**（不覆盖已写内容）。
+      if (pathname.startsWith("/api/goal-gaps/") && pathname.endsWith("/fill") && request.method === "POST") {
+        const gap_id = decodeURIComponent(pathname.slice("/api/goal-gaps/".length, -"/fill".length));
+        return Response.json(await fillGoalGap(env.DB, { ...(await request.json()), gap_id }));
+      }
+      if (pathname.startsWith("/api/goals/")) {
+        const rest = pathname.slice("/api/goals/".length);
+        for (const [suffix, fn] of [["/versions", saveGoalVersion], ["/apply", applyGoalVersion], ["/check", runGoalCheckTask]]) {
+          if (rest.endsWith(suffix) && request.method === "POST") {
+            const goal_id = decodeURIComponent(rest.slice(0, -suffix.length));
+            const body = await request.json().catch(() => ({}));
+            return Response.json(await fn(env.DB, { ...body, goal_id }), { status: 201 });
+          }
+        }
+        // `/check` 执行一次口径检查任务并产出/回写待补项；有缺失时任务与待补项都留痕，无缺失也留任务行。
+        if (request.method === "GET" && !rest.includes("/")) {
+          return Response.json(await getGoalRecord(env.DB, decodeURIComponent(rest)));
+        }
+      }
+
+      // ---------------------------------------- F-02 机会发现任务调度（阶段3 · M1）
+      // 运行策略登记**写入侧从严**：retry_limit > 100、max_duration_min > 15、频率不可解析一律 400（不静默截断）。
+      if (pathname === "/api/run-policies") {
+        if (request.method === "GET") {
+          const items = await listRunPolicies(env.DB, {
+            policy_scope: url.searchParams.get("scope") || undefined,
+            goal_id: url.searchParams.get("goal_id") || undefined,
+            activeOnly: url.searchParams.get("active") === "1",
+          });
+          // 附频率解析预览：把自然语言频率翻成 Cron Triggers 表达式，让「后端持有的运行频率」可见可核。
+          return Response.json({ items: items.map((p) => ({ ...p, schedule: parseRunFrequency(p.run_frequency) })) });
+        }
+        if (request.method === "POST") {
+          return Response.json(await saveRunPolicy(env.DB, await request.json()), { status: 201 });
+        }
+      }
+      if (pathname === "/api/effective-run-policy" && request.method === "GET") {
+        const picked = await resolveRunPolicy(env.DB, { goal_id: url.searchParams.get("goal_id") });
+        return Response.json({ ...picked, schedule: parseRunFrequency(picked.policy.run_frequency) });
+      }
+      // 到点创建发现任务：建任务 → 关联启动对象 → 五步计划 → 按 CFG-06 装配上下文 → 发 Queue 消息（只带两个键）。
+      if (pathname === "/api/discovery-tasks" && request.method === "POST") {
+        return Response.json(await createDiscoveryTask(env.DB, await request.json()), { status: 201 });
+      }
+      if (pathname === "/api/task-dispatch" && request.method === "GET") {
+        return Response.json(await getTaskDispatch(env.DB, url.searchParams.get("task_id")));
+      }
+      // 「Agent 只在任务内被调用」的契约入口（阶段3 为占位，真实 Agent 归阶段4）。
+      if (pathname === "/api/agent-delegations" && request.method === "POST") {
+        return Response.json(await delegateToAgent(env.DB, await request.json()));
       }
 
       return new Response("Not Found", { status: 404 });
