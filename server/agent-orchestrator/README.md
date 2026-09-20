@@ -282,7 +282,7 @@
 
 **④ `auto_handoff` 恒 false**：无论守卫是否通过，`auto_handoff` 一律 `false`，并附 `NO_AUTO_HANDOFF_NOTE` 声明——机会 → 研究建议 → HVA 任务之间必须经 PM（BRD §3.1 / §6）。
 
-**⑤ PM 上下文只含机会＋初步依据（PRD-M3 §4 红线 1/3）**：`assemblePmDecisionContext` 输出恒带 `PM_CONTEXT_NOTICE`（「尚不构成 HVA 结论」），不下 HVA 判断、不含生产动作类内容；证据四要素逐一透传，**`linked_at` 只原样带出、不解析为时点**（种子值形式见 `schema.md` §12 **Q-16**）。
+**⑤ PM 上下文只含机会＋初步依据（PRD-M3 §4 红线 1/3）**：`assemblePmDecisionContext` 输出恒带 `PM_CONTEXT_NOTICE`（「尚不构成 HVA 结论」），不下 HVA 判断、不含生产动作类内容；证据四要素逐一透传，**`linked_at` 只原样带出、不解析为时点**（Q-16 已决①：种子现写真实时点，见 `schema.md` §12）。
 
 **⑥ 反向问 PM 只补要查清的内容**：`collectSupplementRequests` 在六要素不齐 / 未知项未评估 / 无关联证据时列出请补项（含「为何请补」与「请补什么」），**不静默回退、不编造**，也不要求重填已有材料（承接 M1 F-03 口径）。
 

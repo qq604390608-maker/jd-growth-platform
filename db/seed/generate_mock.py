@@ -417,7 +417,8 @@ opp_ev = [
     ("OPP-010", "EV-1035"), ("OPP-010", "EV-1031"), ("OPP-011", "EV-1031"), ("OPP-009", "EV-1038"),
     ("OPP-006", "EV-1024"), ("OPP-005", "EV-1022"),
 ]
-opp_created = {r[0]: r[11] for r in opps}
+# Q-16 已决（2026-09-20 方向①）：linked_at 取机会 created_at 真实时点，不再写 producing_task_id（任务 ID）
+opp_created = {r[0]: r[12] for r in opps}
 lnk_oe = []
 for i, (oid, eid) in enumerate(opp_ev, 1):
     lnk_oe.append(("LK-OE-%03d" % i, oid, eid, "initial_basis", opp_created.get(oid, "2026-09-16 00:00")))

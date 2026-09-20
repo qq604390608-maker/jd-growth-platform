@@ -45,8 +45,8 @@ INSERT INTO source_registry (source_id, source_name, capability_can, capability_
 -- ---- gap_rule (4 行) ----
 INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-1', 'metric_definition', '退款|取消', '复购口径是否剔除退款 / 取消订单', '直接影响复购率分母与候选行为判定', 1);
 INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-2', 'metric_definition', '跨品类|首次下单|首单定义', '新客是否限定为「跨品类首单」，单品类首单是否计入', '决定人群圈选条件与可比基础', 1);
-INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-3', 'business_scope', 'APP|小程序|PC|渠道', '是否区分 APP / 小程序 / PC 渠道分别统计', '若不分渠道，行为差异可能被渠道结构掩盖', 1);
-INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-4', 'focus_period', '\d{4}-\d{1,2}-\d{1,2}', '关注时段未写明具体起止日期', '取数窗口不确定，证据时点无法对齐', 1);
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-3', 'scope', 'APP|小程序|PC|渠道', '是否区分 APP / 小程序 / PC 渠道分别统计', '若不分渠道，行为差异可能被渠道结构掩盖', 1);
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-4', 'period', '\d{4}-\d{1,2}-\d{1,2}', '关注时段未写明具体起止日期', '取数窗口不确定，证据时点无法对齐', 1);
 
 -- ---- context_template (20 行) ----
 INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-001', 'goal_check', 'goal', 1, 1);
@@ -211,7 +211,7 @@ INSERT INTO business_context (context_id, goal_id, context_kind, title, content,
 -- ---- task (7 行) ----
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1022', 'discovery', 'M3', 'GOAL-2026Q3-01', 3, 'done', '按运行频率（每日 02:00）自动创建发现任务', 'AGP-DISC', 'discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0', '5 / 5 步', '产出 3 条新机会（OPP-012 / OPP-013 / OPP-014），1 条关联更新（OPP-009）', '2026-09-16 02:00', '2026-09-16 04:35', NULL, 0, 0, '2026-09-16 02:00');
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1021', 'hva_research', 'M4', 'GOAL-2026Q3-01', 3, 'done', 'PM 于 2026-09-15 20:28 提交研究建议（OPP-010）', 'AGP-HVA', 'hva-agent v1.2 / agent.md r11', '5 / 5 步', '形成研究结果 R-006：未支持「家庭装首单」为候选 HVA', '2026-09-15 20:30', '2026-09-16 15:10', NULL, 0, 0, '2026-09-15 20:30');
-INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1023', 'hva_followup', 'M4', 'GOAL-2026Q3-01', 3, 'running', 'PM 于 2026-09-18 09:11 在 R-007 上提交追问：「乳品方向补查渠道结构」', 'AGP-HVA', 'hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1', '2 / 5 步', '已注入原研究 R-007 上下文；已完成第 1 项查询', '2026-09-18 09:12', NULL, NULL, 0, 0, '2026-09-18 09:12');
+INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1023', 'hva_followup', 'M4', 'GOAL-2026Q3-01', 3, 'running', 'PM 于 2026-09-18 09:11 在 R-007 上提交追问：「乳品方向补查渠道结构」', 'AGP-HVA', 'hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1', '2 / 5 步', '已注入原研究 R-007 上下文；已完成第 1 项查询', '2026-09-18 09:12', NULL, 'T-1021', 0, 0, '2026-09-18 09:12');
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1020', 'hva_research', 'M4', 'GOAL-2026Q3-01', 3, 'blocked', 'PM 于 2026-09-16 09:58 提交研究建议（OPP-009）', 'AGP-HVA', 'hva-agent v1.3 / agent.md r12', '1 / 5 步', '已保存启动依据与首次查询记录；CDP 行为明细查询失败，已完成部分保留待续', '2026-09-16 10:00', NULL, NULL, 0, 0, '2026-09-16 10:00');
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1019', 'discovery', 'M3', 'GOAL-2026Q3-01', 1, 'stopped', '按运行频率自动创建', 'AGP-DISC', 'discovery-agent v1.0 / agent.md r5', '2 / 5 步', '已形成的范围说明与信息缺口已保存，可后续重跑', '2026-08-02 02:00', '2026-08-02 02:47', NULL, 0, 0, '2026-08-02 02:00');
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1018', 'discovery', 'M3', 'GOAL-2026Q3-01', 2, 'done', '按运行频率自动创建', 'AGP-DISC', 'discovery-agent v1.2 / agent.md r9', '5 / 5 步', '产出 OPP-011、OPP-009', '2026-09-13 02:00', '2026-09-13 03:20', NULL, 0, 0, '2026-09-13 02:00');
@@ -298,7 +298,7 @@ INSERT INTO opportunity_status_log (log_id, opportunity_id, from_status, to_stat
 INSERT INTO opportunity_status_log (log_id, opportunity_id, from_status, to_status, change_reason, changed_at, changed_by) VALUES ('LG-004', 'OPP-010', 'candidate', 'submitted', 'PM 提交研究建议（OPP-010）', '2026-09-14 10:00', 'PM');
 
 -- ---- opportunity_relation (2 行) ----
-INSERT INTO opportunity_relation (relation_id, from_opportunity_id, to_opportunity_id, relation_kind, created_at) VALUES ('LK-OR-001', 'OPP-014', 'OPP-009', 'superseded', '2026-09-16 04:35');
+INSERT INTO opportunity_relation (relation_id, from_opportunity_id, to_opportunity_id, relation_kind, created_at) VALUES ('LK-OR-001', 'OPP-014', 'OPP-009', 'related_update', '2026-09-16 04:35');
 INSERT INTO opportunity_relation (relation_id, from_opportunity_id, to_opportunity_id, relation_kind, created_at) VALUES ('LK-OR-002', 'OPP-009', 'OPP-013', 'same_issue', '2026-09-16 04:35');
 
 -- ---- research_finding (6 行) ----
@@ -367,16 +367,16 @@ INSERT INTO evidence (evidence_id, query_id, source_id, evidence_title, query_co
 INSERT INTO evidence (evidence_id, query_id, source_id, evidence_title, query_condition, info_time_point, applicability_scope, result_summary, missing_note, created_at) VALUES ('EV-1027', 'Q-90012', 'ACT', 'Q3 大促期间超市频道已报名活动清单', '活动时段 ∈ 2026-08-18 ~ 2026-08-20；频道 = 京东超市', '2026-09-10 11:05 取数（接口响应慢，重试 2 次后返回）', '仅已报名活动记录', '共 37 个活动报名，其中满减类 21 个、秒杀类 16 个；覆盖 SKU 1.2 万个', '系统只有报名信息，无用户参与明细；「活动存在」不等于「用户参与了」', '2026-09-10 11:05');
 
 -- ---- opportunity_evidence (10 行) ----
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-001', 'OPP-014', 'EV-1041', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-002', 'OPP-013', 'EV-1038', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-003', 'OPP-012', 'EV-1041', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-004', 'OPP-012', 'EV-1038', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-005', 'OPP-010', 'EV-1035', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-006', 'OPP-010', 'EV-1031', 'initial_basis', 'T-1022');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-007', 'OPP-011', 'EV-1031', 'initial_basis', 'T-1018');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-008', 'OPP-009', 'EV-1038', 'initial_basis', 'T-1018');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-009', 'OPP-006', 'EV-1024', 'initial_basis', 'T-1008');
-INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-010', 'OPP-005', 'EV-1022', 'initial_basis', 'T-1008');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-001', 'OPP-014', 'EV-1041', 'initial_basis', '2026-09-16 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-002', 'OPP-013', 'EV-1038', 'initial_basis', '2026-09-15 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-003', 'OPP-012', 'EV-1041', 'initial_basis', '2026-09-16 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-004', 'OPP-012', 'EV-1038', 'initial_basis', '2026-09-16 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-005', 'OPP-010', 'EV-1035', 'initial_basis', '2026-09-14 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-006', 'OPP-010', 'EV-1031', 'initial_basis', '2026-09-14 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-007', 'OPP-011', 'EV-1031', 'initial_basis', '2026-09-13 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-008', 'OPP-009', 'EV-1038', 'initial_basis', '2026-09-14 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-009', 'OPP-006', 'EV-1024', 'initial_basis', '2026-06-28 00:00');
+INSERT INTO opportunity_evidence (link_id, opportunity_id, evidence_id, link_kind, linked_at) VALUES ('LK-OE-010', 'OPP-005', 'EV-1022', 'initial_basis', '2026-06-26 00:00');
 
 -- ---- finding_evidence (8 行) ----
 INSERT INTO finding_evidence (link_id, finding_id, evidence_id, linked_at) VALUES ('LK-FE-001', 'F-001', 'EV-1038', '2026-09-17 18:42');
