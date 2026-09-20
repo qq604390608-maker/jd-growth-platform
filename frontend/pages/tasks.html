@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/tasks.html
+  性质：**F-32 任务与状态页**（M6 前端第六页，也是最后一页）。
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜一条硬红线｜双向引用）
+        ｜ ../../docs/05-test-cases/test-M6.md（**TC-I-M6-006 = F-32 验收 oracle**：展示任务运行状态 /
+          受阻原因（等待必要信息 / 等待接口恢复 / 已停止）/ 已完成部分；机会未被选中、任务未完成、
+          研究未支持候选行为三类事实分别可见；状态机口径与 M1 F-06 一致）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-32：任务运行状态、受阻原因、已完成部分；
+          机会未被选中 / 任务未完成 / 研究未支持候选行为三类事实分别可见；关联 schema＝PD-01 task、
+          PD-02 task_step、PD-03 task_block、PD-05 opportunity_status_log）
+        ｜ ../../docs/01-brd/BRD.md（§4 M6 F-32、§5.3 硬红线、F-06 任务记录与异常恢复）
+        ｜ ../../docs/03-locks/schema.md（PD-01 task：task_status 走 dict:TASK_STATUS＝running/blocked/
+          stopped/done、done_part 已完成部分、is_auto_restart 停止状态一律 0；PD-03 task_block：
+          block_reason_code 走 dict:BLOCK_REASON、block_note、resume_condition、is_resolved；
+          PD-05 opportunity_status_log；MD-06 opportunity：opportunity_status；MD-09 candidate_behavior：
+          behavior_status＝candidate_supported / not_supported）
+        ｜ ../../docs/03-locks/tech-stack.md（§1.2 前后端分离：动态数据一律经 server/api，前端不直连库、
+          不持凭证；§2.1 零构建静态资源，数据来源＝server/api，**原型的 mock 数据不复制进前端**）
+        ｜ ../../prototype/pages/tasks.html（**钉死需求的实证**：三类事实 + 任务卡片 + 过滤器）
+        ｜ ../assets/api.js（**唯一数据出口**）｜ ../assets/app.js（共享口径）｜ ../README.md
+  职责：只读展示「任务与状态」——
+        ① 三类事实分别可见：机会未被选中（candidate + deferred）/ 任务未完成（非 done）/ 研究未支持候选行为；
+        ② 任务卡片：运行状态、受阻原因（停止→已停止；受阻且「目标或指标口径不清」→ 等待必要信息；
+           其余受阻→等待接口恢复）、已完成部分、步骤计划、启动依据；
+        ③ 过滤器：全部 / 运行中 / 受阻 / 已停止 / 已完成。
+        数据来源全部经 ../assets/api.js（GET：/api/task-blocks、/api/opportunities、/api/research、
+        /api/research-result/{no}）；任务本身来自目标记录 rec.tasks（app.js 已载入）。
+        本页**零写请求**（F-32 为纯展示页，不触发任何 POST/PATCH）。
+  反向清单：登记 ../README.md；被 ../index.html（F-32 行）与 ../assets/app.js（NAV 末项）引用；
+        被 .github/workflows/ci.yml 的 validate 步骤以 `node frontend/test-f32.mjs` 复用。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-32 任务与状态</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="tasks">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-32</span> 任务与状态</h1>
+      <p class="page-desc">任务运行状态 / 受阻原因 / 已完成部分；机会未被选中、任务未完成、研究未支持候选行为三类事实分别可见</p>
+    </div>
+  </div>
+
+  <div class="scope-bar" id="goal-scope"></div>
+
+  <div class="grid-3" id="stats" style="margin-bottom:14px"></div>
+
+  <div class="page-actions" id="filters" style="margin-bottom:14px"></div>
+
+  <div id="list"></div>
+
+  <div class="footer-note">
+    功能点 F-32 ｜ 上游 M1 F-06 任务记录与异常恢复、M5 F-26 失败重试与受限返回 ｜ 状态口径与 BRD F-06 一致：
+    停止状态不自动重启、运行失败不作否定依据 ｜ 相关：<a href="opportunities.html">F-28</a>、
+    <a href="result.html">F-30</a>、<a href="followup.html">F-31</a>
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  /* 目标解析统一走 assets/app.js：与总览 / 机会列表 / 目标配置同一答案 */
+  const GOAL_ID = U.currentGoalId();
+
+  /* 受阻原因口径（与 BRD F-06 受阻处理矩阵、M5 F-26 共用）：
+       停止 → 已停止；受阻且「目标或指标口径不清」→ 等待必要信息；
+       其余受阻（接口 / 来源 / 数据 / 限制）→ 等待接口恢复。
+     状态机取值一律读服务端（dict:TASK_STATUS / dict:BLOCK_REASON），前端只做中文呈现，不另立判据。 */
+  function f32Reason(t, block) {
+    if (t.task_status === "stopped") return "已停止";
+    if (t.task_status === "blocked") {
+      if (block && block.block_reason_code === "target_unclear") return "等待必要信息";
+      return "等待接口恢复";
+    }
+    return "";
+  }
+
+  /* 步骤计划：从 progress_text（如 "2 / 5 步"）解析已完成步数，按任务态着色。 */
+  function stepPlan(t) {
+    const m = /(\d+)\s*\/\s*(\d+)/.exec(t.progress_text || "");
+    const done = m ? parseInt(m[1], 10) : 0;
+    const total = m ? parseInt(m[2], 10) : 0;
+    if (!total) return [];
+    const arr = [];
+    for (let i = 1; i <= total; i++) arr.push(i);
+    return arr.map(function (no) {
+      let state = "pending";
+      if (no <= done) state = "done";
+      else if (no === done + 1) {
+        if (t.task_status === "running") state = "active";
+        else if (t.task_status === "blocked" || t.task_status === "stopped") state = "blocked";
+      }
+      return { no: no, name: "第 " + no + " 步", state: state };
+    });
+  }
+
+  const TYPE_NAME = {
+    discovery: "机会发现", hva_research: "HVA 研究", hva_followup: "HVA 研究·追问", goal_check: "口径检查",
+  };
+
+  let filter = "all";
+  let tasks = [];
+  let blocksByTask = {};
+  let opps = [];
+  let studies = [];
+
+  function renderScope() {
+    const g = U.goalFields(GOAL_ID);
+    document.getElementById("goal-scope").innerHTML =
+      '<span class="tag-strong">当前目标配置</span><span class="scope-goal">　' +
+      U.esc(g.business_goal || "（未填写）") + '　·　<span class="mono">' + U.esc(GOAL_ID) +
+      '</span>　·　' + U.esc(U.goalVersion(GOAL_ID)) + '</span>';
+  }
+
+  /* 三类事实：各自独立成块、分别可见（oracle TC-I-M6-006）。 */
+  function renderStats() {
+    const notSelected = opps.filter(function (o) {
+      return o.opportunity_status === "candidate" || o.opportunity_status === "deferred";
+    }).length;
+
+    const running = tasks.filter(function (t) { return t.task_status === "running"; }).length;
+    const blocked = tasks.filter(function (t) { return t.task_status === "blocked"; }).length;
+    const stopped = tasks.filter(function (t) { return t.task_status === "stopped"; }).length;
+    /* 任务未完成 ＝ 非已完成：运行中 ＋ 受阻 ＋ 已停止。已停止保留已完成部分、不自动重启，仍属未完成。 */
+    const unfinished = running + blocked + stopped;
+
+    let notSupported = 0;
+    const nsNos = [];
+    studies.forEach(function (st) {
+      if (st._unsupported) { notSupported++; nsNos.push(st.research_no); }
+    });
+
+    const sub1 = notSelected ? (notSelected + " 条（候选 + 暂不研究）") : "暂无未选中机会";
+    const sub2 = unfinished
+      ? "运行中 " + running + " · 受阻 " + blocked + " · 已停止 " + stopped
+      : "暂无未完成的任务";
+    const sub3 = nsNos.length ? nsNos.join(" · ") + " · 完整且合法的结果" : "暂无未支持候选行为的研究";
+
+    document.getElementById("stats").innerHTML =
+      '<div class="stat"><div class="stat-label">① 机会未被选中</div><div class="stat-num">' + notSelected +
+        '</div><div class="stat-sub">' + U.esc(sub1) + '</div></div>' +
+      '<div class="stat"><div class="stat-label">② 任务未完成</div><div class="stat-num">' + unfinished +
+        '</div><div class="stat-sub">' + U.esc(sub2) + '</div></div>' +
+      '<div class="stat"><div class="stat-label">③ 研究未支持候选行为</div><div class="stat-num">' + notSupported +
+        '</div><div class="stat-sub">' + U.esc(sub3) + '</div></div>';
+  }
+
+  function taskCard(t) {
+    const block = blocksByTask[t.task_id];
+    const reason = f32Reason(t, block);
+
+    let reasonBlock = "";
+    if (reason) {
+      const cls = t.task_status === "stopped" ? "badge-stopped" : "badge-blocked";
+      reasonBlock = '<div class="field"><div class="field-label">受阻原因</div><div class="field-value">' +
+        '<span class="badge ' + cls + '">' + U.esc(reason) + '</span>' +
+        (block && block.block_note ? '<div class="small text-2" style="margin-top:4px">' + U.esc(block.block_note) + '</div>' : '') +
+        (block && block.resume_condition ? '<div class="small text-3" style="margin-top:2px">继续条件：' + U.esc(block.resume_condition) + '</div>' : '') +
+        '</div></div>';
+    }
+
+    const doneNote = t.task_status === "stopped" ? '　<span class="text-3">（保留已完成部分，不自动重启）</span>' : '';
+
+    const plan = stepPlan(t);
+    const stepsHtml = plan.length
+      ? '<div class="steps">' + plan.map(function (s) {
+          const mark = s.state === "done" ? "✓ " : s.state === "active" ? "▶ " : s.state === "blocked" ? "! " : "";
+          const tail = s.state === "active" ? "（进行中）" : s.state === "blocked" ? "（受阻）" : "";
+          return '<span class="step step-' + s.state + '">' + mark + U.esc(s.name) + tail + '</span>';
+        }).join("") + '</div>'
+      : '<div class="small text-3">暂无步骤计划</div>';
+
+    const typeName = TYPE_NAME[t.task_type] || t.task_type;
+
+    return '<div class="card task-card">' +
+      '<div class="card-head"><div style="min-width:0">' +
+        '<div style="font-size:14px;font-weight:500;margin-bottom:4px">' + U.esc(typeName) +
+          ' · <span class="mono">' + U.esc(t.task_id) + '</span></div>' +
+        '<div class="kv-inline"><span>启动 ' + U.esc(t.started_at || "—") + '</span>' +
+          (t.ended_at ? '<span>结束 ' + U.esc(t.ended_at) + '</span>' : '') +
+          '<span>进度 ' + U.esc(t.progress_text || "—") + '</span></div>' +
+      '</div><div>' + U.badge(t.task_status) + '</div></div>' +
+      stepsHtml +
+      '<div class="field-list">' +
+        '<div class="field"><div class="field-label">运行状态</div><div class="field-value">' + U.badge(t.task_status) + '</div></div>' +
+        reasonBlock +
+        '<div class="field"><div class="field-label">已完成部分</div><div class="field-value">' + U.esc(t.done_part || "（无）") + doneNote + '</div></div>' +
+        '<div class="field"><div class="field-label">启动依据</div><div class="field-value small text-2">' + U.esc(t.trigger_basis || "—") + '</div></div>' +
+      '</div></div>';
+  }
+
+  function render() {
+    renderStats();
+    const rows = tasks.filter(function (t) {
+      return filter === "all" || t.task_status === filter;
+    });
+    if (!rows.length) {
+      document.getElementById("list").innerHTML =
+        '<div class="card"><div class="empty">当前目标配置（' + U.esc(GOAL_ID) + " " +
+        U.esc(U.goalVersion(GOAL_ID)) + '）下没有任务</div></div>';
+      return;
+    }
+    document.getElementById("list").innerHTML = rows.map(taskCard).join("");
+  }
+
+  /* ---------- 取数（只读）：任务来自目标记录；受阻来自 /api/task-blocks；机会来自 /api/opportunities；
+        研究未支持候选行为来自七要素读模型 /api/research-result/{no} ---------- */
+  const goalRec = U.recordOf(GOAL_ID);
+  tasks = (goalRec && goalRec.tasks) || [];
+
+  const blockRes = await API.listTaskBlocks();
+  (blockRes.items || []).forEach(function (b) { blocksByTask[b.task_id] = b; });
+
+  opps = (await API.listOpportunities(GOAL_ID)).items || [];
+
+  studies = (await API.listAllResearch()).items || [];
+  studies = studies.filter(function (s) {
+    return s.goal_id === GOAL_ID && s.research_status === "done";
+  });
+  for (const st of studies) {
+    const r = await API.getResearchResult(st.research_no);
+    const e5 = r && r.elements && r.elements.e5_candidate_hva;
+    st._unsupported = !!(e5 && e5.unsupported_count > 0);
+  }
+
+  /* ---------- 过滤器 ---------- */
+  const FILTERS = [
+    { k: "all", label: "全部" }, { k: "running", label: "运行中" }, { k: "blocked", label: "受阻" },
+    { k: "stopped", label: "已停止" }, { k: "done", label: "已完成" },
+  ];
+  document.getElementById("filters").innerHTML = FILTERS.map(function (f) {
+    return '<button class="chip" data-f="' + f.k + '">' + f.label + '</button>';
+  }).join("");
+  document.querySelectorAll(".chip[data-f]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      filter = c.dataset.f;
+      document.querySelectorAll(".chip[data-f]").forEach(function (x) { x.style.borderColor = ""; x.style.color = ""; });
+      c.style.borderColor = "#E1251B"; c.style.color = "#E1251B";
+      render();
+    });
+  });
+
+  renderScope();
+  render();
+};
+</script>
+</body>
+</html>

@@ -165,5 +165,13 @@
      *  （parent_research_no 指向原研究、start_task_id 指向新任务）。返回含 task / research /
      *  steps / context / tool_permissions / version_changed / effective_goal_version_no 等。 */
     createFollowupTask: (payload) => post("/api/followup-tasks", payload),
+
+    /* ------------------------------------------------ F-32 任务与状态页（M1 F-06 / M5 F-26 读面）
+       全部走既有路由，**不自造端点**（../server/api/index.js 为路由真源）。本页为纯展示页，零写请求。 */
+
+    /** 受阻记录回查（PD-03 task_block）：可按任务过滤；逐次留痕、不覆盖。
+     *  返回 items（block_id / task_id / block_reason_code / block_note / resume_condition / is_resolved）。
+     *  F-32 据此呈现「受阻原因」与「已完成部分仍保留」的事实。 */
+    listTaskBlocks: (taskId) => get("/api/task-blocks" + (taskId ? "?task_id=" + enc(taskId) : "")),
   };
 })();
