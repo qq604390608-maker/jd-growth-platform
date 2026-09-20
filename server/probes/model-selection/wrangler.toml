@@ -1,0 +1,20 @@
+# 探针配置：仅用于 TS-10（Workers AI 模型选型）实测，**不属于业务配置**
+# 上游：../../../docs/03-locks/tech-stack.md §2.5 / §8 TS-10
+# 同级范式：../../../db/probes/type/wrangler.toml（D1 类型实测，同一 worker 探针范式）
+name = "model-selection-probe"
+main = "worker/index.js"
+compatibility_date = "2026-09-01"
+
+# ⚠️ 语法要点（2026-09-20 查证，勿改）：
+#   Workers AI 绑定是**单表语法 [ai]**，不是数组表 [[ai]]。
+#   依据：Cloudflare 官方文档 workers-ai/configuration/bindings（2026-04-21 更新）示例即为
+#       [ai]
+#       binding = "AI"
+#   它与可多实例的 [[d1_databases]] / [[kv_namespaces]] 不同类 —— 本项目曾据「数组表」的
+#   类比误改为 [[ai]]，导致 wrangler 不识别绑定（env.AI 为 undefined），已订正。
+#
+# ⚠️ 计费：Workers AI 即使本地 `wrangler dev` 也走真实账号并计费
+#   （官方文档：Using Workers AI always accesses your Cloudflare account … even in local development）。
+#   验证探针链路请用 `/probe?dry_run=1`（不调 AI、不计费、结果不得当实测结论）。
+[ai]
+binding = "AI"
