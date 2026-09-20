@@ -6,11 +6,11 @@
 下游：`server/agent-orchestrator/`（阶段4 启动时读 MD-13/MD-14 + 本文件组装 `agent_version_snapshot` 入 PD-01.task）｜ `docs/04-plan/dev-plan.md`（阶段4）｜ `docs/05-test-cases/test-M3.md` / `test-M4.md`（F-13~F-22 oracle）
 -->
 
-## 1. 版本机制约定（⚠️待确认 T-23）
+## 1. 版本机制约定（✅ T-23 已决 2026-09-20，依用户裁决：本机制即真实形态）
 - agent.md / business-rules.md / skills 本体为仓库文件，版本随 git（`tech-stack.md` §2.5）。
 - 任务启动时，`server/agent-orchestrator` 组装 `agent_version_snapshot`（落 `PD-01.task.agent_version_snapshot`，schema MD-13 关联 L411）。原型形如（机会发现）：`discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0`；（HVA 分析）：`hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1`。两串分别镜像种子 `MD-13`/`MD-14`（`db/seed/generate_mock.py` L255/L376-377）。
 - 本 `VERSIONS.md` 即「登记载体」：人工维护的「当前生效版本 ↔ 仓库文件落位」映射；运行期以 `MD-13.current_version` / `MD-14.version` 为权威，本文件是其仓库侧镜像与文件索引。
-- ⚠️ **T-23（external-deps §7 L460）**：原型 `agent.md r12` 已有、真实形态待定。本机制为阶段0 提案；T-23 关闭后若定「git hash 自动注入」或「`rN` 手动维护」，再固化并同步本文件。当前 `doc_revision`（r9/r12）取自种子，供阶段4 落地时对齐。
+- **✅ T-23 已决（2026-09-20，依用户裁决）**：本机制（git 版本 + `doc_revision` rN + 运行期 `agent_version_snapshot` 快照）即真实形态，随 F-13/F-18 落地收口；不再考虑「git hash 自动注入」替代方案。当前 `doc_revision`（r9/r12）取自种子，运行期以 MD-13/MD-14 为权威。
 
 ## 2. 登记载体（仓库文件 ↔ MD-13/MD-14 映射）
 
@@ -39,7 +39,7 @@
 | `S-B3` | 同上 | `hva-agent` | — | `agent-runtime/hva/skills/S-B3.md` | ⏳ 待种 |
 | `S-B4` | 同上 | `hva-agent` | — | `agent-runtime/hva/skills/S-B4.md` | ⏳ 待种 |
 
-> 注：Q-07 仅裁决 `S-A1`/`S-B1` 映射（`clue-scan`/`hva-five-checks`）；`S-A2~S-A4`/`S-B2~S-B4` 的 code 名与加载方式待 **T-24（external-deps §7 L461）** 关闭。加载机制（A-4，external-deps §3 L215）已确认挂载 `S-A1`/`S-B1`，其余待 T-24。
+> 注：Q-07 仅裁决 `S-A1`/`S-B1` 映射（`clue-scan`/`hva-five-checks`）；T-24 经 2026-09-20 用户裁决**改窄**——加载方式已落地（A-4 ✅）、主技能映射已决（Q-07），**剩余仅 `S-A2~S-A4`/`S-B2~S-B4` 的 code 名待 PM**。
 
 ## 反向清单
 - 本文件被下列文件引用（预计）：`server/agent-orchestrator/`（阶段4 启动加载，组装 `agent_version_snapshot`）｜ `docs/04-plan/dev-plan.md`（阶段0 L69 / 阶段4 L126）｜ `docs/05-test-cases/test-M3.md` / `test-M4.md`（F-13~F-22 oracle）｜ `docs/02-prd/PRD-M3-机会发现Agent.md` §1.1 / `docs/02-prd/PRD-M4-HVA分析Agent.md` §1.1。

@@ -457,8 +457,8 @@
 | T-20 | **本项目 §3 的分类框架与 A-1~A-5 条目是否成立**（BRD 未列此维度） | PM | 本文件结构本身 | ⬜ 正文留空 |
 | T-21 | LLM 推理服务：模型、上下文窗口、并发上限 | 技术方 | F-14 F-15 F-19 F-20 F-21 | ⬜ 正文留空 |
 | T-22 | MCP 工具调用协议版本与工具描述格式 | 技术方 | F-23 F-24 | ⬜ 正文留空 |
-| T-23 | agent.md 的版本管理方式（原型为 `agent.md r12`，真实形态待定） | 技术方 | F-06「指令与能力版本」留痕 | `agent.md r12` ✅ 原型已有，真实形态待定 |
-| T-24 | Skill 加载方式与 Skill 编号映射（`clue-scan → S-A1`、`hva-five-checks → S-B1`） | PM | F-13 F-18 | 见 `schema.md` §12 Q-07 |
+| T-23 | ~~agent.md 的版本管理方式（原型为 `agent.md r12`，真实形态待定）~~ → **✅ 已决（2026-09-20，依用户裁决）**：真实形态已落地，随 F-13/F-18 收口 | 收口依据：`agent_version_snapshot` 快照 + `agent-runtime/VERSIONS.md` 机制 + agent.md 文档卡版本号（F-13/F-18 用例锁死） | F-06「指令与能力版本」留痕 | `agent.md r12`，机制已兑现 |
+| T-24 | ~~Skill 加载方式与 Skill 编号映射~~ → **🟡 改窄（2026-09-20，依用户裁决）**：加载方式 ✅（A-4 落地）、主技能映射 ✅（Q-07）；**剩余仅 `S-A2~S-A4`/`S-B2~S-B4` 的 `skill_code` 名待 PM** | PM | F-13 F-18 | 主技能已种 MD-14（S-A1/S-B1）；其余 code 名待 PM |
 
 > **技术侧已有回答**（2026-09-18，依据 `tech-stack.md`）：T-21 → 选定 **Cloudflare Workers AI**（DS-02），具体模型仍须实机验证（`tech-stack.md` §8 TS-10）；T-22 → 选定**自建 MCP 客户端**（DS-06），协议细节仍取决于 T-01/T-02 的真实契约；T-23 → `agent.md` 本体为仓库文件（`agent-runtime/`），D1 的 `MD-13` 存登记与版本引用（`tech-stack.md` §2.5）。**T-20（§3 分类框架是否成立）仍待 PM 确认。**
 
@@ -478,7 +478,7 @@
 | ---- | ---- | ---- |
 | T-30 | ~~**BRD 的实际路径与本文件引用不一致**~~ → **✅ 已解决（2026-09-19）** | 原分歧：要求写 `docs/01-brd/BRD.md`、实际曾为 `docs/BRD.md` 且无 `01-brd/` 目录。现 BRD 已迁至 `docs/01-brd/BRD.md`，本文件引用同步为 `../01-brd/BRD.md`，路径一致；`docs/README.md`、`AGENTS.md` 索引已同步 |
 | T-31 | ~~**`docs/` 目录的编号体系是否统一**~~ → **✅ 已解决（2026-09-19）** | 现状 `01-brd`/`02-prd`/`03-locks`/`04-plan`/`05-test-cases`/`07-decisions` 已建；仅 `06`（runbook）预留待建（见 `docs/README.md` 目录表「（待建）业务背景、runbook」），跳号不成立（06 为 runbook 预留层）。本项关闭 |
-| T-32 | 本文件是否需要在 `db/` 种子数据生成前定稿 | PM + 技术方 | 影响 `source_registry` / `tool_registry` / `tool_permission` 的种子数据可写时点 | — |
+| T-32 | ~~本文件是否需要在 `db/` 种子数据生成前定稿~~ → **✅ 已决（2026-09-20，依用户裁决）**：按 demo 占位推进，真实值随 §7 各关闭项回填 | 种子已按 demo 值生成（带 `*` 标记、不进断言）；`generate_mock.py` 已对齐为唯一真源 | 影响 `source_registry` / `tool_registry` / `tool_permission` 的种子数据可写时点 | — |
 
 ---
 
