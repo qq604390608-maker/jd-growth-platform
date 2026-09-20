@@ -222,8 +222,8 @@ emit("run_policy", ["policy_id", "policy_scope", "goal_id", "run_frequency", "ma
 gap_rules = [
     ("GAP-1", "metric_definition", "退款|取消", "复购口径是否剔除退款 / 取消订单", "直接影响复购率分母与候选行为判定", 1),
     ("GAP-2", "metric_definition", "跨品类|首次下单|首单定义", "新客是否限定为「跨品类首单」，单品类首单是否计入", "决定人群圈选条件与可比基础", 1),
-    ("GAP-3", "scope", "APP|小程序|PC|渠道", "是否区分 APP / 小程序 / PC 渠道分别统计", "若不分渠道，行为差异可能被渠道结构掩盖", 1),
-    ("GAP-4", "period", r"\d{4}-\d{1,2}-\d{1,2}", "关注时段未写明具体起止日期", "取数窗口不确定，证据时点无法对齐", 1),
+    ("GAP-3", "business_scope", "APP|小程序|PC|渠道", "是否区分 APP / 小程序 / PC 渠道分别统计", "若不分渠道，行为差异可能被渠道结构掩盖", 1),
+    ("GAP-4", "focus_period", r"\d{4}-\d{1,2}-\d{1,2}", "关注时段未写明具体起止日期", "取数窗口不确定，证据时点无法对齐", 1),
 ]
 emit("gap_rule", ["rule_id", "target_field", "match_pattern", "gap_text", "impact_note", "is_active"], gap_rules)
 
@@ -298,7 +298,7 @@ emit("touchpoint", ["touchpoint_id", "touchpoint_name", "channel", "position_des
 tasks = [
     ("T-1022", "discovery", "M3", "GOAL-2026Q3-01", 3, "done", "按运行频率（每日 02:00）自动创建发现任务", "AGP-DISC", "discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0", "5 / 5 步", "产出 3 条新机会（OPP-012 / OPP-013 / OPP-014），1 条关联更新（OPP-009）", "2026-09-16 02:00", "2026-09-16 04:35", None, 0, 0, "2026-09-16 02:00"),
     ("T-1021", "hva_research", "M4", "GOAL-2026Q3-01", 3, "done", "PM 于 2026-09-15 20:28 提交研究建议（OPP-010）", "AGP-HVA", "hva-agent v1.2 / agent.md r11", "5 / 5 步", "形成研究结果 R-006：未支持「家庭装首单」为候选 HVA", "2026-09-15 20:30", "2026-09-16 15:10", None, 0, 0, "2026-09-15 20:30"),
-    ("T-1023", "hva_followup", "M4", "GOAL-2026Q3-01", 3, "running", "PM 于 2026-09-18 09:11 在 R-007 上提交追问：「乳品方向补查渠道结构」", "AGP-HVA", "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1", "2 / 5 步", "已注入原研究 R-007 上下文；已完成第 1 项查询", "2026-09-18 09:12", None, "T-1021", 0, 0, "2026-09-18 09:12"),
+    ("T-1023", "hva_followup", "M4", "GOAL-2026Q3-01", 3, "running", "PM 于 2026-09-18 09:11 在 R-007 上提交追问：「乳品方向补查渠道结构」", "AGP-HVA", "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1", "2 / 5 步", "已注入原研究 R-007 上下文；已完成第 1 项查询", "2026-09-18 09:12", None, None, 0, 0, "2026-09-18 09:12"),
     ("T-1020", "hva_research", "M4", "GOAL-2026Q3-01", 3, "blocked", "PM 于 2026-09-16 09:58 提交研究建议（OPP-009）", "AGP-HVA", "hva-agent v1.3 / agent.md r12", "1 / 5 步", "已保存启动依据与首次查询记录；CDP 行为明细查询失败，已完成部分保留待续", "2026-09-16 10:00", None, None, 0, 0, "2026-09-16 10:00"),
     ("T-1019", "discovery", "M3", "GOAL-2026Q3-01", 1, "stopped", "按运行频率自动创建", "AGP-DISC", "discovery-agent v1.0 / agent.md r5", "2 / 5 步", "已形成的范围说明与信息缺口已保存，可后续重跑", "2026-08-02 02:00", "2026-08-02 02:47", None, 0, 0, "2026-08-02 02:00"),
     ("T-1018", "discovery", "M3", "GOAL-2026Q3-01", 2, "done", "按运行频率自动创建", "AGP-DISC", "discovery-agent v1.2 / agent.md r9", "5 / 5 步", "产出 OPP-011、OPP-009", "2026-09-13 02:00", "2026-09-13 03:20", None, 0, 0, "2026-09-13 02:00"),
@@ -436,7 +436,7 @@ emit("finding_evidence", ["link_id", "finding_id", "evidence_id", "linked_at"], 
 
 # ---------------- LNK-03 机会↔机会 ----------------
 lnk_or = [
-    ("LK-OR-001", "OPP-014", "OPP-009", "related_update", "2026-09-16 04:35"),
+    ("LK-OR-001", "OPP-014", "OPP-009", "superseded", "2026-09-16 04:35"),
     ("LK-OR-002", "OPP-009", "OPP-013", "same_issue", "2026-09-16 04:35"),
 ]
 emit("opportunity_relation", ["relation_id", "from_opportunity_id", "to_opportunity_id", "relation_kind", "created_at"], lnk_or)
