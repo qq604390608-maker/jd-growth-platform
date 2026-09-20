@@ -269,7 +269,7 @@ console.log("③ 静态红线：只经 server/api、不持凭证、不写库、�
   const files = frontendFiles();
   const code = {};
   for (const f of files) {
-    if (/test-f2[0-9]\.mjs$/.test(f)) continue; // 执行器自身不属于前端运行期产物
+    if (/^test-f\d+\.mjs$/.test(path.basename(f))) continue; // 受检对象＝前端运行期产物；执行器（jsdom 装置）不属于它
     const kind = f.endsWith(".html") ? "html" : "js";
     code[rel(f)] = stripAllComments(readFileSync(f, "utf8"), kind);
   }

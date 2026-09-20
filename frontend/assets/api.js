@@ -16,8 +16,8 @@
        `credentials` 保持浏览器默认（同源即发送同源 cookie，前端不自行拼装凭证）。
    ③ 无业务逻辑：只做「路径 + 方法 + JSON」，判断逻辑一律在后端（PRD-M6 §1）。
    反向清单：被 ../assets/app.js（外壳与共享口径取数）、../pages/goal.html（F-27）、
-       ../pages/opportunities.html（F-28）与后续 F-29~F-32 各页经 window.API 调用；
-       **前端唯一的网络出口**。
+       ../pages/opportunities.html（F-28）、../pages/propose.html（F-29）与后续 F-30~F-32 各页
+       经 window.API 调用；**前端唯一的网络出口**。
    ============================================================ */
 
 (function () {
@@ -126,5 +126,27 @@
 
     /** 可用来源与工具说明（CFG-01 + CFG-02 只读）：来源名称映射与「可用 / 降级」徽标。 */
     getSourceToolBriefing: () => get("/api/source-tool-briefing"),
+
+    /* ------------------------------------------------ F-29 研究建议提交页（M1 F-03/F-04 的读面与动作面）
+       全部走既有路由，**不自造端点**（`../server/api/index.js` 为路由真源）。 */
+
+    /** 研究问题**即时检查**（边填边看）：只回「需补充的要点」，**不阻断提交**。
+     *  检查规则（人群 / 行为关键词、最短长度、提示语）的唯一真源在服务端
+     *  `../server/task-runner/proposal.js#checkResearchQuestion`——前端**不复制第二份关键词表**。 */
+    checkResearchProposal: (payload) => post("/api/research-proposal-checks", payload),
+
+    /** 提交研究建议（MD-12）：新建 201（回带 `created=true`）／同一份建议重复提交 200（`created=false`，幂等）。 */
+    submitProposal: (payload) => post("/api/research-proposals", payload),
+
+    /** **触发 F-04**：由研究建议建 HVA 研究任务（二阶段上下文 + 工具权限 + 启动 Agent）。
+     *  幂等守卫在服务端（同一份建议不得重复启动任务）——页面据此**只在新建建议之后调用**。 */
+    createHvaResearchTask: (payload) => post("/api/hva-research-tasks", payload),
+
+    /** 建议列表（MD-12，可按机会过滤）：本页据此显示「该机会已提交过的建议」。 */
+    listProposals: (opportunityId) =>
+      get("/api/research-proposals?opportunity_id=" + enc(opportunityId)),
+
+    /** 建议一页读取（建议行 + 机会现状 + 状态变更链 + 是否已触发任务）。 */
+    getProposalRecord: (proposalId) => get("/api/research-proposals/" + enc(proposalId)),
   };
 })();

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/propose.html
+  功能点：F-29 研究建议提交页（M6 运营端工作台）——人工节点：PM 选机会 → 提研究问题 → 启动二阶段
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜一条硬红线｜索引三层）
+        ｜ ../../docs/01-brd/BRD.md（M6 F-29；M1 F-03/F-04；§3.1 人工节点是必需节点、**平台不自动交接**）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-29 功能描述与验收要点：PM 选机会 → 填研究问题（必需）
+           → 可选补候选行为假设 / 人群限制；**问题不明确时只补问题、不重填材料**；提交后触发 F-04；重复提交幂等）
+        ｜ ../../docs/02-prd/PRD-M1-平台任务程序.md（F-03 人工节点不可越权；F-04 二阶段启动时点＝建议提交时刻）
+        ｜ ../../docs/05-test-cases/test-M6.md（**TC-I-M6-003 = 本页 oracle**；TC-C-M6-001 / TC-D-M6-001 /
+           TC-I-M6-007 为模块级纪律）
+        ｜ ../../docs/05-test-cases/test-M1.md（TC-I-M1-002 幂等；TC-D-M1-007）
+        ｜ ../../docs/03-locks/schema.md（MD-12 research_proposal：`research_question` 必需、
+           `behavior_hypothesis` / `population_limit` 可选 varchar(300)、`idempotency_key` UK、
+           `submitted_at`＝二阶段启动时点、`triggered_task_id` FK→PD-01；PD-05 机会状态变更留痕）
+        ｜ ../../prototype/pages/propose.html（**钉死需求的实证**：四个表单行 / 提交规则 / 提示文案以其为准）
+        ｜ ../README.md ｜ ../assets/api.js（唯一数据出口）｜ ../assets/app.js（跨页共享口径）
+  职责：① 已选机会**只读**呈现（来自 F-28 的 `?opp=`，此处不可改）；② 研究问题**必需**，边填边看
+        「还需补什么」（**不阻断提交**）；③ 候选行为假设 / 人群限制可选；④ 提交 → 落 MD-12（幂等）→
+        **触发 F-04** 建 HVA 研究任务；⑤ 重复提交**幂等**：不新建建议行、不重复启动相同任务。
+        页面**只做展示与人工操作入口，不含业务逻辑**（PRD-M6 §1）：研究问题的检查规则、
+        幂等键算法、版本绑定全部在服务端（`../server/task-runner/proposal.js`），本页**不复制第二份口径**。
+  与原型的**有意偏差**（已登记，见 ../README.md §4）：
+        ① 「需补充的要点」改为调 `POST /api/research-proposal-checks` 取（原型在前端用本地正则算）。
+           服务端口径（人群 / 行为关键词、最短长度、提示语）本就**逐字照录原型**，故展现一致；
+           前端因此**不持第二份关键词表**——改口径只需改服务端一处。
+        ② 「幂等」以服务端 `created` 为准（原型用会话内 `U.Store` 记 key）。真实实现靠 MD-12
+           `idempotency_key` 唯一约束；**幂等命中时本页不再触发 F-04**（不重复启动相同任务）。
+        ③ 提交成功后**真触发 F-04**（`POST /api/hva-research-tasks`）：建 `hva_research` 任务、
+           落 PD-06 二阶段上下文、取 CFG-03 工具权限。原型只在会话里造一条任务。
+        ④ 本页**不提供机会选择器**（原型也没有）：未带 `?opp=` 时取该目标机会列表的**第一条候选**
+           作为默认（便利默认，**不替 PM 定研究问题**）；重选机会回 F-28。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="propose"，fn="F-29"）；被 ../index.html 链接；
+        上游跳转来源：opportunities.html（F-28 候选 / 已提交机会的「提交研究建议」）；
+        下游跳转：opportunities.html（F-28 重选机会）、tasks.html（F-32 查看新建任务）、result.html（F-30）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-29 研究建议提交</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="propose">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-29</span>研究建议提交</h1>
+      <p class="page-desc" id="opp-meta"></p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" id="link-opps" href="opportunities.html">重选机会</a>
+      <a class="btn" id="link-tasks" href="tasks.html">查看任务与状态</a>
+    </div>
+  </div>
+
+  <div id="action-note"></div>
+  <div id="gate-box"></div>
+
+  <div class="side-layout" id="layout">
+    <div>
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">研究建议</div>
+          <div class="card-note">机会来自 F-28，此处不可改</div>
+        </div>
+
+        <div class="form-row">
+          <label class="lbl">1 · 已选机会</label>
+          <div id="opp-box"></div>
+        </div>
+
+        <div class="form-row">
+          <label class="lbl" for="q">2 · 研究问题（必需）</label>
+          <textarea id="q" placeholder="例：搜索进入的新客复购更低，是因为缺少「首单后二次找品」这一行为，还是入口本身带来了不同需求强度的人群？"></textarea>
+          <div id="q-check"></div>
+        </div>
+
+        <div class="form-row">
+          <label class="lbl" for="hypo">3 · 候选行为假设（可选）</label>
+          <input type="text" id="hypo" placeholder="例：首单后 7 日内二次找品（搜索点击≥3 次或加购未下单）">
+        </div>
+
+        <div class="form-row">
+          <label class="lbl" for="limit">4 · 人群限制（可选）</label>
+          <input type="text" id="limit" placeholder="例：仅限 APP 端；剔除大促 8/18–8/20 时段">
+        </div>
+
+        <div class="card-section">
+          <div class="btn-row" style="margin-top:0">
+            <button class="btn btn-primary" id="submit">提交研究建议并启动 HVA 研究</button>
+            <span class="text-3 small" id="submit-note">提交后将触发 M1-F-04，组织二阶段上下文并调用 HVA 分析 Agent</span>
+          </div>
+          <div id="result-box"></div>
+        </div>
+      </div>
+
+      <div class="card" id="existing-card">
+        <div class="card-head">
+          <div class="card-title">该机会已提交的建议</div>
+          <div class="card-note" id="existing-note"></div>
+        </div>
+        <div id="existing"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="card-head"><div class="card-title">提交规则</div></div>
+        <ul class="small text-2" style="padding-left:18px;margin:0">
+          <li>研究问题<b>必需</b>；候选行为假设与人群限制可选。</li>
+          <li>建议与机会版本关联，不混淆不同版本。</li>
+          <li>同一份建议重复提交<b>幂等</b>：不重复启动相同任务。</li>
+          <li>第二阶段启动时点＝建议提交时刻。</li>
+          <li>已允许的查询工具按任务规则执行。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><div class="card-title">人工节点</div></div>
+        <div class="small text-2">M3 机会形成之后，<b>必须由 PM 选机会、提研究问题</b>，平台不自动交接
+          （M1-F-03）；提交即为二阶段的启动依据（M1-F-04）。</div>
+        <div class="small text-3" style="margin-top:8px">提示只说明「问题里还缺什么」，<b>不阻断提交</b>，
+          也不要求重填机会材料。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    功能点 F-29 ｜ 上游：F-28 机会列表与详情、M1-F-03 研究建议管理（人工节点）
+    ｜ 下游：M1-F-04 HVA 研究任务、<a href="tasks.html">F-32 任务与状态</a>、<a href="result.html">F-30 研究结果</a>
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  /* ---------- 本页展示哪套目标配置的研究建议 ----------
+     目标解析口径统一走 assets/app.js（URL goal → 会话 applied → 列表第一条），不在本页再写一遍。 */
+  var GOAL_ID = U.currentGoalId();
+  var applied = U.appliedVersion(GOAL_ID);
+  var appliedVer = applied ? "v" + applied.version_no : (U.goalVersion(GOAL_ID) || "—");
+  var goalParam = "?goal=" + encodeURIComponent(GOAL_ID);
+
+  document.getElementById("link-opps").setAttribute("href", "opportunities.html" + goalParam);
+  document.getElementById("link-tasks").setAttribute("href", "tasks.html" + goalParam);
+  document.getElementById("opp-meta").innerHTML =
+    U.esc(U.goalFields(GOAL_ID).business_goal || "（业务目标未填写）") +
+    "　·　<span class='mono'>" + U.esc(GOAL_ID) + "</span>　·　生效 " + U.esc(appliedVer);
+
+  var state = { opp: null, rec: null, proposals: [] };
+  var busy = false;
+  var checkSeq = 0;
+
+  /* ---------- 提示条 ---------- */
+  function note(kind, msg) {
+    document.getElementById("action-note").innerHTML =
+      '<div class="alert alert-' + (kind === "err" ? "danger" : "ok") + '">' +
+      '<div class="flex-1"><span class="alert-title">' + (kind === "err" ? "操作未完成" : "已执行") +
+      "</span>　" + U.esc(msg) + "</div></div>";
+  }
+  function showErr(e) { note("err", (e && e.message) || String(e)); }
+  function outBox(kind, html) {
+    document.getElementById("result-box").innerHTML =
+      '<div class="alert alert-' + kind + '"><div class="flex-1">' + html + "</div></div>";
+  }
+
+  /* ---------- 门禁（与 F-28 同一条硬门禁，口径在 assets/app.js#gateOf） ---------- */
+  var gate = U.gateOf("propose", GOAL_ID);
+  function renderGate() {
+    document.getElementById("layout").style.display = "none";
+    document.getElementById("gate-box").innerHTML =
+      '<div class="card"><div class="gate">' +
+        '<div class="gate-mark">!</div>' +
+        '<div><div style="font-weight:500;margin-bottom:4px">' + U.esc(gate.reason) + "</div>" +
+        '<div class="small text-2">' + U.esc(gate.how) + "</div>" +
+        '<div class="small text-3" style="margin-top:6px">研究建议必须挂在<b>真实机会</b>上（MD-12 外键）；' +
+        "机会来自 F-28，本页不替你选机会、也不替你定研究问题。</div>" +
+        "</div></div></div>";
+  }
+  function renderEmpty() {
+    document.getElementById("layout").style.display = "none";
+    document.getElementById("gate-box").innerHTML =
+      '<div class="card"><div class="empty">本目标下暂无可研究的机会。' +
+      '研究建议必须挂在真实机会上（MD-12 外键）——请先到<a href="opportunities.html' + goalParam +
+      '">机会列表</a>查看，或到<a href="goal.html' + goalParam + '">目标配置</a>执行一次机会发现。</div></div>';
+  }
+
+  /* 机会六要素中文标签：取自 U.OPP_FIELDS（唯一真源＝服务端），本页不写第二份字段表。 */
+  function oppLabel(key) {
+    var f = U.OPP_FIELDS.filter(function (x) { return x.key === key; })[0];
+    return f ? f.label : key;
+  }
+
+  /* ============================================================
+     取数：一律经 window.API（server/api）；**本页不发任何其它请求**
+     ============================================================ */
+
+  /* 机会来源：`?opp=`（F-28 带过来）→ 该目标机会列表的**第一条候选** → 第一条。
+     匹配一律在本目标的机会集合内做，避免跨目标误取。 */
+  async function loadOpportunity() {
+    var res = await window.API.listOpportunities(GOAL_ID);
+    var rows = (res && res.items) || [];
+    var wanted = U.qs("opp") || "";
+    var pick = wanted ? rows.filter(function (r) { return r.opportunity_id === wanted; })[0] : null;
+    if (!pick) pick = rows.filter(function (r) { return r.opportunity_status === "candidate"; })[0] || rows[0] || null;
+    state.opp = pick || null;
+    if (!pick) return;
+    state.rec = await window.API.getOpportunityRecord(pick.opportunity_id);
+  }
+
+  async function loadProposals() {
+    if (!state.opp) return;
+    var res = await window.API.listProposals(state.opp.opportunity_id);
+    state.proposals = (res && res.items) || [];
+  }
+
+  /* 提交动作会改机会状态（candidate → submitted），重取一次读模型，让卡内「事实」与库一致。 */
+  async function refreshOpportunity() {
+    if (!state.opp) return;
+    var rec = await window.API.getOpportunityRecord(state.opp.opportunity_id);
+    if (rec && rec.opportunity) { state.rec = rec; state.opp = rec.opportunity; }
+  }
+
+  /* ---------- ① 已选机会（**只读**：本页无任何改写机会的入口） ---------- */
+  function renderOppBox() {
+    var o = state.opp;
+    var status = o.opportunity_status;
+    /* 未知项二态：口径回指服务端 classifyUnknownItem 的四个状态（与 F-28 同一份 U.UNKNOWN_TEXT） */
+    var as = (state.rec && state.rec.assessment) || {};
+    var unknownState = as.unknown_state;
+    var unknownVal;
+    if (unknownState === "has_unknown") unknownVal = U.esc(o.unknown_item);
+    else if (unknownState === "none_confirmed") unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.none_confirmed) + "</span>";
+    else if (unknownState === "not_assessed") unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.not_assessed) + "</span>";
+    else unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.invalid_blank) + "</span>";
+
+    /* 机会状态在此**只作事实呈现**（不阻断提交、也不替 PM 改状态）：提交与否由 PM 决定。
+       「是否已提交过建议」以**事实行**为准（MD-12 有无建议行），不看机会状态列——
+       历史数据里机会可能被置为 submitted 却没有对应建议行（M1-F-17 的人工节点完成判据同此口径）。 */
+    var statusNote = "";
+    var hasProposal = (state.proposals || []).length > 0;
+    if (status === "deferred") {
+      statusNote = '<div class="alert alert-info" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">该机会已标记「暂不研究」</span>　记录保留；条件变化或出现新证据后可到' +
+        '<a href="opportunities.html' + goalParam + '">机会列表</a>恢复为候选。本页不替你改机会状态。</div></div>';
+    } else if (hasProposal) {
+      statusNote = '<div class="alert alert-info" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">该机会已提交过研究建议</span>　共 ' + state.proposals.length +
+        " 条（见下方）；若要新的研究，修改研究问题或补充信息后再提交。</div></div>";
+    } else if (status === "submitted") {
+      statusNote = '<div class="alert alert-info" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">机会状态为「已提交研究」，但本平台暂无登记在案的研究建议行</span>　' +
+        "本页按事实行判定（M1-F-17 人工节点完成判据同此口径）；以任务与状态页为准。</div></div>";
+    }
+
+    document.getElementById("opp-box").innerHTML =
+      '<div class="readonly-box">' +
+        '<div style="font-weight:500;margin-bottom:6px">' + U.esc(o.opportunity_title) +
+          "　" + U.badge(status) + "</div>" +
+        '<div class="field-list">' +
+          '<div class="field" data-field="opportunity_id"><div class="field-label">机会编号</div>' +
+            '<div class="field-value mono">' + U.esc(o.opportunity_id) + " · " + U.esc(o.goal_id) +
+            " · v" + U.esc(o.goal_version_no) + "</div></div>" +
+          '<div class="field" data-field="target_object"><div class="field-label">' + U.esc(oppLabel("target_object")) +
+            '</div><div class="field-value">' + U.esc(o.target_object) + "</div></div>" +
+          '<div class="field" data-field="phenomenon"><div class="field-label">' + U.esc(oppLabel("phenomenon")) +
+            '</div><div class="field-value">' + U.esc(o.phenomenon) + "</div></div>" +
+          '<div class="field" data-field="unknown_item"><div class="field-label">未知项</div>' +
+            '<div class="field-value">' + unknownVal + "</div></div>" +
+        "</div>" +
+      "</div>" + statusNote;
+  }
+
+  /* ---------- ② 研究问题的即时检查（**不阻断提交**） ----------
+     规则在服务端 `checkResearchQuestion`：本页只呈现它回的「需补充的要点」与提示语，
+     **不在前端写第二份关键词表 / 长度阈值**。 */
+  function renderQuestionCheck(r) {
+    var box = document.getElementById("q-check");
+    if (!r || !r.provided) { box.innerHTML = ""; return; }
+    if (r.ok) {
+      box.innerHTML = '<div class="alert alert-ok"><div class="flex-1">' + U.esc(r.hint) + "</div></div>";
+      return;
+    }
+    box.innerHTML = '<div class="alert alert-warn"><div class="flex-1">' +
+      '<span class="alert-title">需补充的要点：</span>' +
+      U.esc(r.missing.join("；")) + "。" + U.esc(r.hint) + "</div></div>";
+  }
+  async function runQuestionCheck() {
+    var v = document.getElementById("q").value.trim();
+    var seq = ++checkSeq;
+    if (!v) { renderQuestionCheck(null); return; }
+    try {
+      var r = await window.API.checkResearchProposal({ research_question: v });
+      if (seq !== checkSeq) return; // 只认最后一次输入的结果（防乱序覆盖）
+      renderQuestionCheck(r);
+    } catch (e) { if (seq === checkSeq) showErr(e); }
+  }
+  document.getElementById("q").addEventListener("input", runQuestionCheck);
+
+  /* ---------- 该机会已提交的建议（MD-12） ---------- */
+  function renderExisting() {
+    var ps = state.proposals || [];
+    document.getElementById("existing-note").textContent = ps.length ? "共 " + ps.length + " 条" : "";
+    var box = document.getElementById("existing");
+    if (!ps.length) {
+      box.innerHTML = '<div class="empty">该机会暂无已提交的研究建议</div>';
+      return;
+    }
+    box.innerHTML = ps.map(function (p) {
+      return '<div class="card-section">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">' +
+          '<div class="mono">' + U.esc(p.proposal_id) + "</div>" +
+          '<div class="small text-3">' + U.esc(p.submitted_at || "—") + "　" + U.esc(p.submitted_by || "—") + "</div>" +
+        "</div>" +
+        '<div style="margin-top:4px">' + U.esc(p.research_question) + "</div>" +
+        (p.behavior_hypothesis ? '<div class="small text-2">候选行为假设：' + U.esc(p.behavior_hypothesis) + "</div>" : "") +
+        (p.population_limit ? '<div class="small text-2">人群限制：' + U.esc(p.population_limit) + "</div>" : "") +
+        '<div class="small text-3">目标版本 v' + U.esc(p.goal_version_no) + "　·　" +
+          (p.triggered_task_id ? "已触发任务 <span class='mono'>" + U.esc(p.triggered_task_id) + "</span>" : "未触发任务") +
+        "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  /* ============================================================
+     提交：落 MD-12（服务端判幂等）→ **触发 M1-F-04** 建 HVA 研究任务
+     幂等命中时**不再触发 F-04**（同一份建议不得重复启动相同任务）。
+     ============================================================ */
+  async function submit() {
+    if (busy) return;
+    var v = document.getElementById("q").value.trim();
+    if (!v) {
+      outBox("danger", "研究问题为必填项，请先填写后再提交。");
+      document.getElementById("q").focus();
+      return;
+    }
+    var btn = document.getElementById("submit");
+    busy = true;
+    btn.disabled = true;
+    try {
+      var res = await window.API.submitProposal({
+        opportunity_id: state.opp.opportunity_id,
+        research_question: v,
+        behavior_hypothesis: document.getElementById("hypo").value.trim(),
+        population_limit: document.getElementById("limit").value.trim(),
+        submitted_by: U.OPERATOR,
+      });
+      var pid = res.proposal.proposal_id;
+
+      if (res.created) {
+        var t = await window.API.createHvaResearchTask({ proposal_id: pid });
+        var taskId = t.task ? t.task.task_id : "";
+        U.markUnread("tasks", 1, GOAL_ID);
+        note("ok", "已提交研究建议 " + pid + "（机会 " + state.opp.opportunity_id + "，目标版本 v" +
+          res.proposal.goal_version_no + "），并触发 M1-F-04 建 HVA 研究任务 " + taskId + "。");
+        outBox("ok",
+          "<span class='alert-title'>已提交，触发 M1-F-04</span>　研究建议已与机会版本 " +
+          U.esc(state.opp.opportunity_id) + "（v" + U.esc(res.proposal.goal_version_no) + "）关联。<br>" +
+          "已创建 HVA 研究任务 <span class='mono'>" + U.esc(taskId) + "</span>，并组织二阶段上下文（PD-06）。" +
+          (t.version_warning ? "<br><span class='text-3'>" + U.esc(t.version_warning) + "</span>" : "") +
+          (t.tool_permissions_pending
+            ? "<br><span class='text-3'>工具权限待登记（归 M5 职责），不阻断本次提交。</span>" : "") +
+          "<br><a href=\"tasks.html" + goalParam + "\">到任务与状态页查看 →</a>");
+      } else {
+        var prev = res.proposal.triggered_task_id || "";
+        note("ok", "同一份研究建议此前已提交过（" + pid + "）——幂等命中，本次未重复启动任务。");
+        outBox("info",
+          "<span class='alert-title'>幂等：同一份研究建议已提交过</span>　既有建议 " +
+          "<span class='mono'>" + U.esc(pid) + "</span>，不会重复启动相同任务。" +
+          (prev ? "<br>已触发任务：<span class='mono'>" + U.esc(prev) + "</span>。" : "") +
+          "<br>如需新的研究，请修改研究问题或补充信息后再提交。");
+      }
+
+      await Promise.all([loadProposals(), refreshOpportunity()]);
+      renderOppBox();
+      renderExisting();
+    } catch (e) { showErr(e); }
+    finally { busy = false; btn.disabled = false; }
+  }
+  document.getElementById("submit").addEventListener("click", submit);
+
+  /* ---------- 启动 ---------- */
+  if (gate.locked) { renderGate(); return; }
+
+  await loadOpportunity();
+  if (!state.opp) { renderEmpty(); return; }
+  await loadProposals();
+  U.clearUnread("propose", GOAL_ID);
+  renderOppBox();
+  renderExisting();
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记（M6 六页面之一：F-29）
+  - 被 ../assets/app.js 的导航清单登记（page="propose"，fn="F-29"）
+  - 被 ../index.html 链接
+  - 上游跳转来源：opportunities.html（F-28 候选 / 已提交机会的「提交研究建议」）
+  - 下游跳转：opportunities.html（F-28 重选机会）、tasks.html（F-32 查看新建任务）、result.html（F-30 研究结果）
+-->

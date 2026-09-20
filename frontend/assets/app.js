@@ -11,7 +11,7 @@
    职责：把原型 assets/app.js 的「跨页同口径三件事」原样搬到前端，数据来源由 `window.DB`
        （原型 mock，**不复制**）换成 `window.API`（真实接口，异步）：
          ① 目标解析：U.allGoals / U.goalById / U.currentGoalId
-         ② 运行链状态：U.runState —— 决定 F-28 机会列表能否进入
+         ② 运行链状态：U.runState —— 决定 F-28 机会列表与 F-29 研究建议提交能否进入
          ③ 未读标记：U.markUnread / U.clearUnread —— 侧栏小绿点
        另持三份**只读口径**（不复制第二份）：
          · U.SIX_FIELDS —— 目标六要素键与中文标签；**键＝服务端 `server/task-runner/goal.js#GOAL_FIELDS`**
@@ -21,8 +21,9 @@
          · U.STATUS —— 状态徽标文案（与原型同一份口径）。
    硬约定（可静态核对）：本文件**不发任何请求**，一律经 `./api.js`；**不出现绝对地址与凭证**；
        业务数据**不写 localStorage**（只有会话态：当前浏览目标 / 未读标记）。
-   反向清单：被 ../index.html（前端外壳）与 ../pages/goal.html（F-27）、../pages/opportunities.html（F-28）
-       及后续 F-29~F-32 各页经 <script src> 加载；对外只暴露 `window.U`（页面用）与 `window.PX`（兼容原型命名）。
+   反向清单：被 ../index.html（前端外壳）与 ../pages/goal.html（F-27）、../pages/opportunities.html（F-28）、
+       ../pages/propose.html（F-29）及后续 F-30~F-32 各页经 <script src> 加载；对外只暴露 `window.U`（页面用）
+       与 `window.PX`（兼容原型命名）。
    ============================================================ */
 
 (function () {
@@ -276,14 +277,17 @@
       lastRun: disc.length ? disc[disc.length - 1] : null,
     };
   }
-  /** 各页入口前置条件（门禁）。目前只有 F-28 需要硬门禁：没有机会可谈，就不该进去看空白。 */
+  /** 各页入口前置条件（门禁）。F-28 与 F-29 共用**同一条**硬门禁：没有机会可谈，
+   *  就不该进去看空白（F-28）或填研究建议（F-29）——两页的准入条件本就是同一件事。 */
   function gateOf(page, goalId) {
-    if (page === "opportunities") {
+    if (page === "opportunities" || page === "propose") {
       const rs = runState(goalId);
       if (rs.state === "no-run") {
         return {
           locked: true, state: rs.state, rs: rs,
-          reason: "该目标配置尚未执行过机会发现，机会列表暂不可进入",
+          reason: page === "propose"
+            ? "该目标配置尚未执行过机会发现，还没有可研究的机会"
+            : "该目标配置尚未执行过机会发现，机会列表暂不可进入",
           how: "到目标配置页选中该套配置，点「应用配置」执行一次机会发现。",
         };
       }
