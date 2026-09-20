@@ -238,7 +238,7 @@
 
 **⑤ 意向分归一（TC-U-M3-001）**：`min(raw/threshold, 1)` 封顶 1，确定性无随机；`threshold≤0` 除零防护回退 `raw` 本身。该函数为 F-14/F-15 共用。
 
-**⑥ 实施发现（2026-09-20 做 F-19 时实测 · 未擅自改）**：`loadDiscoveryContext` 的 `goal`/`background`/`capabilities`/`sources` 四键**恒为空**——它读的是 `getTaskContext()` 返回对象的**顶层键** `ctx.goal`/`ctx.background`/`ctx.capabilities`/`ctx.sources`，而 `getTaskContext` 实际只返回 `sections`（按 CFG-06 模板分组）、`scope`、`template`、`missing_required`、`complete`、`injections` 等，**没有这四个顶层键**。实测（真实任务链夹具）返回 `{goal:null, background:null, capabilities:[], sources:[]}`，而同一任务 `sections` 里 `goal`/`background`/`source` 三类**确有条目**。`test-f14` ④ 组只用 fake-db 断言「六键存在」，故该偏差**静默通过**。**F-19 按正确方式实现**（从 `sections` 取值，见 §7 ⑦）。本处仅登记，**未改动 F-14 代码**（一 F-xx 一 PR）；建议后续修 `discovery.js` 的取值来源并补一条「值非空」断言。
+**⑥ 实施发现（2026-09-20 做 F-19 时实测 · 未擅自改）**：`loadDiscoveryContext` 的 `goal`/`background`/`capabilities`/`sources` 四键**恒为空**——它读的是 `getTaskContext()` 返回对象的**顶层键** `ctx.goal`/`ctx.background`/`ctx.capabilities`/`ctx.sources`，而 `getTaskContext` 实际只返回 `sections`（按 CFG-06 模板分组）、`scope`、`template`、`missing_required`、`complete`、`injections` 等，**没有这四个顶层键**。实测（真实任务链夹具）返回 `{goal:null, background:null, capabilities:[], sources:[]}`，而同一任务 `sections` 里 `goal`/`background`/`source` 三类**确有条目**。`test-f14` ④ 组只用 fake-db 断言「六键存在」，故该偏差**静默通过**。**F-19 按正确方式实现**（从 `sections` 取值，见 §7 ⑦）。该缺陷已于 2026-09-20 修复：`discovery.js` 改从 `sections` 按 `context_type_code` 取值（对齐 F-19），`test-f14` ⑥ 组新增真实 D1「值非空」断言锁定。
 
 ### 3. F-15 基础查证（M3 查证核心 · 经 M5 真实查询）
 

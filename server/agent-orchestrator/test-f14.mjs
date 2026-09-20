@@ -15,6 +15,7 @@ import {
   loadDiscoveryContext,
 } from "./discovery.js";
 import { readFileSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 
 let passed = 0;
 let failed = 0;
@@ -167,6 +168,43 @@ console.log("\n⑤ 静态核验 · 零外部调用 / 零裸 SQL / 仅复用 shar
   const otherBusiness = (src.match(/from "\.\.\/(?!shared-context)[^"]*"/g) || []).length;
   assert(otherBusiness === 0, "S 不 import 其它 ../ 业务模块（tool-executor / task-runner 等）");
   assert(!/node:sqlite/.test(src), "S 不 import node:sqlite（零裸 SQL，写面全在 shared-context）");
+}
+
+
+// ==================================================== F · 取值正确性（真实 D1；修复 F-14 取值缺陷 §agent-orchestrator/README §⑥）
+console.log("\n⑥ loadDiscoveryContext · 真实 D1 取值非空（修复取值缺陷）");
+{
+  /** 把 node:sqlite 包成 D1 形态：prepare().bind().run()/all()/first()（复用 test-f12 适配层）。 */
+  const d1From = (sqlite) => {
+    const makeStmt = (sql, params) => ({
+      bind: (...args) => makeStmt(sql, args),
+      run: () => {
+        const r = sqlite.prepare(sql).run(...params);
+        return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+      },
+      all: () => ({ results: sqlite.prepare(sql).all(...params) }),
+      first: (col) => {
+        const row = sqlite.prepare(sql).get(...params) ?? null;
+        return row === null ? null : col === undefined ? row : row[col];
+      },
+    });
+    return { prepare: (sql) => makeStmt(sql, []) };
+  };
+  const DDL = readFileSync(new URL("../../db/migrations/0001_init.sql", import.meta.url), "utf8");
+  const SEED = readFileSync(new URL("../../db/seed/0001_mock.sql", import.meta.url), "utf8").replace(/pragma\s+foreign_keys\s*=\s*on\s*;/gi, "");
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(DDL);
+  sqlite.exec(SEED);
+  sqlite.exec("PRAGMA foreign_keys = ON;");
+  const db = d1From(sqlite);
+
+  const ctx = await loadDiscoveryContext(db, "T-1022");
+  assert(Array.isArray(ctx.goal) && ctx.goal.length >= 1, `⑥ goal 非空（实测 ${ctx.goal.length} 条）`);
+  assert(Array.isArray(ctx.background) && ctx.background.length >= 1, `⑥ background 非空（实测 ${ctx.background.length} 条）`);
+  assert(Array.isArray(ctx.capabilities) && ctx.capabilities.length >= 1, `⑥ capabilities 非空（实测 ${ctx.capabilities.length} 条）`);
+  assert(Array.isArray(ctx.sources) && ctx.sources.length >= 1, `⑥ sources 非空（实测 ${ctx.sources.length} 条）`);
+  assert(ctx.scope && ctx.scope.business_scope != null, `⑥ scope 含 business_scope（实测 ${ctx.scope && ctx.scope.business_scope}）`);
+  // 修复前：goal/background/capabilities/sources 恒为空（ctx 无顶层键）；现从 sections 取值应非空
 }
 
 finish();

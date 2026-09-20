@@ -171,18 +171,27 @@ export function summarizeCluesAsJourney(factSet) {
  */
 export async function loadDiscoveryContext(db, task_id) {
   const ctx = await getTaskContext(db, task_id); // { ...buildTaskContext, injections }
-  const research_no = ctx.research_no || null;
+  const sections = Array.isArray(ctx.sections) ? ctx.sections : [];
+  // F-14 取值缺陷修复（2026-09-20）：原实现读 ctx.goal/background/capabilities/sources
+  // 顶层键，但 getTaskContext 实际返回 sections[]（按 CFG-06 模板分组）＋ scope，无这四个顶层键；
+  // 真实数据须从 sections 按 context_type_code 取（对齐 F-19 research-start.js:355）。
+  const sectionItems = (code) => {
+    const s = sections.find((x) => x.context_type_code === code);
+    return s && Array.isArray(s.items) ? s.items : [];
+  };
+  const scope = ctx.scope || {};
+  const research_no = scope.research_no || null;
   let history = [];
   if (research_no) {
     const research = await getResearch(db, research_no);
     if (research) history = [research.research_question || research_no];
   }
   return {
-    goal: ctx.goal || null,
-    scope: ctx.scope || null,
-    background: ctx.background || null,
+    goal: sectionItems("goal"),
+    scope,
+    background: sectionItems("background"),
     history,
-    capabilities: ctx.capabilities || [],
-    sources: ctx.sources || [],
+    capabilities: sectionItems("source"),
+    sources: sectionItems("source"),
   };
 }
