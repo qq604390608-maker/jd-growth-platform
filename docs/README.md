@@ -11,7 +11,7 @@
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
 | `01-brd/BRD.md` | 业务需求文档：六大模块 × 32 功能点全量清单 | ✅ 已有（2026-09-19 迁入 `01-brd/`） |
-| `03-locks/` | 三项锁定（schema 表结构 / external-deps 外部依赖 / tech-stack 技术栈） | ✅ 三项齐备（schema **v1.3**、external-deps v1.1、tech-stack **v1.2**；各含待确认清单） |
+| `03-locks/` | 三项锁定（schema 表结构 / external-deps 外部依赖 / tech-stack 技术栈） | ✅ 三项齐备（schema **v1.3**、external-deps v1.1、tech-stack **v1.3**；各含待确认清单） |
 | `07-decisions/` | 决策留档：决策请示包（DEC-PACK）＋ 正式决策记录（ADR-xxx） | ✅ `DEC-PACK-001`（**v1.3**）＋ **`ADR-001`~`ADR-003` 已建**（2026-09-19，Q-03/04/05 三项裁决） |
 | `02-prd/` | 主子 PRD：主索引 `PRD.md` ＋ 子 PRD `PRD-M1`~`PRD-M6`（一模块一份） | ✅ 已建（2026-09-19，仅业务背景仍待建） |
 | `04-plan/` | 开发计划：按依赖顺序编排 M1~M6 的实施路线图（`dev-plan.md`） | ✅ 已建（2026-09-19，顺序 M2→M5→M1→M3/M4→M6） |

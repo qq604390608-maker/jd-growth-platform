@@ -516,7 +516,7 @@
 | `schema.md` §7 / CFG-01 / CFG-02 | 互相印证（不建表清单 ↔ 能查到什么） | ✅ 已互指 |
 | `db/` 种子数据（`source_registry` / `tool_registry` / `tool_permission`） | §5 工具清单是其种子来源 | ✅ **已建**（`db/seed/0001_mock.sql` 已落 5 来源 / 12 工具 / 24 权限，2026-09-19） |
 | `../../prototype/mock/` mock server | §6 是其需求契约 | ✅ 已建（2026-09-19；零依赖 node 进程，九类响应可映射 EXT-01，见 `prototype/mock/README.md`） |
-| `tech-stack.md` | 承接 §4 设施项的实现选型 | ✅ 已建（2026-09-19，v1.2） |
+| `tech-stack.md` | 承接 §4 设施项的实现选型 | ✅ 已建（2026-09-20，v1.3） |
 | `agent-runtime/`（agent.md 与 skills） | 引用「能用哪些工具、工具阻塞什么」决定 Agent 能力边界 | 🟡 部分（工程骨架已建 2026-09-19，本体待阶段4） |
 
 > **诚实说明**：截至 v1.0，本文件的反向引用：登记层（两份 README）+ schema 互指 + `db/` 种子 + `prototype/mock/` 均已建立；`tech-stack.md` ✅ 已建（2026-09-19）、`agent-runtime/` 🟡 工程骨架已建（2026-09-19）。此外，**§2 中大量 `*` demo 值尚未替换**，本文件在 §7 待确认清单 T-01~T-10 关闭前**不应被视为可实施**。
