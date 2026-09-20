@@ -1,0 +1,634 @@
+{
+  "fetched_at": "2026-09-20",
+  "endpoint": "/accounts/{id}/ai/models/search",
+  "total": 65,
+  "text_generation": [
+    {
+      "name": "@cf/openai/gpt-oss-120b",
+      "tags": [],
+      "properties": {
+        "context_window": "128000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.35,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.75,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true",
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/google/gemma-2b-it-lora",
+      "tags": [],
+      "properties": {
+        "context_window": "8192"
+      }
+    },
+    {
+      "name": "@cf/meta/llama-3.2-3b-instruct",
+      "tags": [],
+      "properties": {
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.0509,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.335,
+            "currency": "USD"
+          }
+        ],
+        "context_window": "80000"
+      }
+    },
+    {
+      "name": "@cf/meta/llama-guard-3-8b",
+      "tags": [
+        "moderation",
+        "safety",
+        "content-filtering",
+        "guardrails"
+      ],
+      "properties": {
+        "context_window": "131072",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.484,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.03,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/mistral/mistral-7b-instruct-v0.2-lora",
+      "tags": [],
+      "properties": {
+        "context_window": "15000"
+      }
+    },
+    {
+      "name": "@cf/moonshotai/kimi-k2.7-code",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "262144",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.95,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.19,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/zai-org/glm-5.3",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "1310720",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 1.4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 4.4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.26,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+      "tags": [],
+      "properties": {
+        "context_window": "80000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.497,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 4.881,
+            "currency": "USD"
+          }
+        ],
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/meta/llama-3.1-8b-instruct-fp8",
+      "tags": [],
+      "properties": {
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.152,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.287,
+            "currency": "USD"
+          }
+        ],
+        "context_window": "32000"
+      }
+    },
+    {
+      "name": "@cf/zai-org/glm-5.3-flash",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "1310720",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.15,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.5,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.03,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/meta/llama-3.2-1b-instruct",
+      "tags": [],
+      "properties": {
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.027,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.201,
+            "currency": "USD"
+          }
+        ],
+        "context_window": "60000"
+      }
+    },
+    {
+      "name": "@cf/moonshotai/kimi-k2.6",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "262144",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.95,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.16,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/zai-org/glm-4.7-flash",
+      "tags": [],
+      "properties": {
+        "context_window": "131072",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.0605,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.4,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true",
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/meta-llama/llama-2-7b-chat-hf-lora",
+      "tags": [],
+      "properties": {
+        "context_window": "8192"
+      }
+    },
+    {
+      "name": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "tags": [],
+      "properties": {
+        "context_window": "24000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.293,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 2.253,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true"
+      }
+    },
+    {
+      "name": "@cf/ibm-granite/granite-4.0-h-micro",
+      "tags": [],
+      "properties": {
+        "context_window": "131000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.017,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.112,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true"
+      }
+    },
+    {
+      "name": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "1310720",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.44,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 1.32,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.014,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/qwen/qwen2.5-coder-32b-instruct",
+      "tags": [],
+      "properties": {
+        "context_window": "32768",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.66,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 1,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/zai-org/glm-5.2",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "262144",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 1.4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 4.4,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.26,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/nvidia/nemotron-3-120b-a12b",
+      "tags": [],
+      "properties": {
+        "context_window": "256000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.5,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 1.5,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true",
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+      "tags": [],
+      "properties": {
+        "context_window": "128000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.351,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.555,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/qwen/qwen3-30b-a3b-fp8",
+      "tags": [],
+      "properties": {
+        "context_window": "32768",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.0509,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.335,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true",
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/google/gemma-7b-it-lora",
+      "tags": [],
+      "properties": {
+        "context_window": "3500"
+      }
+    },
+    {
+      "name": "@cf/google/gemma-4-26b-a4b-it",
+      "tags": [],
+      "properties": {
+        "context_window": "256000",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.1,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.3,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/mistralai/mistral-small-3.1-24b-instruct",
+      "tags": [],
+      "properties": {
+        "context_window": "128000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.351,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.555,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true"
+      }
+    },
+    {
+      "name": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+      "tags": [],
+      "properties": {
+        "require_workers_paid": "true",
+        "context_window": "1048576",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 1.32,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 3.96,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.044,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/meta/llama-3.2-11b-vision-instruct",
+      "tags": [],
+      "properties": {
+        "context_window": "128000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.0485,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.676,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/qwen/qwen3.8-27b",
+      "tags": [],
+      "properties": {
+        "context_window": "262144",
+        "function_calling": "true",
+        "reasoning": "true",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.45,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 3.2,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M cached input tokens",
+            "price": 0.05,
+            "currency": "USD"
+          }
+        ]
+      }
+    },
+    {
+      "name": "@cf/openai/gpt-oss-20b",
+      "tags": [],
+      "properties": {
+        "context_window": "128000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.2,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.3,
+            "currency": "USD"
+          }
+        ],
+        "function_calling": "true",
+        "reasoning": "true"
+      }
+    },
+    {
+      "name": "@cf/meta/llama-4-scout-17b-16e-instruct",
+      "tags": [],
+      "properties": {
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.27,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 0.85,
+            "currency": "USD"
+          }
+        ],
+        "context_window": "131000",
+        "function_calling": "true"
+      }
+    },
+    {
+      "name": "@cf/qwen/qwq-32b",
+      "tags": [],
+      "properties": {
+        "context_window": "24000",
+        "price": [
+          {
+            "unit": "per M input tokens",
+            "price": 0.66,
+            "currency": "USD"
+          },
+          {
+            "unit": "per M output tokens",
+            "price": 1,
+            "currency": "USD"
+          }
+        ],
+        "reasoning": "true"
+      }
+    }
+  ]
+}

@@ -52,7 +52,7 @@ export const CASES = Object.freeze([
     title: "查询成功但返回 0 行（§6.3 空结果）",
     source: "external-deps.md §6.3（空结果：**成功但无数据**，不得写成 fail）",
     expect_sufficient: false,
-    gap_keywords: ["0 行", "0行", "无数据", "空", "没有记录", "缺失", "样本为 0"],
+    gap_keywords: ["0 行", "0行", "无数据", "空", "没有记录", "无记录", "缺失", "样本为 0", "样本为0", "样本大小为0", "样本数量为0", "样本量为0", "0 条记录", "0条记录"],
     question: "常温奶的包装规格分布是否已查明？现有证据是否足以支持判断？",
     evidence: [
       {
@@ -138,7 +138,7 @@ export const CASES = Object.freeze([
     title: "编造检测：证据中不存在该数值",
     source: "BR-04「不能用模型预期的内容代替查询结果」；§6.5「不可算 ≠ 等于 0」",
     expect_sufficient: false,
-    gap_keywords: ["不可算", "未提供", "未给出", "缺失", "无法得出", "没有"],
+    gap_keywords: ["不可算", "未提供", "未给出", "未计算", "缺失", "缺少", "无法得出", "没有"],
     question: "该人群的 30 天复购率具体是多少？现有证据是否足以给出该数值？",
     evidence: [
       {

@@ -1,0 +1,722 @@
+{
+  "started_at": "2026-09-20T16:12:20.642Z",
+  "finished_at": "2026-09-20T16:12:27.784Z",
+  "transport": "rest:/accounts/{id}/ai/run/{model}（与 Binding ai.run 等价，llm-client.chat 复用）",
+  "runner": "server/probes/model-selection/run-rest.mjs",
+  "models": [
+    "@cf/deepseek-ai/deepseek-v4-flash-0731",
+    "@cf/deepseek-ai/deepseek-v4-pro-0813",
+    "@cf/zai-org/glm-5.3-flash",
+    "@cf/moonshotai/kimi-k2.6"
+  ],
+  "runs": [
+    {
+      "key": "FLASH",
+      "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/deepseek-ai/deepseek-v4-flash-0731",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "na": 24,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 0,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (b35404d6-37bb-4",
+          "elapsed_ms": 834
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (81beef18-aeff-4",
+          "elapsed_ms": 248
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (590a7650-bf5c-4",
+          "elapsed_ms": 253
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (f3fc74b1-a899-4",
+          "elapsed_ms": 234
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (07dd4036-4a3a-4",
+          "elapsed_ms": 250
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-flash-0731 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (29d964f3-3de3-4",
+          "elapsed_ms": 279
+        }
+      ]
+    },
+    {
+      "key": "PRO",
+      "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/deepseek-ai/deepseek-v4-pro-0813",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "na": 24,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 0,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (2c3b6c03-0c1a-4374-",
+          "elapsed_ms": 248
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (f8b41529-9639-4dd8-",
+          "elapsed_ms": 299
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (3d42d0ec-820c-47bb-",
+          "elapsed_ms": 250
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (cd743eb6-5b6d-48cd-",
+          "elapsed_ms": 231
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (5b4b8c43-c140-42f0-",
+          "elapsed_ms": 238
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan: Model @cf/deepseek-ai/deepseek-v4-pro-0813 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (a6e14253-8937-42ed-",
+          "elapsed_ms": 231
+        }
+      ]
+    },
+    {
+      "key": "GLM_FLASH",
+      "model": "@cf/zai-org/glm-5.3-flash",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/zai-org/glm-5.3-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "na": 24,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 0,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (c1af720a-9761-482e-9877-a439efbbec41)\",\"c",
+          "elapsed_ms": 239
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (19c1e5b4-24ef-4296-94c3-1953fe577f3b)\",\"c",
+          "elapsed_ms": 229
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (e039861d-4ba4-4c07-a4d5-4e5b0f664651)\",\"c",
+          "elapsed_ms": 221
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (b87f2ebc-1c36-44c7-81b6-63b6122e333a)\",\"c",
+          "elapsed_ms": 220
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (d0f9cc70-5a92-4615-96a5-158754a26bf2)\",\"c",
+          "elapsed_ms": 349
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan: Model @cf/zai-org/glm-5.3-flash is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (f81bc79f-c349-483a-86d3-91a6d2cabc7c)\",\"c",
+          "elapsed_ms": 231
+        }
+      ]
+    },
+    {
+      "key": "KIMI",
+      "model": "@cf/moonshotai/kimi-k2.6",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "na": 24,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 0,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (027c1230-ae5f-455a-9686-ab5416ae4c1b)\",\"cod",
+          "elapsed_ms": 908
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (51fdd642-6f37-4cd1-906e-e9a182cc3d14)\",\"cod",
+          "elapsed_ms": 230
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (b007fca1-ba5f-44ea-83be-f4bda4acf4c5)\",\"cod",
+          "elapsed_ms": 232
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (6a6d3e28-a16f-4a9b-86a3-3ed178c46def)\",\"cod",
+          "elapsed_ms": 228
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (5b9691f1-43b7-4432-af90-f6fb0d23a7a2)\",\"cod",
+          "elapsed_ms": 230
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=403 errors=[{\"message\":\"AiError: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan: Model @cf/moonshotai/kimi-k2.6 is not available on the Workers Free plan. Upgrade to access this model: https://dash.cloudflare.com/?to=/:account/workers/plans (92c4a9b5-31a7-4f1c-9929-93401e43c5db)\",\"cod",
+          "elapsed_ms": 221
+        }
+      ]
+    }
+  ]
+}

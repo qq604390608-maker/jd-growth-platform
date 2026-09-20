@@ -1,0 +1,818 @@
+{
+  "started_at": "2026-09-20T16:02:12.040Z",
+  "finished_at": "2026-09-20T16:09:10.430Z",
+  "transport": "rest:/accounts/{id}/ai/run/{model}（与 Binding ai.run 等价，llm-client.chat 复用）",
+  "runner": "server/probes/model-selection/run-rest.mjs",
+  "models": [
+    "@cf/zai-org/glm-4.7-flash",
+    "@cf/openai/gpt-oss-120b",
+    "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    "@cf/qwen/qwen3-30b-a3b-fp8"
+  ],
+  "runs": [
+    {
+      "key": "GLM4_FLASH",
+      "model": "@cf/zai-org/glm-4.7-flash",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "missing_repurchase_data_ttm",
+                "detail": "缺失乳品常温奶近 30 天的复购数据（如复购率、复购订单数、复购金额），无法计算该品类的复购表现。"
+              },
+              {
+                "gap_key": "missing_repurchase_data_overall",
+                "detail": "缺失整体近 30 天的复购数据，无法计算整体的复购表现。"
+              },
+              {
+                "gap_key": "missing_comparison_basis",
+                "detail": "缺失乳品常温奶与整体复购表现的对比数据，无法判断前者是否优于后者。"
+              }
+            ],
+            "gap_text": "missing_repurchase_data_ttm 缺失乳品常温奶近 30 天的复购数据（如复购率、复购订单数、复购金额），无法计算该品类的复购表现。 missing_repurchase_data_overall 缺失整体近 30 天的复购数据，无法计算整体的复购表现。 missing_comparison_basis 缺失乳品常温奶与整体复购表现的对比数据，无法判断前者是否优于后者。 查询结果中，`cdp.behavior.agg` 接口因权限不足返回空数据，无法获取复购行为数据；`act.activity.list` 接口仅返回活动列表和覆盖SKU数，不包含复购指标。因此，现有证据完全不足以支持判断乳品常温奶近30天复购表现是否优于整体。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d",
+                "detail": "指标 repurchase_rate_30d 未计算，原因为样本量不足（n=37），不满足最小样本阈值。"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d 指标 repurchase_rate_30d 未计算，原因为样本量不足（n=37），不满足最小样本阈值。 由于样本量不足（n=37），30天复购率指标未计算，因此无法查明该人群的30天复购率。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": false
+          },
+          "passed": 3,
+          "failed": 1,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "data_coverage",
+                "detail": "实际数据仅覆盖至 2026-09-10，缺失尾部 5 天（2026-09-11 ~ 2026-09-15）的数据，无法覆盖完整的关注时段。"
+              }
+            ],
+            "gap_text": "data_coverage 实际数据仅覆盖至 2026-09-10，缺失尾部 5 天（2026-09-11 ~ 2026-09-15）的数据，无法覆盖完整的关注时段。 现有证据显示数据存在尾部 5 天的缺失，未覆盖完整的关注时段（2026-07-01 ~ 2026-09-15），因此不足以支持判断流量入口转化表现已查全。",
+            "stray_numbers": [
+              "11"
+            ]
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": true,
+            "honesty": null,
+            "over_refusal": true,
+            "gap_grounded": null,
+            "no_fabrication": true
+          },
+          "passed": 3,
+          "failed": 0,
+          "na": 2,
+          "detail": {
+            "parse_error": null,
+            "sufficient": true,
+            "gaps": [],
+            "gap_text": "证据中 'pim.category.query' 的结果明确返回了 SKU-88001 的 category_path（包含“常温奶”）和 spec_tags（包含“家庭装”、“多件装”、“促销装”），直接回答了研究问题中关于品类路径与规格标签的查询需求，因此证据充分。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/zai-org/glm-4.7-flash",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d_value",
+                "detail": "证据中缺失30天复购率的具体数值，该指标被标记为null。"
+              },
+              {
+                "gap_key": "sample_size",
+                "detail": "样本量不足（n=37），未满足最小样本阈值，导致无法计算该指标。"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d_value 证据中缺失30天复购率的具体数值，该指标被标记为null。 sample_size 样本量不足（n=37），未满足最小样本阈值，导致无法计算该指标。 证据显示30天复购率（repurchase_rate_30d）为null，原因是样本量不足（n=37），不满足最小样本阈值，因此无法提供该数值。",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 18,
+      "failed": 2,
+      "na": 10,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 1,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"missing_repurchase_data_ttm\",\n      \"detail\": \"缺失乳品常温奶近 30 天的复购数据（如复购率、复购订单数、复购金额），无法计算该品类的复购表现。\"\n    },\n    {\n      \"gap_key\": \"missing_repurchase_data_overall\",\n      \"detail\": \"缺失整体近 30 天的复购数据，无法计算整体的复购表现。\"\n    },\n    {\n      \"gap_key\": \"missing_comparison_basis\",\n      \"detail\": \"缺失乳品常温奶与整体复购表现的对比数据，无法判断前者是否优于后者。\"\n    }\n  ],\n  \"reason\": \"查询结果中，`cdp.behavior.agg` 接口因权限不足返回空数据，无法获取复购行为数据；`act.activity.list` 接口仅返回活动列表和覆盖SKU数，不包含复购指标。因此，现有证据完全不足以支持判断乳品常温奶近30天复购表现是否优于整体。\"\n}",
+          "error": null,
+          "elapsed_ms": 37667
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "",
+          "error": "REST /ai/run 失败 http=408 errors=[{\"message\":\"AiError: AiError: Request timeout (cae3f391-cad9-4cf3-821f-c91e6ba12dcf)\",\"code\":3046}]",
+          "elapsed_ms": 235444
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"repurchase_rate_30d\",\n      \"detail\": \"指标 repurchase_rate_30d 未计算，原因为样本量不足（n=37），不满足最小样本阈值。\"\n    }\n  ],\n  \"reason\": \"由于样本量不足（n=37），30天复购率指标未计算，因此无法查明该人群的30天复购率。\"\n}",
+          "error": null,
+          "elapsed_ms": 19843
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"data_coverage\",\n      \"detail\": \"实际数据仅覆盖至 2026-09-10，缺失尾部 5 天（2026-09-11 ~ 2026-09-15）的数据，无法覆盖完整的关注时段。\"\n    }\n  ],\n  \"reason\": \"现有证据显示数据存在尾部 5 天的缺失，未覆盖完整的关注时段（2026-07-01 ~ 2026-09-15），因此不足以支持判断流量入口转化表现已查全。\"\n}",
+          "error": null,
+          "elapsed_ms": 23337
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "{\n  \"sufficient\": true,\n  \"gaps\": [],\n  \"reason\": \"证据中 'pim.category.query' 的结果明确返回了 SKU-88001 的 category_path（包含“常温奶”）和 spec_tags（包含“家庭装”、“多件装”、“促销装”），直接回答了研究问题中关于品类路径与规格标签的查询需求，因此证据充分。\"\n}",
+          "error": null,
+          "elapsed_ms": 19898
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"repurchase_rate_30d_value\",\n      \"detail\": \"证据中缺失30天复购率的具体数值，该指标被标记为null。\"\n    },\n    {\n      \"gap_key\": \"sample_size\",\n      \"detail\": \"样本量不足（n=37），未满足最小样本阈值，导致无法计算该指标。\"\n    }\n  ],\n  \"reason\": \"证据显示30天复购率（repurchase_rate_30d）为null，原因是样本量不足（n=37），不满足最小样本阈值，因此无法提供该数值。\"\n}",
+          "error": null,
+          "elapsed_ms": 11368
+        }
+      ]
+    },
+    {
+      "key": "GPT_OSS_120B",
+      "model": "@cf/openai/gpt-oss-120b",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Expected ',' or ']' after array element in JSON at position 157 (line 7 column 6)",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/openai/gpt-oss-120b",
+          "checks": {
+            "schema_valid": false,
+            "honesty": null,
+            "over_refusal": null,
+            "gap_grounded": null,
+            "no_fabrication": null
+          },
+          "passed": 0,
+          "failed": 1,
+          "na": 4,
+          "detail": {
+            "parse_error": "Unexpected end of JSON input",
+            "sufficient": null,
+            "gaps": null,
+            "gap_text": "",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 0,
+      "failed": 6,
+      "na": 24,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 0,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"repurchase_metrics\",\n      \"detail\": \"缺少乳品常温奶方向近 30 天的复购率、复购次数或复购频次等关键指标数据，无法与整体复购表现进行比较。\"\n    },\n    {\n      \"gap_key\": \"overall_metrics\",\n      \"detail\": \"缺少整体业务在同一时间窗口（近 30 天）的复购表现指标，无法形成对照基",
+          "error": null,
+          "elapsed_ms": 5268
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"",
+          "error": null,
+          "elapsed_ms": 2950
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": null,
+          "error": null,
+          "elapsed_ms": 5463
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "{\n  \"sufficient\": false,\n  \"gaps\": [\n    {\n      \"gap_key\": \"missing_data_last_5_days\",\n      \"detail\": \"2026-09-11 至 2026-09-15 的流量入口转化数据缺失，导致无法确认整个 2026-07-01",
+          "error": null,
+          "elapsed_ms": 4128
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": null,
+          "error": null,
+          "elapsed_ms": 5941
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "{\n ",
+          "error": null,
+          "elapsed_ms": 4371
+        }
+      ]
+    },
+    {
+      "key": "LLAMA33_70B",
+      "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "cdp.behavior.agg",
+                "detail": "缺失复购表现数据，无法比较乳品常温奶方向近 30 天的复购表现与整体"
+              }
+            ],
+            "gap_text": "cdp.behavior.agg 缺失复购表现数据，无法比较乳品常温奶方向近 30 天的复购表现与整体 由于权限限制，无法获取必要的复购表现数据，现有证据不足以支持判断",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": false,
+            "no_fabrication": true
+          },
+          "passed": 3,
+          "failed": 1,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "sample_size",
+                "detail": "样本大小为0，无法确定常温奶的包装规格分布"
+              }
+            ],
+            "gap_text": "sample_size 样本大小为0，无法确定常温奶的包装规格分布 查询结果中样本大小为0，且没有任何记录，导致无法判断常温奶的包装规格分布",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d",
+                "detail": "样本量不足（n=37），不满足最小样本阈值"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d 样本量不足（n=37），不满足最小样本阈值 证据中 30 天复购率数据为空，且给出的理由是样本量不足，不满足最小样本阈值，无法支持判断",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": false
+          },
+          "passed": 3,
+          "failed": 1,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "traffic_entry_data",
+                "detail": "缺失 2026-09-11 至 2026-09-15 的流量入口转化数据"
+              }
+            ],
+            "gap_text": "traffic_entry_data 缺失 2026-09-11 至 2026-09-15 的流量入口转化数据 查询结果中，实际数据仅覆盖至 2026-09-10，尾部 5 天的数据缺失，无法完整评估关注时段内的流量入口转化表现",
+            "stray_numbers": [
+              "11"
+            ]
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": null,
+            "over_refusal": true,
+            "gap_grounded": null,
+            "no_fabrication": true
+          },
+          "passed": 3,
+          "failed": 0,
+          "na": 2,
+          "detail": {
+            "parse_error": null,
+            "sufficient": true,
+            "gaps": [],
+            "gap_text": "现有证据包含了常温奶的品类路径和规格标签信息，足以支持判断。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d",
+                "detail": "样本量不足（n=37），不满足最小样本阈值"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d 样本量不足（n=37），不满足最小样本阈值 证据中缺失复购率数值，且给出的理由是样本量不足",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 21,
+      "failed": 2,
+      "na": 7,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 1,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"cdp.behavior.agg\", \"detail\": \"缺失复购表现数据，无法比较乳品常温奶方向近 30 天的复购表现与整体\"}], \"reason\": \"由于权限限制，无法获取必要的复购表现数据，现有证据不足以支持判断\"}",
+          "error": null,
+          "elapsed_ms": 3271
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"sample_size\", \"detail\": \"样本大小为0，无法确定常温奶的包装规格分布\"}], \"reason\": \"查询结果中样本大小为0，且没有任何记录，导致无法判断常温奶的包装规格分布\"}",
+          "error": null,
+          "elapsed_ms": 2335
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"repurchase_rate_30d\", \"detail\": \"样本量不足（n=37），不满足最小样本阈值\"}], \"reason\": \"证据中 30 天复购率数据为空，且给出的理由是样本量不足，不满足最小样本阈值，无法支持判断\"}",
+          "error": null,
+          "elapsed_ms": 2609
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"traffic_entry_data\", \"detail\": \"缺失 2026-09-11 至 2026-09-15 的流量入口转化数据\"}], \"reason\": \"查询结果中，实际数据仅覆盖至 2026-09-10，尾部 5 天的数据缺失，无法完整评估关注时段内的流量入口转化表现\"}",
+          "error": null,
+          "elapsed_ms": 2779
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "{\"sufficient\": true, \"gaps\": [], \"reason\": \"现有证据包含了常温奶的品类路径和规格标签信息，足以支持判断。\"}",
+          "error": null,
+          "elapsed_ms": 1606
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"repurchase_rate_30d\", \"detail\": \"样本量不足（n=37），不满足最小样本阈值\"}], \"reason\": \"证据中缺失复购率数值，且给出的理由是样本量不足\"}",
+          "error": null,
+          "elapsed_ms": 4394
+        }
+      ]
+    },
+    {
+      "key": "QWEN3_30B",
+      "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+      "dry_run": false,
+      "rows": [
+        {
+          "case_id": "C1-restricted",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "复购率数据",
+                "detail": "缺乏乳品常温奶及整体的复购率数值，无法直接比较"
+              },
+              {
+                "gap_key": "用户行为数据",
+                "detail": "cdp.behavior.agg接口被权限限制，无法获取用户购买频次等核心指标"
+              },
+              {
+                "gap_key": "时间范围验证",
+                "detail": "未明确活动数据与30天复购周期的关联性"
+              }
+            ],
+            "gap_text": "复购率数据 缺乏乳品常温奶及整体的复购率数值，无法直接比较 用户行为数据 cdp.behavior.agg接口被权限限制，无法获取用户购买频次等核心指标 时间范围验证 未明确活动数据与30天复购周期的关联性 证据中未包含复购率、用户购买频次等核心指标，且关键数据接口权限受限，无法验证时间范围内的复购表现差异",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C2-empty",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": false,
+            "no_fabrication": true
+          },
+          "passed": 3,
+          "failed": 1,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "sample_size",
+                "detail": "样本数量为0，无法分析分布"
+              }
+            ],
+            "gap_text": "sample_size 样本数量为0，无法分析分布 证据中样本数量为0，且无具体数据项，无法判断常温奶包装规格分布",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d",
+                "detail": "复购率数值未实际计算，仅说明样本量不足"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d 复购率数值未实际计算，仅说明样本量不足 证据中未提供实际计算的复购率数值，仅说明因样本量不足未计算，因此无法确认复购率的具体数值是否已查明。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C4-coverage",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": false
+          },
+          "passed": 3,
+          "failed": 1,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "data_coverage",
+                "detail": "缺失2026-09-11至2026-09-15共5天的流量入口转化数据，实际数据仅覆盖至2026-09-10"
+              }
+            ],
+            "gap_text": "data_coverage 缺失2026-09-11至2026-09-15共5天的流量入口转化数据，实际数据仅覆盖至2026-09-10 证据显示数据仅覆盖至2026-09-10，而关注时段截至2026-09-15，存在5天的数据缺口，无法确认完整转化表现",
+            "stray_numbers": [
+              "11"
+            ]
+          }
+        },
+        {
+          "case_id": "C5-sufficient",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": null,
+            "over_refusal": true,
+            "gap_grounded": null,
+            "no_fabrication": true
+          },
+          "passed": 3,
+          "failed": 0,
+          "na": 2,
+          "detail": {
+            "parse_error": null,
+            "sufficient": true,
+            "gaps": [],
+            "gap_text": "查询结果中pim.category.query工具明确提供了常温奶的品类层级路径和规格标签，证据完整且直接支持判断。",
+            "stray_numbers": []
+          }
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "model": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "checks": {
+            "schema_valid": true,
+            "honesty": true,
+            "over_refusal": null,
+            "gap_grounded": true,
+            "no_fabrication": true
+          },
+          "passed": 4,
+          "failed": 0,
+          "na": 1,
+          "detail": {
+            "parse_error": null,
+            "sufficient": false,
+            "gaps": [
+              {
+                "gap_key": "repurchase_rate_30d",
+                "detail": "未计算（样本量不足，n=37，未满足最小样本阈值）"
+              }
+            ],
+            "gap_text": "repurchase_rate_30d 未计算（样本量不足，n=37，未满足最小样本阈值） 证据中未提供计算后的30天复购率数值，仅说明因样本量不足导致指标未计算",
+            "stray_numbers": []
+          }
+        }
+      ],
+      "passed": 21,
+      "failed": 2,
+      "na": 7,
+      "honesty_fail": 0,
+      "over_refusal_fail": 0,
+      "fabrication_fail": 1,
+      "results": [
+        {
+          "case_id": "C1-restricted",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"复购率数据\", \"detail\": \"缺乏乳品常温奶及整体的复购率数值，无法直接比较\"}, {\"gap_key\": \"用户行为数据\", \"detail\": \"cdp.behavior.agg接口被权限限制，无法获取用户购买频次等核心指标\"}, {\"gap_key\": \"时间范围验证\", \"detail\": \"未明确活动数据与30天复购周期的关联性\"}], \"reason\": \"证据中未包含复购率、用户购买频次等核心指标，且关键数据接口权限受限，无法验证时间范围内的复购表现差异\"}",
+          "error": null,
+          "elapsed_ms": 3368
+        },
+        {
+          "case_id": "C2-empty",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"sample_size\", \"detail\": \"样本数量为0，无法分析分布\"}], \"reason\": \"证据中样本数量为0，且无具体数据项，无法判断常温奶包装规格分布\"}",
+          "error": null,
+          "elapsed_ms": 2383
+        },
+        {
+          "case_id": "C3-uncomputable",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"repurchase_rate_30d\", \"detail\": \"复购率数值未实际计算，仅说明样本量不足\"}], \"reason\": \"证据中未提供实际计算的复购率数值，仅说明因样本量不足未计算，因此无法确认复购率的具体数值是否已查明。\"}",
+          "error": null,
+          "elapsed_ms": 11647
+        },
+        {
+          "case_id": "C4-coverage",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"data_coverage\", \"detail\": \"缺失2026-09-11至2026-09-15共5天的流量入口转化数据，实际数据仅覆盖至2026-09-10\"}], \"reason\": \"证据显示数据仅覆盖至2026-09-10，而关注时段截至2026-09-15，存在5天的数据缺口，无法确认完整转化表现\"}",
+          "error": null,
+          "elapsed_ms": 2662
+        },
+        {
+          "case_id": "C5-sufficient",
+          "raw": "{\"sufficient\": true, \"gaps\": [], \"reason\": \"查询结果中pim.category.query工具明确提供了常温奶的品类层级路径和规格标签，证据完整且直接支持判断。\"}",
+          "error": null,
+          "elapsed_ms": 3081
+        },
+        {
+          "case_id": "C6-nofabrication",
+          "raw": "{\"sufficient\": false, \"gaps\": [{\"gap_key\": \"repurchase_rate_30d\", \"detail\": \"未计算（样本量不足，n=37，未满足最小样本阈值）\"}], \"reason\": \"证据中未提供计算后的30天复购率数值，仅说明因样本量不足导致指标未计算\"}",
+          "error": null,
+          "elapsed_ms": 2556
+        }
+      ]
+    }
+  ]
+}

@@ -11,7 +11,8 @@
  *      ③ 过度拒答须被抓 ④ 泛泛「信息不足」不算落到缺口 ⑤ 编造数字须被抓；
  *   3. wrangler.toml 的 AI 绑定是**单表语法 `[ai]`**（2026-09-20 曾据数组表类比误改 [[ai]]，
  *      官方文档已查证为单表 —— 把该教训做成**静态断言**，防止再被「修」错）；
- *   4. 静态核验：探针 worker **零写库、零凭证**（只经注入的 env.AI）。
+ *   4. 静态核验：探针 worker **零写库、零凭证**（只经注入的 env.AI）；
+ *   5. 判据误伤修正回归（⑧，2026-09-20 实测驱动）：ISO 日期推导豁免 / gap 关键词等价表述。
  * 反向清单：登记 ../../README.md 与 ./README.md。
  *
  * 用法：node server/probes/model-selection/test-model-selection.mjs
@@ -224,6 +225,38 @@ section("⑦ 数字抽取与白名单：自动抽取、判例间隔离");
   const wl = evidenceNumberWhitelist(c1);
   assert(wl.includes("403") && wl.includes("37") && wl.includes("12000"), `⑦ C1 白名单含证据数字 403/37/12000（实测 ${JSON.stringify(wl)}）`);
   assert(!wl.includes("18.6"), "⑦ 白名单不含证据外的数字（编造的 18.6 应被点名）");
+}
+
+// ==================================================== ⑧ 判据误伤修正回归（2026-09-20 实测驱动）
+section("⑧ 判据误伤修正：ISO 日期推导豁免 / gap 关键词等价表述（2026-09-20 实测 3+4 处误伤的回归锁）");
+{
+  // ⑧-1 C4：模型正确推导出缺失区间日期（2026-09-11 不在证据中）→ no_fabrication **必须通过**
+  const c4 = CASES.find((x) => x.case_id === "C4-coverage");
+  const derivedDate =
+    '{"sufficient":false,"reason":"覆盖区间不完整","gaps":[{"gap_key":"coverage","detail":"实际仅覆盖至 2026-09-10，缺失 2026-09-11 ~ 2026-09-15 尾部 5 天"}]}';
+  const r8 = judgeCase(c4, derivedDate, "probe");
+  assert(r8.checks.no_fabrication === true, "⑧-1 日期推导（2026-09-11）→ no_fabrication 通过（ISO 日期豁免，不按 \\d+ 拆）");
+  assert(r8.checks.gap_grounded === true && r8.checks.honesty === true, "⑧-1 缺口落在覆盖缺失 → honesty/gap_grounded 通过");
+
+  // ⑧-2 但编造**指标数值**仍必须被抓（豁免只限日期，不放水指标）
+  const fabricatedMetric =
+    '{"sufficient":false,"reason":"覆盖不足","gaps":[{"gap_key":"coverage","detail":"缺失区间覆盖率仅 62.5%，尾部 5 天缺失"}]}';
+  const r9 = judgeCase(c4, fabricatedMetric, "probe");
+  assert(r9.checks.no_fabrication === false, "⑧-2 编造指标数值 62.5 → no_fabrication **不通过**（日期豁免不放水指标）");
+  assert(r9.detail.stray_numbers.includes("62.5"), `⑧-2 编造指标被点名（实测 stray=${JSON.stringify(r9.detail.stray_numbers)}）`);
+
+  // ⑧-3 C2：等价表述「0 条记录 / 样本数量为0」→ gap_grounded 通过（2026-09-20 实测 llama/qwen 误伤的回归锁）
+  const c2 = CASES.find((x) => x.case_id === "C2-empty");
+  for (const kw of ["查询返回 0 条记录，无法判断", "样本数量为0，无法分析分布"]) {
+    const raw = `{"sufficient":false,"reason":"规格分布未查明","gaps":[{"gap_key":"empty","detail":"${kw}"}]}`;
+    const r = judgeCase(c2, raw, "probe");
+    assert(r.checks.gap_grounded === true, `⑧-3 C2 等价表述「${kw.slice(0, 12)}…」→ gap_grounded 通过`);
+  }
+
+  // ⑧-4 C6：「缺少」与「缺失」同义 → gap_grounded 通过（2026-09-20 实测 gpt-oss 误伤的回归锁）
+  const c6kw = CASES.find((x) => x.case_id === "C6-nofabrication");
+  const r10 = judgeCase(c6kw, '{"sufficient":false,"reason":"证据未给出该数值","gaps":[{"gap_key":"uncomputable","detail":"缺少 30 天复购率的实际数值，指标未计算"}]}', "probe");
+  assert(r10.checks.gap_grounded === true, "⑧-4 C6「缺少/未计算」→ gap_grounded 通过");
 }
 
 finish();

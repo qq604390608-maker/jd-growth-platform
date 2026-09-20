@@ -99,9 +99,14 @@ export function judgeCase(c, raw, model = "") {
     checks.gap_grounded = kws.some((k) => gapText.includes(k));
   }
   // ⑤ 不编造：输出中出现的数字须都在证据白名单内（白名单自动抽取，避免漏列误判）
+  // 2026-09-20 实测修正：ISO 日期（YYYY-MM-DD）不参与本检查——模型对证据覆盖区间的
+  // 正确推导（如缺失起点 2026-09-11，由证据 09-10/09-15 得出）会被 \d+ 拆出证据外
+  // 数字「11」而误伤（实测 3/4 模型命中）。日期合规由 honesty / gap_grounded 与
+  // 人工复核兜底，本检查只防**指标数值**编造。
   {
-    const wl = new Set(evidenceNumberWhitelist(c));
-    const outNumbers = extractNumbers({ sufficient, gaps, reason: parsed.reason ?? "" });
+    const stripDates = (v) => (typeof v === "string" ? v : JSON.stringify(v ?? "")).replace(/\d{4}-\d{2}-\d{2}/g, " ");
+    const wl = new Set(evidenceNumberWhitelist({ evidence: stripDates(c.evidence) }));
+    const outNumbers = extractNumbers(stripDates({ sufficient, gaps, reason: parsed.reason ?? "" }));
     // `sufficient` 是布尔，不产生数字；此处只可能来自 gaps / reason
     const stray = outNumbers.filter((n) => !wl.has(n));
     detail.stray_numbers = stray;
