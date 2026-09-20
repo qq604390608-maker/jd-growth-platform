@@ -78,6 +78,8 @@ jobs:
         run: node server/task-runner/test-f05.mjs
       - name: 跑 F-06 用例（M1 任务记录与异常恢复，跑任务态复用 F-26 task-state.js 写入面（只写 PD-01/PD-03）+ 受阻矩阵映射（保留 done_part + blocked + 写 PD-03）+ retry_limit 封顶 100 显式报错（TC-U-M1-002）+ stopped 不自动重启（前置守卫拒写）+ resume blocked→running + done 不可改写 + 失败不否定 HVA（静态零 MD-07/EXT-02 写入）+ 零外部调用）
         run: node server/task-runner/test-f06.mjs
+      - name: 跑 F-13 用例（M3 角色指令配置·agent-orchestrator，跑 MD-13 agent_profile 读 + agent.md 版本推进（单行 UNIQUE、不新建行）+ MD-14 skill_registry 注册（PK/UK/FK 库级强制）+ 生效 Skills 列表 + 版本快照组装 + 静态核验零外部调用 / 唯一写入面 MD-13+MD-14）
+        run: node server/agent-orchestrator/test-f13.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
