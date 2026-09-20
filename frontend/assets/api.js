@@ -112,6 +112,14 @@
     /** 机会读模型：本体 + 六要素二态判定 + 状态链 + 关系 + 证据关联（`getOpportunityRecord`）。 */
     getOpportunityRecord: (opportunityId) => get("/api/opportunities/" + enc(opportunityId)),
 
+    /** 机会批量读模型（2026-09-21 缺口 8/12 收口）：一次取全列表页所需的读模型，
+     *  替代逐条 N 次请求。返回 { items: {id: 读模型|null}, missing_ids: [...] }。 */
+    listOpportunityReadModels: (ids) => get("/api/opportunity-readmodels?ids=" + enc((ids || []).join(","))),
+
+    /** 字典值域只读（2026-09-21 缺口 7 收口）：展示文案从库读（dict_item 唯一真源）。
+     *  返回 { dict_type_code, items: [{item_code, item_name, order_no}] }。 */
+    dict: (dictTypeCode) => get("/api/dicts/" + enc(dictTypeCode)),
+
     /** **证据回查链路**：证据 → 查询记录（EXT-01）→ 来源（CFG-01），含四要素齐全性与 `traceable`。
      *  证据链「可回查」必须走这条路由——前端不自己拼「证据 + 查询记录」（F-09 验收要点）。 */
     getEvidenceTrace: (evidenceId) => get("/api/evidence-trace/" + enc(evidenceId)),

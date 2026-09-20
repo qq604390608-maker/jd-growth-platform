@@ -329,7 +329,9 @@ export async function nextGapId(db) {
 
 /**
  * 口径检查：按 `CFG-05 gap_rule`（`is_active=1`）逐条对六要素快照做 `match_pattern` 匹配，
- * **不命中的规则**即产生一条 `PD-04` 待补项；已 `is_solved=1` 的规则**不再重复列**（补充后不再提示）。
+ * **不命中的规则**即产生一条 `PD-04` 待补项；已 `is_solved=1` 的规则**不再重复列**（补充后不再提示）；
+ * **仍未补充的规则重跑不重复列**——同 goal 同规则已有 `is_solved=0` 的待补项时跳过（`why=open_gap_exists`），
+ * 避免每次重跑都再落一批同规则新行（2026-09-21 裁决：去重）。
  * `raised_by_task_id` 必填——`PD-04` 是 NOT NULL 外键，待补项必须归属一次口径检查任务。
  * 返回值里带 `rules_checked` / `alias_fields`（本次用到的别名），让种子的值域偏差**可见**而非被吞掉。
  */
@@ -345,6 +347,8 @@ export async function checkGoalGaps(db, { goal_id, goal_version_no, task_id, at 
   const rules = (await db.prepare("SELECT * FROM gap_rule WHERE is_active = 1 ORDER BY rule_id").all()).results;
   const solvedRows = (await db.prepare("SELECT rule_id FROM goal_gap WHERE goal_id = ? AND is_solved = 1").bind(goal_id).all()).results;
   const alreadyFilled = new Set(solvedRows.map((r) => r.rule_id));
+  const openRows = (await db.prepare("SELECT rule_id FROM goal_gap WHERE goal_id = ? AND is_solved = 0").bind(goal_id).all()).results;
+  const openGaps = new Set(openRows.map((r) => r.rule_id));
 
   const stamp = at || nowStamp();
   const created = [];
@@ -364,6 +368,7 @@ export async function checkGoalGaps(db, { goal_id, goal_version_no, task_id, at 
     const hit = new RegExp(rule.match_pattern).test(text);
     if (hit) { skipped.push({ rule_id: rule.rule_id, why: "pattern_hit" }); continue; }
     if (alreadyFilled.has(rule.rule_id)) { skipped.push({ rule_id: rule.rule_id, why: "already_solved" }); continue; }
+    if (openGaps.has(rule.rule_id)) { skipped.push({ rule_id: rule.rule_id, why: "open_gap_exists" }); continue; }
 
     const gap_id = await nextGapId(db);
     const r = await db

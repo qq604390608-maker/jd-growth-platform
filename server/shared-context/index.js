@@ -1497,3 +1497,42 @@ export async function getTaskContext(db, task_id) {
   const context = await buildTaskContext(db, { task_id });
   return { ...context, injections };
 }
+
+/**
+ * 字典值域只读面（CFG 族 `dict_type`/`dict_item`）：按 `dict_type_code` 列出启用项
+ * （`item_code` / 中文口径 `item_name` / `order_no`），按 `order_no` 排序。
+ * 用途：前端状态徽标等**展示文案**从库读（frontend/README §4 缺口 7 的收口）——
+ * 值域唯一真源在 `dict_item`，前端不再持有第二份业务口径（静态表仅作取数失败时的展示兜底）。
+ * 纯读取，零写语句。
+ */
+export async function listDictItems(db, dict_type_code) {
+  const rows = await db
+    .prepare(
+      "SELECT item_code, item_name, order_no FROM dict_item " +
+      "WHERE dict_type_code = ? AND is_active = 1 ORDER BY order_no",
+    )
+    .bind(dict_type_code)
+    .all();
+  return (rows.results || []);
+}
+
+/**
+ * 机会批量读模型：按 id 列表逐个复用 `getOpportunityRecord`（F-10 单一读面，不复制第二份口径），
+ * 返回 `items`（id → 读模型或 null）与 `missing_ids`（不存在的 id，**显式可见而非静默吞**）。
+ * 用途：机会列表页一次取全（frontend/README §4 缺口 8/12 的收口），替代逐条 N 次请求。
+ * 服务端仍是 N 次单读（D1 无跨语句 JOIN 读模型的既有面），但客户端从 N 次往返并为 1 次。
+ * 纯读取，零写语句。ids 上限 100（从严拒绝，与 F-02 写入侧从严同一取向）。
+ */
+export async function listOpportunityReadModels(db, ids) {
+  const list = (ids || []).map((s) => String(s).trim()).filter(Boolean);
+  if (list.length === 0) throw new Error("listOpportunityReadModels：ids 必填（至少 1 个机会 id）");
+  if (list.length > 100) throw new Error(`listOpportunityReadModels：ids 超上限（${list.length} > 100）`);
+  const items = {};
+  const missing_ids = [];
+  for (const id of list) {
+    const rec = await getOpportunityRecord(db, id);
+    items[id] = rec;
+    if (rec === null) missing_ids.push(id);
+  }
+  return { items, missing_ids };
+}

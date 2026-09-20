@@ -387,6 +387,17 @@ const logsOf = (id) => sqlite.prepare("SELECT * FROM opportunity_status_log WHER
   assert(calls.every((c) => new URL(c.url).origin === "http://localhost"), "所有请求**同源**（origin 与页面一致，实测）");
   assert(!calls.some((c) => ["POST", "PATCH", "PUT", "DELETE"].includes(c.method)),
     "进入页面**不产生任何写请求**（GET-only：看页面不写库）");
+
+  // 2026-09-21 缺口 7/8 收口锁（frontend/README §4）：
+  assert(calls.some((c) => c.path.startsWith("/api/dicts/")),
+    "启动时经 /api/dicts/{code} 拉字典（徽标文案从库读，静态表仅兜底）");
+  assert(calls.filter((c) => c.path === "/api/opportunities/" + o0.opportunity_id).length === 0,
+    "列表页读模型走批量面 /api/opportunity-readmodels（不再逐条 GET /api/opportunities/{id}）");
+  assert(calls.some((c) => c.path.startsWith("/api/opportunity-readmodels")),
+    "批读路由 /api/opportunity-readmodels 被实际调用（实测走真实 worker.fetch）");
+  assert(/refreshStatusLabels/.test(readFileSync(path.join(ROOT, "frontend/assets/app.js"), "utf8")) &&
+    /item_name/.test(readFileSync(path.join(ROOT, "frontend/assets/app.js"), "utf8")),
+    "app.js 含字典装配逻辑（item_name 覆盖静态文案、失败静默兜底）");
 }
 
 /* ============================================================ ⑤ 三状态与对象筛选 */
@@ -676,6 +687,8 @@ console.log("⑪ 前后端分离：删掉 frontend/ 后 server/api 与 db 仍独
     ["GET", "/api/opportunities/" + oppsOf(Q3)[0].opportunity_id],
     ["GET", "/api/evidence-trace/" + evLinks(oppsOf(Q3)[0].opportunity_id)[0].evidence_id],
     ["GET", "/api/source-tool-briefing"],
+    ["GET", "/api/dicts/OPP_STATUS"],
+    ["GET", "/api/opportunity-readmodels?ids=" + oppsOf(Q3).map((o) => o.opportunity_id).join(",")],
   ];
   const raw = [];
   for (const [method, p] of probes) {

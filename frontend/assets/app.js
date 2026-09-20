@@ -150,6 +150,20 @@
     const s = STATUS[status] || { cls: "badge-neutral", text: status };
     return '<span class="badge ' + s.cls + '"><span class="badge-dot"></span>' + esc(s.text) + "</span>";
   }
+
+  /* ---------- 状态徽标文案从库读（2026-09-21 缺口 7 收口）----------
+     dict_item 是值域唯一真源：启动时拉 OPP_STATUS / TASK_STATUS 的中文口径并入 STATUS
+     （**只覆盖 text，cls 视觉类仍为本表所有**）。取数失败时静默保留静态表作展示兜底——
+     徽标文案是展示副本而非业务判据，缺库时不阻断页面。 */
+  async function refreshStatusLabels() {
+    const codes = ["OPP_STATUS", "TASK_STATUS"];
+    const results = await Promise.all(codes.map(function (c) { return window.API.dict(c); }));
+    results.forEach(function (res) {
+      ((res && res.items) || []).forEach(function (it) {
+        if (STATUS[it.item_code] && it.item_name) STATUS[it.item_code].text = it.item_name;
+      });
+    });
+  }
   function qs(name) {
     const m = new RegExp("[?&]" + name + "=([^&]*)").exec(location.search);
     return m ? decodeURIComponent(m[1]) : null;
@@ -458,6 +472,7 @@
         renderNav();
         return;
       }
+      try { await refreshStatusLabels(); } catch (e) { /* 字典取数失败 → 静态表兜底，不阻断 */ }
       renderNav();
       if (typeof window.pageInit === "function") {
         try { await window.pageInit(U); } catch (e) { showBootError(e); }

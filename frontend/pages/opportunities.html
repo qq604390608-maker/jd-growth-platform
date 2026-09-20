@@ -146,7 +146,13 @@ window.pageInit = async function (U) {
     return s ? s.source_name : sid;
   }
 
-  /* 一条机会的读模型（+ 已提交研究者取研究编号，供 F-30 跳转）。 */
+  /* 一条机会的已提交研究（供 F-30 跳转）；读模型本体由批量面取回。 */
+  async function fetchStudies(oppId) {
+    var res = await window.API.listResearch(oppId);
+    state.studies[oppId] = (res && res.items) || [];
+  }
+
+  /* 单条机会的读模型 + 研究（列表页批量取数后，个别刷新仍走单条面）。 */
   async function fetchRecord(oppId) {
     var rec = await window.API.getOpportunityRecord(oppId);
     state.records[oppId] = rec;
@@ -163,7 +169,23 @@ window.pageInit = async function (U) {
   async function loadAll() {
     var res = await window.API.listOpportunities(GOAL_ID);
     state.rows = (res && res.items) || [];
-    await Promise.all(state.rows.map(function (r) { return fetchRecord(r.opportunity_id); }));
+    // 2026-09-21 缺口 8 收口：逐条读模型 N 次请求 → 批量读面 1 次（/api/opportunity-readmodels）。
+    var ids = state.rows.map(function (r) { return r.opportunity_id; });
+    if (ids.length > 0) {
+      var batch = await window.API.listOpportunityReadModels(ids);
+      Object.keys((batch && batch.items) || {}).forEach(function (id) {
+        if (batch.items[id]) state.records[id] = batch.items[id];
+      });
+      if (batch && batch.missing_ids && batch.missing_ids.length > 0) {
+        note("err", "机会读模型缺失：" + batch.missing_ids.join("、"));
+      }
+    }
+    // 已提交研究仍按机会逐个取（面窄、量小；batch.missing 已显式回报，不静默吞）。
+    var submitted = state.rows.filter(function (r) {
+      var rec = state.records[r.opportunity_id];
+      return rec && rec.opportunity && rec.opportunity.opportunity_status === "submitted";
+    });
+    await Promise.all(submitted.map(function (r) { return fetchStudies(r.opportunity_id); }));
     var brief = await window.API.getSourceToolBriefing();
     state.sources = (brief && brief.sources) || [];
     state.gaps = (brief && brief.gaps) || [];

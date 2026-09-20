@@ -424,10 +424,11 @@ console.log("⑥ 不替业务方定指标：留空即产生待补项；页面不
     sqlite.prepare("SELECT COUNT(*) c FROM task WHERE goal_id = ? AND task_type = 'goal_check'").get(Q3).c > checkTasksBefore);
   const checkTasksAfter = sqlite.prepare("SELECT COUNT(*) c FROM task WHERE goal_id = ? AND task_type = 'goal_check'").get(Q3).c;
   assert(checkTasksAfter === checkTasksBefore + 1, `「重新检查口径」新建 1 个检查任务（${checkTasksBefore} → ${checkTasksAfter}）`);
-  // 实测登记（不改上游）：F-01 的 checkGoalGaps 只跳过「规则命中」与「已补充」，
-  // 对**仍未补充**的规则重跑会再落一批同规则的新待补项——本点如实锁住该口径，是否去重由 F-01 决定。
-  assert(q3Gaps().length === gapsBeforeRecheck + 3,
-    `重跑检查对未补充规则再落同数待补项（实测 ${gapsBeforeRecheck} → ${q3Gaps().length}；F-01 既有口径，本点只登记不改）`);
+  // 2026-09-21 裁决收口（frontend/README §4 缺口 2）：F-01 的 checkGoalGaps 增加「仍未补充的规则
+  // 重跑不重复列」（同 goal 同规则已有 is_solved=0 的待补项即跳过，why=open_gap_exists）——
+  // 重跑只新建检查任务与留痕，不再落重复待补项行。
+  assert(q3Gaps().length === gapsBeforeRecheck,
+    `重跑检查不再重复列未补充规则（实测 ${gapsBeforeRecheck} → ${q3Gaps().length}；2026-09-21 去重裁决）`);
   assert(!/系统|平台自动|自动生成/.test(text(dom, "#gap-card")), "待补块文案不含任何「平台自动生成口径」痕迹");
 
   // 反向：页面**没有**替业务方填任何指标口径
