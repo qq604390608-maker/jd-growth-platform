@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/goal.html
+  功能点：F-27 目标配置页（M6 运营端工作台）
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜索引三层）
+        ｜ ../../docs/01-brd/BRD.md（M6 F-27、M1 F-01）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-27 验收要点：**不替业务方定指标**；版本变化可见）
+        ｜ ../../docs/05-test-cases/test-M6.md（TC-I-M6-001 目标配置页；TC-C-M6-001 / TC-D-M6-001 前端纪律）
+        ｜ ../../docs/03-locks/schema.md（MD-01 research_goal / MD-02 research_goal_version /
+           MD-03 goal_material / PD-04 goal_gap）
+        ｜ ../../prototype/pages/goal.html（**钉死需求的实证**：本页的区块、交互与文案以原型为准）
+        ｜ ../README.md ｜ ../assets/api.js（唯一数据出口）｜ ../assets/app.js（跨页共享口径）
+  职责：业务方**登记 / 关联目标六要素**（新建目标或对已有目标保存新版本）→ 口径待补项以任务形式提示
+        → 目标更新形成新版本并提示影响范围。页面**只做展示与人工操作入口，不含业务逻辑**（PRD-M6 §1），
+        所有读写经 server/api（../assets/api.js），**不直连数据库、不持有任何凭证**。
+  与原型的**有意偏差**（已登记，见 ../README.md §4）：
+        ① 口径检查**不在进入页面时自动跑**——原型进入即跑一次本地模拟检查；真实后端下那会产生
+           `goal_check` 任务与 `PD-04` 行（「看页面就写库」）。前端改为**保存新版本后自动跑一次**，
+           另给显式「重新检查口径」按钮；进入页面只**读**已有待补项。
+        ② 材料（MD-03）**只读展示**——F-01 的 `registerGoalMaterial` 尚未接入 `server/api` 的可调用面，
+           本页不越界自造端点（缺口登记见 ../README.md §4）。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="goal"）；被 ../index.html 链接（总览入口）；
+        下游跳转：机会列表（F-28，经「应用配置」创建机会发现任务后）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-27 目标配置页</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="goal">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-27</span>目标配置</h1>
+      <p class="page-desc" id="goal-meta"></p>
+    </div>
+    <div class="page-actions">
+      <button class="btn" id="btn-edit">编辑六要素</button>
+      <button class="btn" id="btn-save" disabled>保存为新版本</button>
+      <button class="btn" id="btn-recheck">重新检查口径</button>
+      <button class="btn btn-primary" id="btn-apply"
+              title="按当前目标配置执行机会发现，并进入该目标的机会列表">应用配置</button>
+    </div>
+  </div>
+
+  <div id="action-note"></div>
+
+  <div class="card" id="select-card">
+    <div class="card-head">
+      <div class="card-title">选择目标配置</div>
+      <div class="card-note" id="select-note"></div>
+    </div>
+    <select id="goal-select" style="width:100%"></select>
+  </div>
+
+  <div class="chain-bar" id="chain"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">目标六要素</div>
+      <div class="card-note" id="six-note"></div>
+    </div>
+
+    <div id="six-rows"></div>
+
+    <div class="card-section" id="edit-extra" style="display:none">
+      <div class="form-row">
+        <label class="lbl">变更说明（必填）</label>
+        <input type="text" id="change-note" placeholder="例：六要素更新">
+      </div>
+      <div class="form-row">
+        <label class="lbl">影响范围</label>
+        <input type="text" id="impact-note" placeholder="例：已通知 2 个在研研究，新口径需复核相关证据">
+        <div class="hint">保存后本页「版本历史与影响范围」会留下这一条，供在研研究核对口径。</div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="lbl">⑥ 关联材料</label>
+      <div id="materials"></div>
+    </div>
+
+    <div class="card-section small text-3" id="check-note"></div>
+  </div>
+
+  <div id="gap-card"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">版本历史与影响范围</div>
+      <div class="card-note">新版本不覆盖旧版本；同一目标至多一个「生效」版本</div>
+    </div>
+    <div class="timeline" id="version-timeline"></div>
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  var SIX = U.SIX_FIELDS;
+
+  var isNew = false;
+  var curId = "";
+  var editing = false;
+  var draft = U.blankFields();
+  var lastCheck = null;   // 最近一次口径检查的返回（本轮页面动作内有效）
+  var openGap = null;
+  var actionNote = "";
+
+  /* ---------- 目标选择 ---------- */
+  function curRecord() { return isNew ? null : U.recordOf(curId); }
+  function curGoal() { return isNew ? null : U.goalById(curId); }
+  function curVersionNo() {
+    var v = curRecord() && curRecord().current_version;
+    return v ? Number(v.version_no) : null;
+  }
+
+  function renderSelect() {
+    var rows = U.allGoals();
+    var html = rows.map(function (g) {
+      var rec = U.recordOf(g.goal_id);
+      var name = rec && rec.current_version ? rec.current_version.business_goal : "";
+      var ver = rec && rec.current_version ? "v" + rec.current_version.version_no : "";
+      return '<option value="' + U.esc(g.goal_id) + '"' + (!isNew && g.goal_id === curId ? " selected" : "") + ">" +
+        g.goal_seq + " · " + U.esc(name || "（未填写业务目标）") +
+        "（" + U.esc(g.goal_id) + " · " + U.esc(ver) + "）</option>";
+    }).join("");
+    html += '<option value="__new__"' + (isNew ? " selected" : "") + ">＋ 新增六要素</option>";
+    document.getElementById("goal-select").innerHTML = html;
+    document.getElementById("select-note").innerHTML =
+      isNew ? '<span class="badge badge-running">新建目标</span>' : "共 " + rows.length + " 套目标配置";
+  }
+
+  /* ---------- 六要素 ---------- */
+  function currentFields() {
+    if (isNew) return draft;
+    return U.goalFields(curId);
+  }
+  function renderSix() {
+    var f = currentFields();
+    var html = SIX.map(function (item) {
+      var val = f[item.key] || "";
+      var view = '<div class="readonly-box" data-view="' + item.key + '">' +
+        (val ? U.esc(val) : "（未填写）") + "</div>";
+      var input = item.multiline
+        ? '<textarea data-field="' + item.key + '" style="display:none"></textarea>'
+        : '<input type="text" data-field="' + item.key + '" style="display:none">';
+      var hint = item.key === "metric_definition"
+        ? '<div class="hint">若尚无精确定义，此处留空即可——保存后由口径检查任务列入待补。平台不替业务方定指标。</div>'
+        : "";
+      return '<div class="form-row"><label class="lbl">' + item.no + " " + U.esc(item.label) + "</label>" +
+        view + input + hint + "</div>";
+    }).join("");
+    document.getElementById("six-rows").innerHTML = html;
+
+    SIX.forEach(function (item) {
+      var input = document.querySelector('[data-field="' + item.key + '"]');
+      if (input) input.value = f[item.key] || "";
+    });
+
+    var g = curGoal();
+    var rec = curRecord();
+    var ver = rec && rec.current_version;
+    var applied = rec && rec.applied_version;
+    document.getElementById("six-note").innerHTML = isNew
+      ? '<span class="badge badge-running">新建目标</span>'
+      : (g ? '<span class="mono">' + U.esc(g.goal_id) + "</span> · " + U.esc(ver ? "v" + ver.version_no : "—") +
+        " · 登记于 " + U.esc(g.created_at) +
+        (applied ? ' · <span class="tag">生效 ' + U.esc("v" + applied.version_no) + "</span>"
+                 : ' · <span class="tag">尚无生效版本</span>') : "");
+    setEditing(editing);
+  }
+
+  function readForm() {
+    var o = {};
+    SIX.forEach(function (item) {
+      var el = document.querySelector('[data-field="' + item.key + '"]');
+      o[item.key] = el ? el.value : (currentFields()[item.key] || "");
+    });
+    return o;
+  }
+
+  function setEditing(on) {
+    editing = on;
+    document.getElementById("btn-edit").textContent = on ? "取消编辑" : "编辑六要素";
+    document.getElementById("btn-save").disabled = !on;
+    document.getElementById("edit-extra").style.display = on ? "block" : "none";
+    document.querySelectorAll("[data-view]").forEach(function (v) { v.style.display = on ? "none" : "block"; });
+    document.querySelectorAll("[data-field]").forEach(function (v) { v.style.display = on ? "block" : "none"; });
+  }
+
+  /* ---------- 材料（MD-03，只读：登记面未接入 api） ---------- */
+  function renderMaterials() {
+    var el = document.getElementById("materials");
+    if (isNew) { el.innerHTML = '<div class="small text-3">新建目标保存后才可关联材料。</div>'; return; }
+    var list = U.goalMaterials(curId);
+    var active = list.filter(function (m) { return m.is_active === 1; });
+    var html = '<div class="small text-2" style="margin-bottom:6px">已关联材料 ' + active.length + " 份</div>";
+    html += active.length
+      ? active.map(function (m) {
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;margin-bottom:6px">' +
+            '<span class="tag">' + U.esc(m.material_kind) + "</span>" +
+            '<span style="flex:1;min-width:0">' + U.esc(m.material_name) + "</span>" +
+            '<span class="small text-3 nowrap">' + U.esc(m.material_at) + "</span>" +
+            '<span class="small text-3 nowrap">' + U.esc(m.material_from) + "</span></div>";
+        }).join("")
+      : '<div class="small text-3">暂无材料</div>';
+    html += '<div class="hint">材料为引用登记（只登记来源与名称，不存内容）。本页只读展示——' +
+      "材料登记接口尚未纳入 server/api 的可调用面（缺口已登记，见 frontend/README.md §4）。</div>";
+    el.innerHTML = html;
+  }
+
+  /* ---------- 运行链状态 ---------- */
+  function renderChain() {
+    var el = document.getElementById("chain");
+    if (isNew) {
+      el.className = "chain-bar";
+      el.innerHTML = '<span class="chain-key">运行链</span>' +
+        '<span>① 配置六要素 → <b>保存为新版本</b>（当前：草稿，尚未保存）</span>' +
+        '<span class="chain-key">保存后才能 ② 应用配置执行机会发现</span>';
+      return;
+    }
+    var rs = U.runState(curId);
+    var ver = U.goalVersion(curId);
+    var steps = [
+      "① 目标配置 " + (ver || "—") + " 已登记",
+      rs.hasRun ? "② 机会发现已执行（" + rs.lastRun.task_id + " · " + rs.lastRun.task_status + "）" : "② 机会发现未执行",
+      rs.oppCount === null ? "③ 机会产出未统计" : "③ 已有 " + rs.oppCount + " 条机会产出",
+    ];
+    var running = rs.state === "queued";
+    el.className = "chain-bar" + (running ? " is-running" : "");
+    el.innerHTML = '<span class="chain-key">运行链</span><span>' + steps.join("　→　") + "</span>" +
+      (rs.state === "no-run"
+        ? '<span class="chain-key">机会列表暂不可进入：点「应用配置」执行一次机会发现后开放</span>'
+        : (running
+          ? "<span>机会发现在运行中，机会列表可进入并会随结果补全</span>"
+          : '<span class="chain-key">机会列表已开放</span>'));
+  }
+
+  /* ---------- 口径待补任务（PD-04） ---------- */
+  function currentGaps() {
+    if (lastCheck) return lastCheck.gaps || [];
+    return U.openGaps(curId);
+  }
+  function checkTaskId() {
+    if (lastCheck && lastCheck.task) return lastCheck.task.task_id;
+    return "";
+  }
+  function renderCheckNote() {
+    var el = document.getElementById("check-note");
+    var rsOff = "保存六要素后将执行一次口径检查任务，判断是否有需要补充的内容。" +
+      "（本页进入时不自动执行检查——只读已有待补项。）";
+    if (isNew) { el.innerHTML = rsOff; return; }
+    if (!lastCheck) {
+      var n = U.openGaps(curId).length;
+      el.innerHTML = n ? "当前有 <b>" + n + "</b> 项未补口径（见下方「口径待补任务」）。" + rsOff : rsOff;
+      return;
+    }
+    el.innerHTML = lastCheck.gaps.length
+      ? "口径检查任务 <span class='mono'>" + U.esc(checkTaskId()) + "</span> 完成：发现 <b>" +
+        lastCheck.gaps.length + "</b> 项待补（见下方「口径待补任务」）。"
+      : "口径检查任务 <span class='mono'>" + U.esc(checkTaskId()) + "</span> 完成：无待补项，口径已锁定。";
+  }
+
+  function renderGaps() {
+    var box = document.getElementById("gap-card");
+    if (isNew) { box.innerHTML = ""; return; }
+    var gaps = currentGaps();
+    if (!gaps.length) { box.innerHTML = ""; return; }
+
+    var html = '<div class="card">' +
+      '<div class="card-head"><div class="card-title">口径待补任务</div>' +
+      '<div class="card-note">' +
+      (checkTaskId() ? "检查任务 <span class='mono'>" + U.esc(checkTaskId()) + "</span> · " : "") +
+      "待补 " + gaps.length + " 项 · 平台只列缺失，不替业务方定义</div></div>" +
+      '<table class="tbl tbl-sm"><thead><tr><th style="width:88px">编号</th><th>待补内容</th>' +
+      "<th>影响的判断</th><th style='width:96px'>提出时间</th><th style='width:88px'>补充</th></tr></thead><tbody>";
+
+    gaps.forEach(function (x) {
+      html += "<tr><td class='mono'>" + U.esc(x.gap_id) + "</td><td>" + U.esc(x.gap_text) + "</td>" +
+        "<td class='text-2'>" + U.esc(x.impact_note) + "</td><td class='text-3'>" + U.esc(x.raised_at) + "</td>" +
+        "<td class='nowrap'><button class='btn btn-sm' data-fill='" + U.esc(x.gap_id) + "'>填写</button></td></tr>";
+      if (openGap === x.gap_id) {
+        html += "<tr><td></td><td colspan='4'>" +
+          '<div style="display:flex;gap:8px;align-items:flex-start">' +
+          "<textarea id='gap-input' style='min-height:60px' placeholder='填写该口径的确认结果'></textarea>" +
+          '<div style="display:flex;flex-direction:column;gap:6px;flex:0 0 auto">' +
+          "<button class='btn btn-sm btn-primary' data-gapsave='" + U.esc(x.gap_id) + "'>确定</button>" +
+          "<button class='btn btn-sm' data-gapcancel='1'>取消</button></div></div>" +
+          "<div class='small text-3' style='margin-top:6px'>提交后并入对应六要素字段，并形成目标新版本</div></td></tr>";
+      }
+    });
+    html += "</tbody></table></div>";
+    box.innerHTML = html;
+
+    box.querySelectorAll("[data-fill]").forEach(function (b) {
+      b.addEventListener("click", function () { openGap = b.dataset.fill; renderGaps(); });
+    });
+    box.querySelectorAll("[data-gapcancel]").forEach(function (b) {
+      b.addEventListener("click", function () { openGap = null; renderGaps(); });
+    });
+    box.querySelectorAll("[data-gapsave]").forEach(function (b) {
+      b.addEventListener("click", function () { saveGap(b.dataset.gapsave); });
+    });
+  }
+
+  /* ---------- 版本历史与影响范围 ---------- */
+  function renderTimeline() {
+    var el = document.getElementById("version-timeline");
+    if (isNew) { el.innerHTML = '<div class="small text-3">新建目标尚无版本历史，保存后生成 v1。</div>'; return; }
+    var list = U.versionTimeline(curId);
+    el.innerHTML = list.length
+      ? list.map(function (v) {
+          return '<div class="tl-item' + (v.is_applied === 1 ? " is-current" : "") + '">' +
+            '<div class="tl-head"><span class="tl-title">v' + U.esc(v.version_no) + "</span>" +
+            '<span class="tag">' + U.esc(v.created_at) + " · " + U.esc(v.created_by) + "</span>" +
+            (v.is_applied === 1 ? '<span class="tag">生效</span>' : "") + "</div>" +
+            '<div class="tl-body">' + U.esc(v.change_note) +
+            "<br><span class='text-3'>影响：</span>" + U.esc(v.impact_note) + "</div></div>";
+        }).join("")
+      : '<div class="small text-3">暂无版本记录</div>';
+  }
+
+  /* ---------- 动作提示 ---------- */
+  function note(kind, text) {
+    actionNote = text || "";
+    document.getElementById("action-note").innerHTML = actionNote
+      ? '<div class="alert ' + (kind === "err" ? "alert-warn" : "alert-info") + ' mb0"><div class="flex-1">' +
+        "<span class='alert-title'>" + (kind === "err" ? "操作未完成" : "操作结果") + "</span>　" +
+        U.esc(actionNote) + "</div></div>"
+      : "";
+  }
+  function showErr(e) { note("err", (e && e.message) || String(e)); }
+
+  /* ---------- 渲染总入口 ---------- */
+  function renderAll() {
+    document.getElementById("goal-meta").textContent = isNew
+      ? "正在新建一套目标配置，填写六要素后保存为 v1。" : "";
+    document.getElementById("goal-meta").style.display = isNew ? "block" : "none";
+    renderSelect();
+    renderSix();
+    renderMaterials();
+    renderChain();
+    renderTimeline();
+    renderCheckNote();
+    renderGaps();
+    syncApplyBtn();
+  }
+  function syncApplyBtn() {
+    var b = document.getElementById("btn-apply");
+    b.disabled = isNew;
+    b.title = isNew
+      ? "新建的目标需先「保存为新版本」，保存后才能应用配置"
+      : "按当前目标配置执行机会发现，并进入该目标的机会列表";
+  }
+
+  /* ---------- 切换目标 ---------- */
+  async function useGoal(id) {
+    if (id === "__new__") {
+      isNew = true; openGap = null; lastCheck = null;
+      draft = U.blankFields();
+      renderAll(); setEditing(true);
+      var first = document.querySelector('[data-field="business_goal"]');
+      if (first) first.focus();
+      return;
+    }
+    isNew = false; curId = id; openGap = null; lastCheck = null;
+    try {
+      await U.loadGoalRecord(id, true);
+      await U.loadOpportunityCounts(id);
+    } catch (e) { showErr(e); }
+    setEditing(false); renderAll();
+  }
+
+  /* ---------- 保存（新建登记 / 保存为新版本） ---------- */
+  async function save() {
+    var f = readForm();
+    var changeNote = (document.getElementById("change-note").value || "").trim();
+    var impactNote = (document.getElementById("impact-note").value || "").trim();
+
+    if (!String(f.business_goal || "").trim() && !changeNote) {
+      // 业务目标可留空（留空即由口径检查列入待补），但至少要有一条变更说明，便于版本可追溯
+      note("err", "请填写「变更说明」：新版本必须说明相对上一版本改了什么（口径待补项不在此处补写）。");
+      document.getElementById("change-note").focus();
+      return;
+    }
+
+    note("ok", "正在保存目标配置…");
+    try {
+      var savedNote;
+      if (isNew) {
+        // 登记新目标：六要素全键必填（值可为空串），created_by 必填
+        var payload = { created_by: U.OPERATOR };
+        SIX.forEach(function (item) { payload[item.key] = f[item.key] || ""; });
+        var out = await window.API.registerGoal(payload);
+        isNew = false;
+        curId = out.goal.goal_id;
+        await U.loadGoals(true);
+        await U.loadGoalRecord(curId, true);
+        savedNote = "已登记目标 " + curId + " 并生成 v1（六要素留空项由口径检查列入待补；影响范围：首次登记）";
+      } else {
+        var body = { created_by: U.OPERATOR, change_note: changeNote, impact_note: impactNote || "—" };
+        SIX.forEach(function (item) { body[item.key] = f[item.key] || ""; });
+        // 端点契约（server/task-runner/goal.js saveGoalVersion）：**直接返回新版本行**（不是 { version }）。
+        var ver = await window.API.saveGoalVersion(curId, body);
+        await U.loadGoalRecord(curId, true);
+        savedNote = "已保存为目标新版本 v" + ver.version_no +
+          "（旧版本保持只读；影响范围：" + (impactNote || "—") + "）";
+      }
+      setEditing(false);
+      openGap = null;
+      resetEditInputs();
+      renderAll();
+      // 保存六要素后自动执行一次口径检查任务（F-01）。检查提示**并入**本条的最终文案——
+      // 若各写各的提示，保存结果（含新版本号与影响范围）会被后一条覆盖，等于没提示。
+      var chk = await runCheck({ silent: true });
+      U.markUnread("goal", 1, curId);
+      note("ok", savedNote + "。" + (chk.text || ""));
+    } catch (e) { showErr(e); }
+  }
+
+  function resetEditInputs() {
+    document.getElementById("change-note").value = "";
+    document.getElementById("impact-note").value = "";
+  }
+
+  /* ---------- 口径检查 ---------- */
+  /** 执行一次口径检查任务（F-01）。`opts.silent` 时不自行落提示，把文案交回调用方（见 save）。 */
+  async function runCheck(opts) {
+    opts = opts || {};
+    if (isNew) return { text: "" };
+    var vno = curVersionNo();
+    if (!vno) return { text: "" };
+    try {
+      lastCheck = await window.API.runGoalCheck(curId, {
+        goal_version_no: vno,
+        created_by: U.OPERATOR,
+      });
+      await U.loadGoalRecord(curId, true);
+      renderAll();
+      var n = (lastCheck.gaps || []).length;
+      var txt = n
+        ? "口径检查任务 " + checkTaskId() + " 完成：发现 " + n + " 项待补（平台只列缺失，不替业务方定义指标）。"
+        : "口径检查任务 " + checkTaskId() + " 完成：未发现待补项，口径已锁定。";
+      if (!opts.silent) note("ok", txt);
+      return { text: txt, gaps: n, task_id: checkTaskId() };
+    } catch (e) {
+      var msg = "口径检查未完成：" + ((e && e.message) || String(e));
+      if (opts.silent) return { text: msg, gaps: 0, task_id: "" };
+      showErr(e);
+      return { text: "", gaps: 0, task_id: "" };
+    }
+  }
+
+  /* ---------- 补充待补项 ---------- */
+  async function saveGap(gapId) {
+    var el = document.getElementById("gap-input");
+    var val = el ? String(el.value || "").trim() : "";
+    if (!val) { if (el) el.focus(); return; }
+    try {
+      var out = await window.API.fillGoalGap(gapId, { filled_value: val, filled_by: U.OPERATOR });
+      openGap = null;
+      await U.loadGoalRecord(curId, true);
+      lastCheck = null;                  // 已并入并形成新版本，改读服务端未补待补项
+      renderAll();
+      note("ok", "已补充 " + gapId + "：并入「" +
+        (U.SIX_FIELDS.filter(function (x) { return x.key === out.merged_field; })[0] || {}).label +
+        "」并形成新版本 v" + out.version.version_no + "。");
+    } catch (e) { showErr(e); }
+  }
+
+  /* ---------- 应用配置：使版本生效 + 执行一次机会发现 ---------- */
+  async function apply() {
+    var vno = curVersionNo();
+    if (!vno) { note("err", "当前目标尚无版本可应用。"); return; }
+    try {
+      var ap = await window.API.applyGoalVersion(curId, { version_no: vno });
+      var t = await window.API.createDiscoveryTask({
+        goal_id: curId,
+        goal_version_no: vno,
+        trigger_basis: "目标配置页「应用配置」提交执行（目标 " + curId + " v" + vno + "）",
+      });
+      await U.loadGoalRecord(curId, true);
+      await U.loadOpportunityCounts(curId);
+      // 会话态：记录本套配置为当前浏览目标（机会列表按此过滤）；**不是业务数据，不入库**
+      U.Store.set("applied", { goalId: curId });
+      U.markUnread("opportunities", 1, curId);
+      renderAll();
+      note("ok", "已应用 v" + ap.applied_version_no + "（生效版本）并创建机会发现任务 " +
+        t.task.task_id + "。机会列表页（F-28）建成后可进入查看该目标的产出。");
+    } catch (e) { showErr(e); }
+  }
+
+  /* ---------- 事件绑定 ---------- */
+  document.getElementById("btn-edit").addEventListener("click", function () {
+    setEditing(!editing);
+  });
+  document.getElementById("btn-save").addEventListener("click", save);
+  document.getElementById("btn-recheck").addEventListener("click", function () { runCheck(); });
+  document.getElementById("btn-apply").addEventListener("click", apply);
+  document.getElementById("goal-select").addEventListener("change", function () {
+    useGoal(this.value);
+  });
+
+  /* ---------- 初始化 ---------- */
+  curId = U.currentGoalId();
+  renderAll();
+};
+</script>
+</body>
+</html>

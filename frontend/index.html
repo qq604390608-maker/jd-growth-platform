@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/index.html
+  性质：**前端外壳（非功能点）**——M6 六页面的入口与模块进度展示。
+        它本身不对应任何 F-xx；F-27~F-32 各自有独立页面（见 ../README.md §3）。
+  文档卡：上游 ../../AGENTS.md（宪法索引 frontend/ 行：前端（前后端分离），六页面 F-27~F-32）
+        ｜ ../../docs/04-plan/dev-plan.md（阶段 5 · M6：六页面＋前后端分离判断标准）
+        ｜ ../../docs/03-locks/tech-stack.md（§1.2 前端不直连数据库、不持凭证，动态数据经 server/api）
+        ｜ ../README.md ｜ ../assets/api.js ｜ ../assets/app.js
+  职责：列出六页面与各自状态（已建 / 待建），并显示当前浏览目标——纯导航与状态，无业务逻辑。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="home"，fn="—"）；被 ../pages/goal.html 的顶栏品牌链接引用。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>总览 · 用户增长机会挖掘平台</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body data-page="home">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">运营端工作台</h1>
+      <p class="page-desc">M6 六页面（F-27~F-32）· 前后端分离：本目录所有动态数据均经 <span class="mono">server/api</span> 获取。</p>
+    </div>
+  </div>
+
+  <div id="home-summary"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">六页面</div>
+      <div class="card-note" id="page-progress"></div>
+    </div>
+    <div id="page-list"></div>
+  </div>
+
+</main>
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  var PAGES = [
+    { fn: "F-27", name: "目标配置", href: "pages/goal.html", built: true,
+      desc: "登记 / 关联目标六要素；口径待补项以任务形式提示；更新形成新版本并提示影响范围" },
+    { fn: "F-28", name: "机会列表与详情", href: "pages/opportunities.html", built: false,
+      desc: "按目标浏览机会；详情呈现六要素＋证据链（来源 / 条件 / 时点可回查）＋未知项" },
+    { fn: "F-29", name: "研究建议提交", href: "pages/propose.html", built: false,
+      desc: "选机会 → 填研究问题（必需）→ 可选补候选行为假设与人群限制；重复提交幂等" },
+    { fn: "F-30", name: "研究结果", href: "pages/result.html", built: false,
+      desc: "呈现结果七要素；关键发现挂证据来源与适用范围；已查明与仍受限视觉可分" },
+    { fn: "F-31", name: "追问对话", href: "pages/followup.html", built: false,
+      desc: "基于上下文场景化追问；追问建新任务并关联原研究（F-05）" },
+    { fn: "F-32", name: "任务与状态", href: "pages/tasks.html", built: false,
+      desc: "任务运行状态 / 受阻原因 / 已完成部分；三类事实分别可见" },
+  ];
+
+  var built = PAGES.filter(function (p) { return p.built; }).length;
+  document.getElementById("page-progress").textContent = "已建 " + built + " / " + PAGES.length +
+    "（逐点开发、逐点验收：一 F-xx 一 PR）";
+
+  document.getElementById("page-list").innerHTML = PAGES.map(function (p) {
+    return '<a class="nav-item" style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px" href="' + p.href + '">' +
+      '<span class="fn">' + U.esc(p.fn) + "</span>" +
+      '<span style="flex:1;min-width:0"><b>' + U.esc(p.name) + "</b>" +
+      '<span class="small text-3" style="display:block">' + U.esc(p.desc) + "</span></span>" +
+      (p.built ? '<span class="tag">已建</span>' : '<span class="tag">待建</span>') + "</a>";
+  }).join("");
+
+  var g = U.currentGoal();
+  var rec = U.recordOf(g ? g.goal_id : "");
+  var ver = rec && rec.current_version;
+  var applied = rec && rec.applied_version;
+  document.getElementById("home-summary").innerHTML =
+    '<div class="card"><div class="card-head"><div class="card-title">当前浏览目标</div>' +
+    '<div class="card-note">口径与版本一律读服务端（MD-01 / MD-02），前端不另存一份</div></div>' +
+    (g
+      ? '<div class="kv-list"><div class="kv"><span class="k">目标</span><span class="v mono">' + U.esc(g.goal_id) + "</span></div>" +
+        '<div class="kv"><span class="k">业务目标</span><span class="v">' +
+        U.esc(ver && ver.business_goal ? ver.business_goal : "（未填写）") + "</span></div>" +
+        '<div class="kv"><span class="k">当前版本</span><span class="v">' + U.esc(ver ? "v" + ver.version_no : "—") + "</span></div>" +
+        '<div class="kv"><span class="k">生效版本</span><span class="v">' +
+        U.esc(applied ? "v" + applied.version_no : "尚无（到目标配置页点「应用配置」）") + "</span></div></div>"
+      : '<div class="small text-3">尚未登记任何目标。到「目标配置」（F-27）新建一套六要素。</div>') +
+    "</div>";
+};
+</script>
+</body>
+</html>

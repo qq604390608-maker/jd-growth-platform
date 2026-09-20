@@ -1,6 +1,6 @@
 # 文档卡（阶段0-CI · 2026-09-19）
 # 上游：AGENTS.md（宪法：硬红线零写 / 凭证不落库）｜ docs/04-plan/dev-plan.md（L70 CI 任务书 / L158 CI/CD 纪律：每 F-xx 一 PR、wrangler deploy + d1 migrations apply、凭证仅经 Secrets）｜ docs/03-locks/tech-stack.md（§1.3 部署形态 / §7.2 凭证落实）｜ wrangler.toml（Worker 名 jd-growth-platform / D1 绑定 DB）
-# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-17/F-18/F-19/F-20/F-21/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
+# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-17/F-18/F-19/F-20/F-21/F-22/F-23/F-24/F-25/F-26/F-27 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
 # 硬红线落实：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 GitHub Secrets 注入，绝不写入本文件或仓库；流水线本身不直连任何生产写接口，部署的"写"由 Cloudflare 平台侧凭据授权，符合 BRD §5.3。
 # 反向清单：被 AGENTS.md 索引 .github/ 行引用；被 server/ 各模块（阶段1~5 部署）与 dev-plan §3 阶段0 验收要点复用。
 # 注：分支保护（main 需 PR 审核 + 状态检查通过）为仓库设置项，不在本文件内，须在 GitHub 仓库 Settings → Branches 手动开启（见 .github/README.md）。
@@ -98,6 +98,10 @@ jobs:
         run: node server/agent-orchestrator/test-f21.mjs
       - name: 跑 F-22 用例（M4 继续追问承接·agent-orchestrator，跑 承接已有研究上的新问题→检查既有依据是否仍适用（TC-I-M4-001：时间范围/查询条件/适用范围三维度→沿用 or 补查三态判定；未声明变更→undetermined＋llm_gated 不硬猜；更窄适用范围沿用、更宽/未声明/无法解析一律保守补查）+ 版本口径（追问可落新版本、原任务与原研究钉在启动版本；范围变更未升版提示 new_version_required，建版本行归 M1 F-01）+ 新一轮入口 S-B1（链 F-19>F-20>F-21、五查键派生自 F-19、比较条件复用 F-19）+ 保留原结果与依据（original_preserved 前后快照逐字节自检、negates_original_conclusion 恒 false）+ 追问越界只提示不拦截 + 下游派发可注入（未注入不触发）+ 入口守卫五路 + 运行期零写（7 张表行数 + research/task/research_finding 逐行不变）+ 静态零外部调用 / 零写语句 / 零 SELECT / import 恰 6 条全为既有读面 / 不重复实现上游写面）
         run: node server/agent-orchestrator/test-f22.mjs
+      - name: 安装前端用例依赖（jsdom；仓库零构建、无 package.json，仅测试期依赖，--no-save 不落清单）
+        run: npm i --no-save --no-audit --no-fund jsdom
+      - name: 跑 F-27 用例（M6 目标配置页，jsdom 载真实页面 + 真实 Worker + 真实 D1（node:sqlite 载真实 DDL/种子），跑 TC-I-M6-001 六要素登记与新版本＋影响范围 + TC-C-M6-001 动态数据只经 server/api + TC-D-M6-001 前端不写库（SQL 语句形态静态扫描 + 运行期写请求全部经 /api/ 转发）+ TC-I-M6-007 前后端分离判断标准（前端不携带数据快照、直接调接口仍 200））
+        run: node frontend/test-f27.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
