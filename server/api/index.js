@@ -221,7 +221,7 @@ export default {
       // A-1 LLM 连通探测：证明 AI binding 已接通（**经 llm-client 封装**，不在路由里硬编码模型 ID）
       if (pathname === "/api/ai-ping" && request.method === "GET") {
         try {
-          if (!env.AI) return Response.json({ ai: "not_bound", message: "AI binding 未配置（wrangler.toml 缺 [[ai]]）" }, { status: 503 });
+          if (!env.AI) return Response.json({ ai: "not_bound", message: "AI binding 未配置（wrangler.toml 缺 [ai] 段）" }, { status: 503 });
           const { chat, extractContent, MODELS } = await import("../agent-orchestrator/llm-client.js");
           const completion = await chat(env.AI, [{ role: "user", content: "回复 ok" }], { max_tokens: 10 });
           const content = extractContent(completion) || "";
@@ -835,7 +835,7 @@ export default {
       // POST /api/discovery-run：传入 task_id，LLM 规划查证 → 工具查询 → 线索归纳 → 机会形成
       // 需要 env.AI binding（A-1 LLM 推理服务）；无 AI binding 时返回 503
       if (pathname === "/api/discovery-run" && request.method === "POST") {
-        if (!env.AI) return Response.json({ error: "AI binding 未配置（wrangler.toml 缺 [[ai]]）" }, { status: 503 });
+        if (!env.AI) return Response.json({ error: "AI binding 未配置（wrangler.toml 缺 [ai] 段）" }, { status: 503 });
         const body = await request.json().catch(() => ({}));
         const { task_id, model } = body;
         if (!task_id) throw new Error("discovery-run 必填：task_id");
