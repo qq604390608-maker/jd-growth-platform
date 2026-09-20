@@ -17,6 +17,8 @@
 | `test-f13.mjs` | F-13 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；断言读全字段 / 版本推进单行 / 注册 Skill 成功 / MD-14 PK-UK-FK 三反例 / MD-13 agent_code UNIQUE 反例 / 快照串形态对齐种子 / 静态零外部调用 + 唯一写入面） | ✅ 已建（**30 断言全绿**） |
 | `discovery.js` | **F-14 围绕目标寻找线索**：纯编排层（**零写库**，不依赖 LLM）。`normalizeIntentionScore`（意向分归一 min(raw/threshold,1)，TC-U-M3-001）、`assembleDiscoveryPlan`（S-A1 发现任务调度：一阶段注入清单→确定性查证计划，含停止条件表达）、`summarizeCluesAsJourney`（S-A3 旅程线索归纳：按「谁在什么环节遇到什么现象」归类，每条须有人群/环节归属、拒裸变化）、`loadDiscoveryContext`（薄读：复用 shared-context 读面装配注入清单，不新增写面） | ✅ F-14 已建 2026-09-20（**33 断言全绿**） |
 | `test-f14.mjs` | F-14 用例执行器（纯函数段不依赖 D1；`loadDiscoveryContext` 用 fake-db stub 验「复用读面 + 零写」；断言意向分归一（含封顶/除零防护）/ S-A1 计划有序+停止条件+sources 过滤 / S-A3 归属+拒裸变化+evidence 透传 / 零写 / 静态零外部调用 + 单一读面 import） | ✅ 已建（**33 断言全绿**） |
+| `verification.js` | **F-15 基础查证**：S-A2 指标查证闭环 + 五项检查（**零自有写语句**——EXT-01 归 M5、EXT-02 归 F-09）。`runMetricVerification`（经 M5 `runQueryWithRecovery` 真实查询→查询事实；**硬红线：只有真实 ok 才 `verified=true`，`model_expectation`/`expected_summary` 被显式忽略**）、`verifyFiveChecks`（来源/适用范围/信息时点/已有机会/信息缺口；缺口口径读 CFG-05、已有机会比对读 MD-06）、`isolateContradictedEvidence`（TC-A-M3-006 倒挂隔离）、`resolveMissingFields`（TC-A-M3-005 退回请补）、`buildTentativeExplanation`（标「尚未验证」、不下 HVA 判断）、`buildEvidenceDraft`/`recordVerificationEvidence`（EXT-02 草稿 + 复用 F-09 `createEvidence` 落库）、`verifyClueAndDraftEvidence`（一步编排）、`parseStamp`（时点抽取，倒挂判定基础） | ✅ F-15 已建 2026-09-20（**87 断言全绿**） |
+| `test-f15.mjs` | F-15 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + **注入式 transport**（复用 `prototype/mock/scenarios.js`）；断言经 M5 真实查询透传（含哨兵串证「模型预期不进事实」）/ 五项检查齐备与缺口标注 / 倒挂隔离非整包失败 / 缺字段退回请补 / 证据草稿四要素 + 落 EXT-02 回查 / 一步编排成败两路 / `parseStamp` / 静态零外部调用 + 零写语句 + 读语句仅 CFG-05） | ✅ 已建（**87 断言全绿**） |
 
 ## F-13 已通过用例（`test-f13.mjs`，30 断言）
 
@@ -40,7 +42,20 @@
 | ④ 注入清单装配 | F-14 薄读口径 | `loadDiscoveryContext` 返回六键注入清单；fake-db stub 下 prepare 语句**无 INSERT/UPDATE/DELETE（零写）**；确实经 prepare 调用了读面 |
 | ⑤ 静态核验 | 零写 / 零外部调用纪律 | 无 `fetch` / 无 http(s) 字面；本文件无裸写语句字面（零写库）；唯一业务 `import` 来自 `../shared-context/index.js`；不 import `node:sqlite` / `tool-executor` / `task-runner` |
 
-## HTTP 路由面（`server/api/index.js`，F-13/F-14 接入）
+## F-15 已通过用例（`test-f15.mjs`，87 断言）
+
+| 组别 | oracle 来源 | 关键断言 |
+| ---- | ---- | ---- |
+| ① S-A2 真实查询 | **TC-A-M3-002** / **TC-I-M3-002** | 缺 `task_id`/`tool_id` 抛错；真实 ok → `verified=true`、`result_summary` 与注入返回体**逐字一致**（原样透传）、带 `query_id`/`source_id`/`queried_at`、EXT-01 已落痕；**哨兵串证硬红线**：传 `model_expectation` 后输出任何字段都**不含该串**且 `used_model_expectation=false`；失败 → `verified=false`、`result_summary=null`、`fail_reason` 原样透传（含真实错误码）；无授权 → 受限且 **transport 零调用**（不发起外部调用） |
+| ② 五项检查 | **BRD §4 F-15**（L191-195）| 五项齐备（`source`/`applicability`/`info_time_point`/`existing_opportunity`/`gap`）；来源可回查（`query_id`）；适用范围命中目标范围→通过；信息时点未晚于取数时刻→不倒挂；已有机会命中（带 `hits`/`hit_count`）；缺口按 CFG-05 **4 条规则逐条核对**（每条带 `rule_id`/`target_field`/`gap_text`/`impact_note`），文本含渠道 → GAP-3 视为已写清、文本未提退款 → GAP-1 如实列为待补（**不静默放过**）；`all_present=true`；初步解释含「尚未验证」「值得进一步研究」「不下 HVA 判断」且**不含结论性措辞**；目标未声明范围 → 适用范围记**未知**且 `all_present=false` |
+| ③ 倒挂隔离 | **TC-A-M3-006** | 3 条证据中 1 条晚于取数时刻 → **仅该条** `isolated`（原因 `info_time_point_after_fetch`）、其余 2 条照常参与、`batch_failed=false`（**非整包失败**）；无倒挂 → 全部参与；缺 `at` / 入参非数组抛错；倒挂事实在五项检查里 `contradicted=true` 且**不予采用**为证据草稿（`reason=contradicted_evidence_isolated`） |
+| ④ 缺字段退回请补 | **TC-A-M3-005** | 缺 `missing_note` → `action='request_supplement'`、精确列出缺项、**`draft=null`（不返回半成品）**、口径含「不静默回退」「不编造」、含补齐指引；齐备 → `accept`；`required_fields` 为空抛错（**不隐式取默认**） |
+| ⑤ 证据草稿与落库 | EXT-02 四要素 / F-09 单一写入面 | 四要素齐 → `completeness.valid=true`；草稿含来源/条件/时点/适用范围 + `missing_note`（缺口随依据留痕）；经 `recordVerificationEvidence` **复用 F-09 `createEvidence`** 落 EXT-02 并回查（挂真实 `query_id`/`source_id`）；四要素不齐 → 由 F-09 拒绝落库（实际未落行） |
+| ⑥ 一步编排 | F-15 输入→输出契约 | 真实返回 → `verified=true` + 五项检查 + 证据草稿 + 初步解释，且**全链路不出现模型预期哨兵串**；未取得真实返回 → `checks`/`evidence` 均空、失败原因原样、口径含「不编造」且给出「退回请补」 |
+| ⑦ 时点抽取 | 倒挂判定基础 | 从自由文本抽**首个**可识别时点（取数时刻优先）；`2026-9-6`→`2026-09-06 00:00`（补零）；无可识别时点 → `null`（**不猜**） |
+| ⑧ 静态核验 | 硬红线纪律 | 零 `fetch(`、无 http(s) 字面；**零写语句**（实测命中 0）；外部访问**只经 M5**（import `../tool-executor/index.js`）；读语句**仅面向 CFG-05** `gap_rule`；证据落库走 F-09 `createEvidence`；不 import `node:sqlite`/`node:fs`/`task-runner` |
+
+## HTTP 路由面（`server/api/index.js`，F-13/F-14/F-15 接入）
 
 | 路由 | 职责 | 成功 / 错误码 |
 | ---- | ---- | ---- |
@@ -51,6 +66,12 @@
 | `GET /api/discovery-context/{task_id}` | F-14 · 装配一阶段注入清单（薄读，复用 shared-context 读面） | 200；task 不存在 404 |
 | `POST /api/clue-summary` | F-14 · S-A3 查证事实集合→按人群/旅程环节归类（纯计算、拒裸变化） | 200；入参非数组 400 |
 | `POST /api/intention-score` | F-14 · 意向分归一 min(raw/threshold,1)（TC-U-M3-001，纯计算） | 200；`intention_raw` 非数值 400 |
+| `POST /api/metric-verification` | F-15 · S-A2 指标查证一次闭环（经 M5 真实查询 + 五项检查 + 证据草稿 + 初步解释） | 201（真实返回）；失败/受限 202（只回报真实原因，不编造） |
+| `POST /api/five-checks` | F-15 · 五项检查（来源/适用范围/信息时点/已有机会/信息缺口） | 200；缺 `fact`/`at` 400 |
+| `POST /api/evidence-isolation` | F-15 · 倒挂隔离（TC-A-M3-006，纯计算，非整包失败） | 200；缺 `at` 400 |
+| `POST /api/missing-fields` | F-15 · 只松不严不硬映射（TC-A-M3-005，纯计算，缺字段退回请补） | 200；`required_fields` 为空 400 |
+| `POST /api/verification-evidence` | F-15 · 装配 EXT-02 形态证据草稿；`persist=true` 时复用 F-09 落库 | 200（仅草稿）/ 201（已落库）；四要素不齐 409 |
+| `POST /api/verification-query` | F-15 · 只跑一次真实查询供排查（不含五项检查与草稿） | 201（真实返回）；202（失败/受限） |
 
 ## 口径（本模块已定，含登记在案的取舍）
 
@@ -78,12 +99,30 @@
 
 **⑤ 意向分归一（TC-U-M3-001）**：`min(raw/threshold, 1)` 封顶 1，确定性无随机；`threshold≤0` 除零防护回退 `raw` 本身。该函数为 F-14/F-15 共用。
 
+### 3. F-15 基础查证（M3 查证核心 · 经 M5 真实查询）
+
+**① 零自有写语句 + 双面复用**：`verification.js` 自己**不含任何 `INSERT`/`UPDATE`/`DELETE`**（`test-f15` ⑧ 静态断言）——查询与留痕（EXT-01）**全经 M5** `runQueryWithRecovery`，证据（EXT-02）**全经 F-09** `createEvidence`。外部访问也**只经 M5**（唯一出口），对应 `TC-I-M3-002`「所有外部查询经 M5、只读」。
+
+**② 硬红线「禁止以模型预期内容代替查询结果」（TC-A-M3-002）**：`result_summary` 一律**原样透传**自 M5 信封（`mapResponseToResult` 本就不生成业务结论）；**只有 `result_status='ok'` 才置 `verified=true`**。调用方若传 `model_expectation`/`expected_summary`，本文件**显式忽略**并留 `used_model_expectation:false` / `model_expectation_ignored` 供核查；`test-f15` 用**哨兵串**证明该串不出现在任何输出字段里（含全链路一步编排）。
+
+**③ 五项检查（BRD §4 F-15）**：`source`（哪份资料哪次查询，`query_id`/`source_id` 可回查）、`applicability`（人群/渠道/旅程环节是否对应当前目标；**目标未声明范围时记「未知」，不猜**）、`info_time_point`（业务条件是否已变化 + **倒挂判定**）、`existing_opportunity`（是否记录过相同问题：按关键词与 MD-06 已有机会的标题/现象比对，命中列出并**建议关联更新而非新建**）、`gap`（还缺什么、缺失影响哪项判断：**规则来自库内 CFG-05 `gap_rule`**（`is_active=1`，`match_pattern` 未命中即开放缺口），**不内联口径字典**）。`all_present` ＝ 五项都给出了肯定判定，**不把「未知」当通过**。
+
+**④ 倒挂隔离（TC-A-M3-006，ADR-003 二态精神）**：证据**信息时点晚于取数时刻** → 视为倒挂 → **仅该条失效**（`isolateContradictedEvidence` 返回 `kept`/`isolated`），**其余证据照常参与**、`batch_failed=false`（**不污染全量**）；倒挂事实**不予采用**为证据草稿。时点抽取由 `parseStamp` 承担，抽不到时点则**不做倒挂判定**（不猜）。
+
+**⑤ 缺字段只松不严不硬映射（TC-A-M3-005）**：`resolveMissingFields` 缺必填字段即返回 `action='request_supplement'` 且 **`draft=null`（不返回半成品）**——**不静默回退、不编造**；「素材已过审但查不到」同样退回请补（见 `guidance`）。必填字段须**显式传入**，不隐式取默认。
+
+**⑥ 初步解释口径（BRD §4 验收）**：`buildTentativeExplanation` 一律标明「尚未验证」的部分、支持「值得进一步研究」，并明示**不给完整人群对照、不下 HVA 判断**；`FORBIDDEN_CONCLUSION_PATTERNS`（已确认/已证实/可以确认/必然/结论为/证明该）为**可静态核对的禁词表**，`test-f15` ② 断言解释文本不含之。
+
+**⑦ LLM 门禁边界（mock/demo 推进，明确登记）**：把自然语言线索转成「待查指标＋范围」须 LLM（**A-1 ⬜ 未提供**）——本文件提供**确定性编排**，门禁关闭前只用**注入返回体**（`transport` 注入，复用 `prototype/mock/scenarios.js`）验证结构契约；**`TC-A-M3-002` 的真实 LLM 产出契约登记为「门禁未关闭、非发布门禁」**，demo 值不进断言。
+
 ## 反向清单
 
-- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 路由**）｜阶段4 `../agent-orchestrator` 后续 F-15~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 基础查证复用注入清单）；`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`
-- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14 真源）；`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）
-- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-14~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`test-f13.mjs`/`test-f14.mjs` 仅用作 CI 验证，不进运行期
+- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 / F-15 路由**）｜阶段4 `../agent-orchestrator` 后续 F-16~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 复用注入清单；`verification.js` 的 `verifyClueAndDraftEvidence`/`buildEvidenceDraft` 供 **F-16 机会形成与去重**消费「查证结果 → 机会或缺口记录」）｜`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`
+- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14 真源）｜`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）｜`verification.js` 引用 `../tool-executor/index.js`（**M5**：`runQueryWithRecovery` / `RETRY_OUTCOME`）与 `../shared-context/index.js`（读面 `listOpportunities` + **F-09 写入面** `createEvidence`/`validateEvidenceCompleteness`）
+- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-14~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`verification.js` 为 F-15 编排层（**零自有写语句**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`test-f13.mjs`/`test-f14.mjs`/`test-f15.mjs` 仅用作 CI 验证，不进运行期
 
 ## 种子基线（本模块相关，只读参照）
 
 `agent_profile` 2 行（`AGP-DISC`/`AGP-HVA`）、`skill_registry` 2 行（`S-A1`/`S-B1`）已由 `db/seed/0001_mock.sql` 落库，本模块运行期只改行（版本推进）、不增删基线行（新增 Skill 经 `registerSkill` 走业务写入面，非种子）。
+
+**F-15 额外只读参照**（不属本模块写入面、运行期以只读消费）：`gap_rule` 4 行（`GAP-1`~`GAP-4`，口径规则真源，F-15 的「信息缺口」检查逐条读它）、`opportunity` 8 行（「已有机会」比对读它）、`evidence` 7 行（EXT-02，回查链验证用）。F-15 **不新增种子行**：证据由 F-09 写入面按业务写入（`test-f15` ⑤ 落 `EV-9001` 后回查）。

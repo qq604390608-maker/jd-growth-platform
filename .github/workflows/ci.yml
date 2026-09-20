@@ -1,6 +1,6 @@
 # 文档卡（阶段0-CI · 2026-09-19）
 # 上游：AGENTS.md（宪法：硬红线零写 / 凭证不落库）｜ docs/04-plan/dev-plan.md（L70 CI 任务书 / L158 CI/CD 纪律：每 F-xx 一 PR、wrangler deploy + d1 migrations apply、凭证仅经 Secrets）｜ docs/03-locks/tech-stack.md（§1.3 部署形态 / §7.2 凭证落实）｜ wrangler.toml（Worker 名 jd-growth-platform / D1 绑定 DB）
-# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
+# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
 # 硬红线落实：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 GitHub Secrets 注入，绝不写入本文件或仓库；流水线本身不直连任何生产写接口，部署的"写"由 Cloudflare 平台侧凭据授权，符合 BRD §5.3。
 # 反向清单：被 AGENTS.md 索引 .github/ 行引用；被 server/ 各模块（阶段1~5 部署）与 dev-plan §3 阶段0 验收要点复用。
 # 注：分支保护（main 需 PR 审核 + 状态检查通过）为仓库设置项，不在本文件内，须在 GitHub 仓库 Settings → Branches 手动开启（见 .github/README.md）。
@@ -82,6 +82,8 @@ jobs:
         run: node server/agent-orchestrator/test-f13.mjs
       - name: 跑 F-14 用例（M3 围绕目标寻找线索·agent-orchestrator，跑意向分归一 min(raw/threshold,1) 封顶（TC-U-M3-001）+ S-A1 一阶段注入清单→确定性查证计划＋停止条件（TC-A-M3-001）+ S-A3 线索须有人群/旅程归属、拒裸变化（TC-A-M3-003）+ loadDiscoveryContext 复用 shared-context 读面零写 + 静态零外部调用 / 零裸 SQL）
         run: node server/agent-orchestrator/test-f14.mjs
+      - name: 跑 F-15 用例（M3 基础查证·agent-orchestrator，跑 S-A2 经 M5 真实查询透传＋硬红线「禁止以模型预期代替查询结果」（哨兵串证明，TC-A-M3-002 / TC-I-M3-002）+ 五项检查五路齐备与缺口标注（来源/适用范围/信息时点/已有机会/信息缺口，缺口口径读 CFG-05）+ 倒挂隔离仅该条失效非整包失败（TC-A-M3-006）+ 缺字段退回请补不编造（TC-A-M3-005）+ 证据草稿四要素与复用 F-09 落 EXT-02 回查 + 一步编排成败两路 + 静态零外部调用 / 零写语句 / 外部访问只经 M5）
+        run: node server/agent-orchestrator/test-f15.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
