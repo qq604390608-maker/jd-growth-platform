@@ -1,6 +1,6 @@
 # 文档卡（阶段0-CI · 2026-09-19）
 # 上游：AGENTS.md（宪法：硬红线零写 / 凭证不落库）｜ docs/04-plan/dev-plan.md（L70 CI 任务书 / L158 CI/CD 纪律：每 F-xx 一 PR、wrangler deploy + d1 migrations apply、凭证仅经 Secrets）｜ docs/03-locks/tech-stack.md（§1.3 部署形态 / §7.2 凭证落实）｜ wrangler.toml（Worker 名 jd-growth-platform / D1 绑定 DB）
-# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-17/F-18/F-19/F-20/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
+# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-17/F-18/F-19/F-20/F-21/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
 # 硬红线落实：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 GitHub Secrets 注入，绝不写入本文件或仓库；流水线本身不直连任何生产写接口，部署的"写"由 Cloudflare 平台侧凭据授权，符合 BRD §5.3。
 # 反向清单：被 AGENTS.md 索引 .github/ 行引用；被 server/ 各模块（阶段1~5 部署）与 dev-plan §3 阶段0 验收要点复用。
 # 注：分支保护（main 需 PR 审核 + 状态检查通过）为仓库设置项，不在本文件内，须在 GitHub 仓库 Settings → Branches 手动开启（见 .github/README.md）。
@@ -94,6 +94,8 @@ jobs:
         run: node server/agent-orchestrator/test-f19.mjs
       - name: 跑 F-20 用例（M4 人群比较与行为关系检验·agent-orchestrator，跑 综合分入池阈值（TC-U-M4-001：0.62/0.6 入池、0.55/0.6 不入池，确定性无随机）+ S-B2 人群可比性（TC-A-M4-002：差异是否已解释→结论＋限制，差异未解释/无法明确时限制行为作用判断）+ S-B3 候选行为五查（TC-A-M4-003：① 人群可比基础 ② 先后关系 ③ 口径一致 ④ 其他解释 ⑤ 信息充分；倒挂隔离＝信息时点晚于取数时刻的仅该条失效、非整包失败；活动存在 ≠ 用户参与、未排查维度不默认无关；因果不臆断；失败导致的条目不作否定依据而转缺口；未支持亦为完整结果）+ 缺比较条件退回请补（TC-A-M4-006：draft=null，不静默回退）+ 落库 MD-09/MD-10（失败与倒挂条目不下沉、只新增这两表行、状态推进只改状态列）+ MD-09 外键反例（TC-D-M4-003）+ MD-10 复合 UK 反例（TC-D-M4-004）+ 经 M5 只读查询与运行期零写（TC-I-M4-002）+ 静态零外部调用 / 零写语句 / 零裸 SQL / 口径全复用 F-15 与 F-19）
         run: node server/agent-orchestrator/test-f20.mjs
+      - name: 跑 F-21 用例（M4 研究结果生成·agent-orchestrator，跑 S-B4 七要素组装契约（业务目标与研究问题/研究范围与方法/证据与关键发现/人群差异/候选HVA及支持情况/其他解释与限制/改善方向，对齐 TC-C-M4-001）+ 逐发现挂证据（LNK-02 写入归 F-11）+ 支持与不支持并列 + 缺证据记缺口 + due_to_failure 发现不进「证据与关键发现」+ 未找到有足够依据支持候选 HVA 亦成完整结果（TC-A-M4-004）+ 失败不否定（TC-A-M4-005）+ 输出边界扫描（活动配置/权益组合/预算/排期禁词，out_of_scope_note 豁免；复用 F-18 禁词表）+ 改善方向逐项对应发现（对不上记 orphan/malformed）+ 落库五路前置守卫（边界/对应性/齐备/研究存在/已出报告）+ MD-07 FK 反例（TC-D-M4-001）/ MD-08 复合 UK 反例（TC-D-M4-002）/ MD-11 UK 反例（TC-D-M4-005）+ 运行期零写（真库行数不变 + fake-db 全 SELECT）+ 静态零外部调用 / 零 SQL 语句 / 口径全复用 F-11 与 F-18/F-20）
+        run: node server/agent-orchestrator/test-f21.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）

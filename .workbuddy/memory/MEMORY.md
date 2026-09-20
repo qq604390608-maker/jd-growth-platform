@@ -19,12 +19,13 @@
 - **约定优于重写 oracle**：既有用例的断言能不动就不动；确需扩写面时优先改架构（拆文件 / 缩窄写面），其次才是改用例。
 - **受门禁的语义判断一律做成「可注入判据 + 确定性 fallback」**（F-19 范式，后续 F-20/F-21 同类沿用）：需要 LLM（A-1 ⬜ 未提供）的那一步（如「问题是否适合 HVA 研究」）**不做关键词猜测**——函数接收可选的判定入参（如 `suitability={suitable,reason,signals}`），传了就采纳（`source='provided'`），没传就走**确定性 fallback** 并显式标注 `llm_gated=true`，**既不硬造结论也不硬做**；入参形态非法一律报错、不静默忽略。这样门禁关闭前后**同一套代码**可用，且 oracle 的「三分支」在门禁期内即可被用例真实走通（该 oracle 项登记为「门禁未关闭、非发布门禁」）。
 - **「缺信息」不等于「路径未定」**：把「能定则定、缺则如实登记」当作默认口径——如 F-19 的比较条件三项缺了就列入 `missing`（不编造、不静默回退），**但不阻断本步的停止条件**（停止条件只认「路径确定」），补齐动作交给下游功能点。别把上游的缺口变成自己的失败。
+- **同一张表的「建行」与「内容填充」可分属两个功能点**：`MD-07 research` 的**建行**归 F-11 `createResearch`（含 `research_no`/`opportunity_id`/`goal_id`/`goal_version_no`/`parent_research_no`/`start_task_id` 等启动快照与追问链字段），**内容填充**归 F-21 `updateResearchReport`（**只改 6 个正文/状态列 + `finished_at`**）。这样「出报告」这一步在结构上不可能改动启动快照与追问链；对应的 L3 反例（MD-07 FK）经**建行面**复现，填充面只验「研究不存在即拒」的前置守卫。配套：**承载硬红线文案的字段不参与禁词扫描**（如 `out_of_scope_note` 正文写着「活动配置/权益组合/预算与排期不在研究结论范围内」）——扫描对象只有七要素正文，且用例须放**豁免反例**（把禁词放进正文仍须被拒），防止豁免退化成「整表不扫」。
 
 ## 踩过的坑（本机实测）
 
 - **`assert(someAsyncFn(...).length >= 2)` 忘了 `await`** → Promise 的 `.length` 是 `undefined`，断言**静默假失败**，排查成本极高。做法：async 结果先 `await` 进变量再断言，并把**实测值写进断言文案**（`实测 N 条`）。
 - **「改前状态」必须在写之前取**：一串 `await` 之后再 `getTask` 拿到的是改后值。
-- **静态扫描扫全文（含注释）**：`/\b(UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/` 会被**中文注释里的字面英文词**命中。散文里写「改行 / 删行类 SQL」；若该文件由自己写的用例扫描，就先 `stripComments` 再去扫。
+- **静态扫描扫全文（含注释）**：`/\b(UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/` 会被**中文注释里的字面英文词**命中。散文里写「改行 / 删行类 SQL」；若该文件由自己写的用例扫描，就先 `stripComments` 再去扫。**同类推论（F-21 实测）**：断言要**精确到语句形态**——写「不写 `SELECT MAX`」而不是「不出现 `SELECT`」，否则注释里的字面词与编号计算里的 `Math.max` 都会命中。
 - **「先执行后拒写」会留半截状态**：任何「任务态 / 归属校验」都要做成**前置守卫**，在执行与写入之前判，而不是等写到最后一步才抛。
 - **引用自检的「重号」判定**：同一文件内 **≥2 个列表项以同一编号开头**即命中（跨文件引用同一编号不算）。所以同一编号的注意事项不要连着起 4 个列表项，改写成「门禁（F-26 相关）」「新登记 Q-12（未决，F-26 实施发现）」这类以主题开头的写法。
 - **`Write` 重写中文长文档后自检 `&#xNNNN;` 实体转义残留**：`awk 'index($0,"&#x"){c++} END{print c+0}' 文件`，非 0 逐个修回。
@@ -36,4 +37,6 @@
 - 无 `wrangler`（2026-09-19 确认）。验证方式：`node:sqlite` 建 D1 兼容适配层 + 载真实 DDL/种子 + 直接调 `worker.fetch`；要验真实 HTTP 就把 `prototype/mock/index.js`（默认 `:8788`）起起来打。
 - node 用 `/Users/dongzhuo/.workbuddy/binaries/node/versions/22.22.2-3/bin/node`。
 - **`node:sqlite` 返回的行是 null-prototype 对象**：`String(row)` / 模板串直接抛 `Cannot convert object to primitive value`。凡把「可能拿到库行对象」的入参做字符串化的地方（如来源清单过滤），**按形态显式取值**（字符串直接用 / 对象取 `source_id` 之类的具名字段 / 其余形态忽略），别用 `String()` 兜底——它在 fake-db 或纯字符串入参时看不出问题，真实夹具一跑才崩。
+- **D1 兼容适配层的 `first()` 必须返回「行或 `null`」，不能返回信封**：真实 D1 的 `first()` 解析为**行对象或 `null`**，`all()` 为 `{results}`，`run()` 为 `{success,meta}`。适配层若把 `first()` 包成 `{success,result}`，调用方的 `if (existing)` **恒真**，会静默走进「幂等 / 已存在」分支（F-21 冒烟实测：`submitProposal` 明明新建却返回 `idempotent:true`）。写/改适配层时逐一对齐这三个形态。
+- **前置守卫的判定顺序会改变 HTTP 返回码**：`saveResearchReport` 把「研究存在」放在「七要素齐备」之后，故**残缺入参 + 不存在的编号**拿到的是 `incomplete(200)` 而非 `404`。写冒烟/探针时要按**守卫顺序**构造入参才能打到目标分支，别把「没打到 404」当成实现错。
 - git 身份：仓库级 `dev <dev@local>`（全局未配，新克隆需 `git config user.name/email` 才能提交）。
