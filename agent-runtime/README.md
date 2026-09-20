@@ -16,7 +16,7 @@ agent-runtime/
 ├── VERSIONS.md               # 版本管理机制（MD-13/MD-14 登记载体）★核心交付
 ├── business-rules.md         # 公共业务指令（两 Agent 共用，✅ 本体 F-18 2026-09-20）
 ├── discovery/                # 机会发现 Agent（M3）
-│   ├── agent.md              # 角色指令（建壳）
+│   ├── agent.md              # 角色指令（✅ 本体 2026-09-20）
 │   └── skills/
 │       ├── S-A1.md           # 线索扫描（MD-14 已种：clue-scan）
 │       ├── S-A2.md           # （建壳，code 名待 T-24）
