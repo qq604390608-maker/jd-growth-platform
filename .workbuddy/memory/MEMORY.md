@@ -15,6 +15,8 @@
 - **值域一律从库读、不内联**：`dict_item`（`dictCodes(db, 'TASK_STATUS')` 等）是唯一真源；代码里不复制中文枚举。
 - **叙述文本本体归 `agent-runtime/`，服务端只持「编号 + 判据键 + 来源回指」**：角色指令（`agent.md`）与公共业务指令（`business-rules.md`）的**文本本体只存 `agent-runtime/` 一份**；服务端（`server/agent-orchestrator/role.js`）不内联叙述，只持段落键 / 指令编号 / 判据键，并用例**逐条对齐断言**（读本体 md 抽标题列表 vs 代码常量列表，逐条相等）。配套纪律：常量里的标题须与本体标题**逐字一致**（修饰语放正文），否则「回指不重述」就退化成第二个口径。
 - **约定优于重写 oracle**：既有用例的断言能不动就不动；确需扩写面时优先改架构（拆文件 / 缩窄写面），其次才是改用例。
+- **受门禁的语义判断一律做成「可注入判据 + 确定性 fallback」**（F-19 范式，后续 F-20/F-21 同类沿用）：需要 LLM（A-1 ⬜ 未提供）的那一步（如「问题是否适合 HVA 研究」）**不做关键词猜测**——函数接收可选的判定入参（如 `suitability={suitable,reason,signals}`），传了就采纳（`source='provided'`），没传就走**确定性 fallback** 并显式标注 `llm_gated=true`，**既不硬造结论也不硬做**；入参形态非法一律报错、不静默忽略。这样门禁关闭前后**同一套代码**可用，且 oracle 的「三分支」在门禁期内即可被用例真实走通（该 oracle 项登记为「门禁未关闭、非发布门禁」）。
+- **「缺信息」不等于「路径未定」**：把「能定则定、缺则如实登记」当作默认口径——如 F-19 的比较条件三项缺了就列入 `missing`（不编造、不静默回退），**但不阻断本步的停止条件**（停止条件只认「路径确定」），补齐动作交给下游功能点。别把上游的缺口变成自己的失败。
 
 ## 踩过的坑（本机实测）
 
@@ -29,4 +31,5 @@
 
 - 无 `wrangler`（2026-09-19 确认）。验证方式：`node:sqlite` 建 D1 兼容适配层 + 载真实 DDL/种子 + 直接调 `worker.fetch`；要验真实 HTTP 就把 `prototype/mock/index.js`（默认 `:8788`）起起来打。
 - node 用 `/Users/dongzhuo/.workbuddy/binaries/node/versions/22.22.2-3/bin/node`。
+- **`node:sqlite` 返回的行是 null-prototype 对象**：`String(row)` / 模板串直接抛 `Cannot convert object to primitive value`。凡把「可能拿到库行对象」的入参做字符串化的地方（如来源清单过滤），**按形态显式取值**（字符串直接用 / 对象取 `source_id` 之类的具名字段 / 其余形态忽略），别用 `String()` 兜底——它在 fake-db 或纯字符串入参时看不出问题，真实夹具一跑才崩。
 - git 身份：仓库级 `dev <dev@local>`（全局未配，新克隆需 `git config user.name/email` 才能提交）。
