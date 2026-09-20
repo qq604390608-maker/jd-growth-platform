@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/followup.html
+  功能点：F-31 追问对话页（M6 运营端工作台）——基于上下文场景化追问，建新任务关联原研究
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜一条硬红线｜索引三层）
+        ｜ ../../docs/01-brd/BRD.md（M6 F-31：基于通用 Agent 的场景化追问；追问建新任务并关联原研究）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-31 验收要点）
+        ｜ ../../docs/05-test-cases/test-M6.md（**TC-I-M6-005 = 本页 oracle**：基于通用 Agent 的场景化追问；
+            拿到上下文→对话再调度／查没发现处／注入新信息再跑；**追问建新任务并关联原研究（F-05）**）
+        ｜ ../../docs/01-brd/BRD.md §4 F-31、M1 F-05
+        ｜ ../../docs/03-locks/schema.md（PD-07 followup_message：追问消息｜PD-01 task：parent_task_id 关联原任务）
+        ｜ ../../prototype/pages/followup.html（**钉死需求的实证**：对话区 ＋ 已注入上下文 ＋ 可调度工具 ＋ 追问建新任务）
+        ｜ ../README.md ｜ ../assets/api.js（唯一数据出口）｜ ../assets/app.js（跨页共享口径）
+  职责：只读呈现「已注入上下文」＋「可调度工具」，并让 PM 在已有研究上发起追问：
+        · 研究清单：`GET /api/research`（全量，构建「研究切换器」）
+        · 结果回查：`GET /api/research-result/{no}`（F-21 读面：research_question／evidence_link_count／goal 版本等）
+        · 工具说明：`GET /api/source-tool-briefing`（M5-F-23：来源名称映射与「可用 / 降级」）
+        · 发起追问：`POST /api/followup-tasks`（M1 F-05：建 hva_followup 任务 ＋ 新研究壳，parent_research_no 指向原研究）
+        页面**只做展示与人工入口、不含任何业务逻辑**（PRD-M6 §1；硬红线：前端不发起任何生产写接口调用）。
+        **不编造**：Agent 应答只回显 F-05 真实返回（新任务号／新研究号／版本口径／工具权限），不伪造查询结论。
+        **业务数据不落前端存储**：localStorage 只存会话态（applied / navUnread），追问内容只存服务端（PD-07）。
+  与原型的**有意偏差**（已登记，见 ../README.md §4）：原型从 `assets/data.js` 直接取上下文与对话历史，本页改为
+        经 server/api 真实取数；且 Agent 应答不编造「补查返回的真实结果」，只回显 F-05 真实返回（原结果与依据保留）。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="followup"）；被 ../index.html 链接；
+        上游跳转来源：result.html（F-30「继续追问」）、index.html 默认入口；
+        下游跳转：tasks.html（F-32 任务与状态，追问生成的新任务）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-31 追问对话</title>
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+  .fu-wrap { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+  .fu-chat { flex:1 1 420px; min-width:320px; }
+  .fu-side { flex:1 1 320px; min-width:280px; }
+  .fu-side .card { margin-bottom:16px; }
+  .chat-wrap { min-height:160px; }
+  .msg { display:flex; gap:10px; margin-bottom:14px; align-items:flex-start; }
+  .msg-avatar { width:34px; height:34px; border-radius:50%; background:var(--bg-2); color:var(--text-2);
+    font-size:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .msg.pm .msg-avatar { background:var(--blue); color:#fff; }
+  .msg-body { flex:1; min-width:0; }
+  .msg-meta { font-size:12px; color:var(--text-3); margin-bottom:4px; }
+  .msg-bubble { background:var(--bg-1); border:1px solid var(--border); border-radius:8px; padding:10px 12px;
+    font-size:13px; line-height:1.7; white-space:pre-wrap; }
+  .msg.pm .msg-bubble { background:var(--blue-soft); border-color:var(--blue); }
+  .chat-input { display:flex; gap:10px; margin-top:12px; align-items:flex-end; }
+  .chat-input textarea { flex:1; min-height:60px; resize:vertical; }
+  .suggest { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+  .hint { font-size:12px; color:var(--text-3); margin-top:8px; line-height:1.6; }
+  .ctx-empty { color:var(--text-3); font-size:13px; }
+</style>
+</head>
+<body data-page="followup">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-31</span>追问对话</h1>
+      <p class="page-desc" id="fu-meta"></p>
+    </div>
+    <div class="page-actions">
+      <select id="study-sel" style="width:auto"></select>
+      <a class="btn" id="link-result" href="result.html">查看原研究结果</a>
+      <a class="btn" href="index.html">返回总览</a>
+    </div>
+  </div>
+
+  <div id="boot-notice" class="boot-notice" style="display:none"></div>
+
+  <div class="fu-wrap">
+    <div class="fu-chat">
+      <div class="card">
+        <div class="card-head"><div class="card-title">对话</div><div class="card-note" id="task-note"></div></div>
+        <div class="chat-wrap" id="chat"></div>
+        <div style="margin-top:14px">
+          <div class="suggest" id="suggest"></div>
+          <div class="chat-input">
+            <textarea id="input" placeholder="在已有研究上提新问题，例：如果控制了消费力标签，家庭装的差异还剩多少？"></textarea>
+            <button class="btn btn-primary" id="send">发送追问</button>
+          </div>
+          <div class="hint">发送后将创建新任务（关联原研究），已注入的上下文不会丢失，也不需要重新粘贴全部资料。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="fu-side">
+      <div class="card">
+        <div class="card-head"><div class="card-title plain">本轮已注入上下文</div><div class="card-note">M2-F-12</div></div>
+        <div id="ctx"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title plain">可调度的工具</div><div class="card-note">M5-F-23</div></div>
+        <div id="tools"></div>
+        <div class="card-section small text-3">每次调用先检查当前任务权限与调用条件；不允许时保存原因并返回受限原因。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    功能点 F-31 ｜ 上游 M1-F-05 追问与版本管理、M4-F-22 继续追问承接 ｜ 下游：<a href="tasks.html">F-32 任务与状态</a>（追问生成的新任务）
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  var chat = document.getElementById("chat");
+  var sel = document.getElementById("study-sel");
+  var meta = document.getElementById("fu-meta");
+  var ctxBox = document.getElementById("ctx");
+  var toolsBox = document.getElementById("tools");
+  var input = document.getElementById("input");
+  var sendBtn = document.getElementById("send");
+  var boot = document.getElementById("boot-notice");
+
+  /* 研究编号：URL ?study= / ?research= 优先；缺省取种子里的 R-006（一个已完成且**已关联启动任务**
+     —— 可发起追问；R-007 虽有种子追问消息但 start_task_id 为空，不能作创建目标，故不选）。 */
+  var selectedNo = U.qs("study") || U.qs("research") || "R-006";
+
+  /* 全量研究清单（构建切换器；并取 opportunity_id / goal_id 供越页链接）。只读，经 server/api。 */
+  var listRes = await window.API.listAllResearch();
+  var studies = (listRes && listRes.items) || [];
+  var studyRowOf = {};
+  studies.forEach(function (s) { studyRowOf[s.research_no] = s; });
+  function oppIdOf(no) { var r = studyRowOf[no]; return r ? r.opportunity_id : null; }
+  function goalIdOf(no) { var r = studyRowOf[no]; return r ? r.goal_id : null; }
+
+  /* ---------- 研究切换器 ---------- */
+  sel.innerHTML = studies.map(function (s) {
+    var st = s.research_status === "done" ? "已完成" : "研究中";
+    return '<option value="' + U.esc(s.research_no) + '"' +
+      (s.research_no === selectedNo ? " selected" : "") + ">" +
+      U.esc(s.research_no) + " · " + U.esc(s.opportunity_id || "—") +
+      "（" + st + "）</option>";
+  }).join("");
+
+  /* ---------- 可调度工具（M5-F-23：来源名称映射与可用/降级） ---------- */
+  function renderTools() {
+    return window.API.getSourceToolBriefing().then(function (brief) {
+      var sources = (brief && brief.sources) || [];
+      if (!sources.length) { toolsBox.innerHTML = '<div class="card-section ctx-empty">暂无可用来源说明。</div>'; return; }
+      toolsBox.innerHTML = sources.map(function (x) {
+        var ok = x.availability_status === "ok";
+        return '<div class="card-section">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">' +
+            "<b>" + U.esc(x.source_name || x.source_id || "—") + "</b>" +
+            (ok ? '<span class="badge badge-done">已授权</span>' : '<span class="badge badge-blocked">降级</span>') +
+          "</div>" +
+          '<div class="small text-3" style="margin-top:4px">' + U.esc(x.capability_can || "—") + "</div>" +
+        "</div>";
+      }).join("");
+    }).catch(function (e) {
+      toolsBox.innerHTML = '<div class="card-section ctx-empty">工具说明读取失败：' + U.esc((e && e.message) || String(e)) + "</div>";
+    });
+  }
+
+  /* ---------- 已注入上下文（M2-F-12：关联研究 / 研究问题 / 已有证据 / 相关历史 / 目标版本） ---------- */
+  function renderContext(ctx) {
+    var oppId = oppIdOf(selectedNo);
+    var goalId = goalIdOf(selectedNo) || (ctx && ctx.goal_id);
+    var evCount = ctx && typeof ctx.evidence_link_count === "number" ? ctx.evidence_link_count : 0;
+    var others = studies.filter(function (s) { return s.research_no !== selectedNo; })
+      .map(function (s) { return s.research_no + "（" + (s.research_status === "done" ? "已完成" : "研究中") + "）"; });
+    var fields = [
+      ["关联研究", selectedNo],
+      ["研究问题", (ctx && ctx.research_question) || "—"],
+      ["已有证据", evCount + " 条关联"],
+      ["相关历史", others.length ? others.join("、") : "—"],
+      ["目标版本", goalId ? (goalId + (ctx && ctx.goal_version_no ? " v" + ctx.goal_version_no : "")) : "—"],
+    ];
+    ctxBox.innerHTML = '<div class="field-list">' + fields.map(function (f) {
+      return '<div class="field"><div class="field-label">' + U.esc(f[0]) + '</div>' +
+        '<div class="field-value">' + U.esc(String(f[1])) + "</div></div>";
+    }).join("") + "</div>";
+    if (oppId) {
+      meta.innerHTML = "对应机会 <a href=\"opportunities.html?id=" + U.esc(oppId) +
+        (goalId ? "&goal=" + U.esc(goalId) : "") + "\">" + U.esc(oppId) + "</a>" +
+        (goalId ? '　·　目标 <span class="mono">' + U.esc(goalId) + (ctx && ctx.goal_version_no ? " v" + U.esc(ctx.goal_version_no) : "") + "</span>" : "");
+    } else {
+      meta.innerHTML = "目标 <span class=\"mono\">" + U.esc(goalId || "—") + "</span>";
+    }
+    var linkResult = document.getElementById("link-result");
+    if (linkResult) linkResult.href = "result.html?study=" + encodeURIComponent(selectedNo) +
+      (goalId ? "&goal=" + encodeURIComponent(goalId) : "");
+  }
+
+  /* ---------- 对话渲染（PM 提问 ＋ Agent 真实回显，不编造结论） ---------- */
+  var msgs = [];
+  function renderChat() {
+    chat.innerHTML = msgs.map(function (m) {
+      return '<div class="msg ' + (m.role === "pm" ? "pm" : "agent") + '">' +
+        '<div class="msg-avatar">' + (m.role === "pm" ? "PM" : "AI") + "</div>" +
+        '<div class="msg-body"><div class="msg-meta">' + (m.role === "pm" ? "产品经理" : "HVA 分析 Agent") +
+        " · " + U.esc(m.at || "") + "</div>" +
+        '<div class="msg-bubble">' + U.esc(m.text) + "</div></div></div>";
+    }).join("");
+  }
+  function pushMsg(m) { msgs.push(m); renderChat(); }
+
+  /* 追问建议（点击填入输入框；文案为通用追问方向，不绑定特定研究） */
+  var SUGGEST = [
+    "如果控制了消费力标签，家庭装的差异还剩多少？",
+    "剔除大促时段后重新看该行为与复购的关系",
+    "补查：首单规格人群的真实复购，是否主要来自囤货而非偏好？",
+    "把小程序端也纳入比较，结论还成立吗？",
+  ];
+  document.getElementById("suggest").innerHTML = SUGGEST.map(function (t) {
+    return '<button class="chip" type="button" data-s="' + U.esc(t) + '">' + U.esc(t) + "</button>";
+  }).join("");
+  document.querySelectorAll(".chip[data-s]").forEach(function (c) {
+    c.addEventListener("click", function () { input.value = c.dataset.s; input.focus(); });
+  });
+
+  /* ---------- 发起追问（F-05：建新任务并关联原研究） ---------- */
+  async function sendFollowup() {
+    var v = (input.value || "").trim();
+    if (!v) { boot.style.display = "block"; boot.textContent = "追问问题为必填项，请先填写后再发送。"; return; }
+    boot.style.display = "none";
+    input.value = "";
+    var now = "刚刚";
+    pushMsg({ role: "pm", at: now, text: v });
+
+    try {
+      var out = await window.API.createFollowupTask({ research_no: selectedNo, new_question: v });
+      var task = out.task || {};
+      var research = out.research || {};
+      var orig = out.original_research || {};
+      var perms = out.tool_permissions || [];
+      var src = out.tool_permission_source || "hva-agent";
+      var lines = [];
+      lines.push("收到。已关联原研究 " + U.esc(orig.research_no || selectedNo) +
+        "，本轮作为新任务 " + U.esc(task.task_id || "—") + " 执行（原结果与依据保留）。");
+      lines.push("新研究 " + U.esc(research.research_no || "—") +
+        " 已建壳（parent_research_no 指向原研究）；原研究不被覆盖。");
+      if (out.version_changed) {
+        lines.push("本轮声明了新版本 v" + U.esc(out.effective_goal_version_no) +
+          "；原研究仍钉在启动版本 v" + U.esc(out.original_goal_version_no) + "（不随目标更新而变）。");
+      } else {
+        lines.push("沿用原研究启动版本 v" + U.esc(out.original_goal_version_no) + "（不随目标更新而变）。");
+      }
+      lines.push("可调度的工具：" + U.esc(src) + "（" + perms.length + " 个）。");
+      lines.push("下一步由 HVA 分析 Agent 按 F-22 承接（沿用 / 补查依据），原研究不被覆盖。");
+      pushMsg({ role: "agent", at: now, text: lines.join("\n") });
+      var goalId = goalIdOf(selectedNo);
+      if (goalId) { try { U.markUnread("tasks", 1, goalId); U.markUnread("result", 1, goalId); } catch (e) {} }
+    } catch (e) {
+      pushMsg({ role: "agent", at: now, text: "追问创建失败：" + U.esc((e && e.message) || String(e)) });
+    }
+  }
+  sendBtn.addEventListener("click", sendFollowup);
+
+  /* ---------- 切换研究 → 重渲染上下文（只读，不写库） ---------- */
+  sel.addEventListener("change", function (e) {
+    selectedNo = e.target.value;
+    msgs = [];
+    renderChat();
+    boot.style.display = "none";
+    loadContext();
+  });
+
+  /* ---------- 加载一次研究的上下文 ---------- */
+  async function loadContext() {
+    try {
+      var ctx = await window.API.getResearchResult(selectedNo);
+      if (!ctx) { ctxBox.innerHTML = '<div class="card-section ctx-empty">该研究暂无结果（或研究编号不存在）。</div>'; return; }
+      renderContext(ctx);
+    } catch (e) {
+      ctxBox.innerHTML = '<div class="card-section ctx-empty">上下文读取失败：' + U.esc((e && e.message) || String(e)) + "</div>";
+    }
+  }
+
+  await renderTools();
+  await loadContext();
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记（M6 六页面之一：F-31）
+  - 被 ../assets/app.js 的导航清单登记（page="followup"，fn="F-31"）
+  - 被 ../index.html 链接
+  - 上游跳转来源：result.html（F-30「继续追问」）、index.html 默认入口
+  - 下游跳转：tasks.html（F-32 任务与状态，追问生成的新任务）
+  - 版式依赖：../assets/base.css 的 .card / .card-head / .card-note / .field-list / .field / .badge-* / .chip / .btn / .btn-primary / .hint
+-->

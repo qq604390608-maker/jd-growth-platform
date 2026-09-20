@@ -157,5 +157,13 @@
 
     /** 研究结果回查（薄读）：七要素 ＋ 逐发现证据关联 ＋ ⑤ 候选行为支持/不支持（MD-07~11）。 */
     getResearchResult: (researchNo) => get("/api/research-result/" + enc(researchNo)),
+
+    /* ------------------------------------------------ F-31 追问对话页（M1 F-05 的写面）
+       全部走既有路由，**不自造端点**（../server/api/index.js 为路由真源）。 */
+
+    /** 在已有研究上发起追问：建新 `hva_followup` 任务（parent_task_id 挂原任务）＋ 新研究壳
+     *  （parent_research_no 指向原研究、start_task_id 指向新任务）。返回含 task / research /
+     *  steps / context / tool_permissions / version_changed / effective_goal_version_no 等。 */
+    createFollowupTask: (payload) => post("/api/followup-tasks", payload),
   };
 })();

@@ -7,7 +7,7 @@
 - 宪法：`../AGENTS.md`（索引 `frontend/` 行；白盒原则；双向引用；索引三层）
 - 需求：`../docs/01-brd/BRD.md`（M6 F-27~F-32；§5.3 硬红线）；`../docs/02-prd/PRD-M6-运营端工作台.md`
 - 锁定：`../docs/03-locks/tech-stack.md`（**§1.2 前后端分离的落点与判断标准**；**§2.1 前端形态＝零构建静态资源，数据来源＝`server/api`，原型的 mock 数据不复制进前端**；§6 工程结构）；`../docs/03-locks/schema.md`（六要素与各表口径）
-- 用例：`../docs/05-test-cases/test-M6.md`（`TC-I-M6-001` 目标配置页 / `TC-I-M6-002` 机会列表与详情页 / **`TC-I-M6-003` 研究建议提交页** / **`TC-I-M6-004` 研究结果页** / `TC-C-M6-001` 契约 / `TC-D-M6-001` 前端不写库 / `TC-I-M6-007` 前后端分离判断标准）
+- 用例：`../docs/05-test-cases/test-M6.md`（`TC-I-M6-001` 目标配置页 / `TC-I-M6-002` 机会列表与详情页 / **`TC-I-M6-003` 研究建议提交页** / **`TC-I-M6-004` 研究结果页** / **`TC-I-M6-005` 追问对话页** / `TC-C-M6-001` 契约 / `TC-D-M6-001` 前端不写库 / `TC-I-M6-007` 前后端分离判断标准）
 - 实证：`../prototype/`（**钉死需求的实证**：各页区块 / 交互 / 文案以原型为准；原型使命已完成，仅作证据保留）
 - 接口真源：`../server/api/index.js`（路由）+ `../server/task-runner/`、`../server/shared-context/` 等（返回体结构）
 
@@ -32,15 +32,16 @@
 | `assets/api.js` | — | **唯一数据出口**：把 `server/api` 收成薄封装（统一 JSON / 统一错误映射 / 统一同源约束）。两条运行期守卫——路径必须 `/api/` 开头、不得是绝对地址（含 `://` 即抛错不发请求） | ✅ 已建（2026-09-20） |
 | `assets/app.js` | — | 跨页共享逻辑：外壳注入与导航、目标解析、版本与运行链派生、未读绿点、通用工具（`window.U` / `window.PX`）。六要素键与序号取自服务端口径 | ✅ 已建（2026-09-20） |
 | `pages/goal.html` | **F-27** | 目标配置：选择 / 新建目标 → 编辑六要素 → 保存为新版本（自动跑一次口径检查）→ 口径待补项以任务形式提示（可逐项补充）→ 「应用配置」使版本生效并触发机会发现（F-02） | ✅ 已建（2026-09-20） |
-| `pages/opportunities.html` | **F-28** | 机会列表与详情（原型两页合并的左右布局一页）：按目标浏览机会（三状态 + 对象筛选）→ 详情＝机会六要素 + 未知项二态 + 证据链（点开即回查 `/api/evidence-trace/`）+ 可用来源与工具 → 人工处置（提交研究建议 F-29 / 标记暂不研究 / 恢复为候选 / 查看研究结果 F-30）。**准入条件**：目标从未执行过机会发现且无产出 → 门禁态（与「空态」刻意分开） | ✅ 已建（2026-09-20） |
-| `pages/propose.html` | **F-29** | 研究建议提交（人工节点）：已选机会**只读**（来自 F-28 的 `?opp=`，未带时取该目标第一条候选）→ 研究问题（必需，边填边看「还需补什么」）→ 可选补候选行为假设 / 人群限制 → 提交落 MD-12（服务端判幂等）→ **触发 F-04** 建 HVA 研究任务。**幂等命中时不再触发 F-04**；「是否已提交过」以 MD-12 **事实行**为准，不看机会状态列。**准入**：与 F-28 共用同一条硬门禁 | ✅ 已建（2026-09-20） |
+| `pages/opportunities.html` | **F-28** | 机会列表与详情（原型两页合并的左右布局一页）：按目标浏览机会（三状态 + 对象筛选）→ 详情＝机会六要素 + 未知项二态 + 证据链（点开即回查 `/api/evidence-trace/`）＋可用来源与工具 → 人工处置（提交研究建议 F-29 / 标记暂不研究 / 恢复为候选 / 查看研究结果 F-30）。**准入条件**：目标从未执行过机会发现且无产出 → 门禁态（与「空态」刻意分开） | ✅ 已建（2026-09-20） |
+| `pages/propose.html` | **F-29** | 研究建议提交（人工节点）：已选机会**只读**（来自 F-28 的 `?opp=`、未带时取该目标第一条候选）→ 研究问题（必需，边填边看「还需补什么」）→ 可选补候选行为假设 / 人群限制 → 提交落 MD-12（服务端判幂等）→ **触发 F-04** 建 HVA 研究任务。**幂等命中时不再触发 F-04**；「是否已提交过」以 MD-12 **事实行**为准，不看机会状态列。**准入**：与 F-28 共用同一条硬门禁 | ✅ 已建（2026-09-20） |
 | `pages/result.html` | **F-30** | 研究结果页：只读呈现一次研究的**结果七要素**（① 业务目标与研究问题 / ② 研究范围与方法 / ③ 证据与关键发现 / ④ 人群差异 / ⑤ 候选 HVA 及支持情况 / ⑥ 其他解释与限制 / ⑦ 改善方向）；页头含研究切换器（全量 `GET /api/research`）+ 对应机会 / 目标版本 / 完成时间；③ 关键发现以「已查明」视觉（绿左线）呈现、每条发现下挂证据折叠（点开才回查 `GET /api/evidence-trace/{id}`，同 F-28）；⑤ 候选行为支持 / 不支持两列并列；⑥ 以「仍受限」视觉（琥珀底）呈现，**与已查明明显可分**；顶部结论条据 `supported_count` 区分「有候选行为获得支持（仍属候选）」与「未找到足够依据支持候选行为，这也是完整的结果」 | ✅ 已建（2026-09-20） |
-| `pages/followup.html` | F-31 | 追问对话 | 待建 |
+| `pages/followup.html` | **F-31** | 追问对话：基于原研究场景化追问（默认选 `R-006`，因 `R-007` 种子 `start_task_id=NULL` 不可建追问、不擅自改种子）→ 建 `hva_followup` 新任务（`parent_task_id` 挂原任务）＋新研究壳（`parent_research_no` 指原研究、`start_task_id` 指新任务），全部经既有 `POST /api/followup-tasks`（M1 F-05 `createFollowupTask` 写面只读封装，不自造端点）；页面呈现「已注入上下文」（取原研究关键字段 `research_question` / `evidence_link_count` / `goal_version_no`）＋「可调度工具」（来源名称、授权 `ok`／降级 `degraded` 徽标，来自 `GET /api/source-tool-briefing` 真实字段 `source_name` / `availability_status` / `capability_can`）；追问建议 chips；Agent 应答只回显 F-05 真实返回（新任务号／新研究号／`version_changed`／`tool_permissions` 数量），**不编造**查询结论 | ✅ 已建（2026-09-20） |
 | `pages/tasks.html` | F-32 | 任务与状态 | 待建 |
 | `test-f27.mjs` | F-27 | 用例执行器：jsdom 加载**真实页面** + 真实 Worker + 真实 D1（`node:sqlite` 载真实 DDL / 种子），10 组 130 断言 | ✅ 已建（2026-09-20；130 断言全绿） |
 | `test-f28.mjs` | F-28 | 用例执行器：同上装置，11 组 **159 断言**。含**反例**——库级放行「适用范围＝纯空白串」的证据行，应用层判「四要素不齐 · 不可作为有效依据」 | ✅ 已建（2026-09-20；159 断言全绿） |
 | `test-f29.mjs` | F-29 | 用例执行器：同上装置，12 组 **154 断言**。含**幂等反例**（重复提交后建议行 / 任务行均不变，且不再调 F-04）与**事实行反例**（机会状态为 `submitted` 却无建议行 → 不得谎报「已提交过」） | ✅ 已建（2026-09-20；154 断言全绿） |
 | `test-f30.mjs` | F-30 | 用例执行器：同上装置，7 组 **88 断言**。含**对照双研究**（R-007 有候选行为获得支持 / R-006 未支持，结论条与改善方向随切换器重渲染）+ **证据点开回查**（点开才调 `GET /api/evidence-trace/{id}`，渲染四要素与可回查判据）+ **视觉可分断言**（`.res-established` 与 `.res-limited` 两套不同视觉）+ **只读断言**（全部请求经 `/api/`、仅 GET、零写） | ✅ 已建（2026-09-20；88 断言全绿） |
+| `test-f31.mjs` | F-31 | 用例执行器：同上装置，7 组 **85 断言**。含**契约 oracle**（BRD `#### F-31 追问对话页`＋`追问建新任务并关联原研究`＋`基于通用 Agent 的场景化追问`；TC-I-M6-005 含 F-05／TC-I-M1-003；PRD-M6 含 PD-07／PD-01）＋**静态红线**（api.js 封装 `/api/followup-tasks`、followup.html 只引 api.js＋app.js＋base.css、只经 F-05 不调其它写面）＋**渲染默认 R-006**（5 字段逐字＋工具徽标＋chips≥4＋点 chip 填入输入框）＋**发送创建追问**（calls 含 `/api/followup-tasks`→201→`task.task_type='hva_followup'`、`parent_task_id='T-1021'`、`research.parent_research_no='R-006'`、`original_research.research_no='R-006'`、LNK-04、task_step、PD-06 4 行、PD-07+1、原研究逐字节不变）＋**空问题前置拒绝**（发请求前挡住、库不变）＋**前端只读**（全部经 `/api/`、仅 GET+1 个 POST、零写、localStorage 只含 applied/navUnread、业务数据不落存储、打开页面零写）＋**前后端分离**（server/db/scripts 零引用 frontend、直调 4 接口 200/201、无 `.json` 快照） | ✅ 已建（2026-09-20；85 断言全绿） |
 
 ## 4. 已知缺口（登记，未擅自改上游）
 
@@ -57,6 +58,9 @@
 11. **「是否已提交过建议」以事实行为准，不看机会状态列**（登记，未擅自改上游）：种子（及历史数据）里存在**状态为 `submitted` 却没有对应 MD-12 建议行**的机会（如 `OPP-010` / `OPP-012`）。页面按 M1-F-17 的同一口径（人工节点完成判据＝有无**真实建议行**）如实说明「状态为已提交研究、但暂无登记在案的建议行」，不谎报「已提交过」。用例 ⑤ 组以此为主断言。
 12. **建议页取数 6 次**（登记，未擅自改上游）：外壳启动 3 次（目标列表 / 目标一页读 / 机会计数）+ 本页 3 次（机会列表 1 + 该机会读模型 1 + 建议列表 1）；提交动作后再 3 次（建议列表 / 机会读模型 / 触发 F-04）。原因同缺口 8：无「机会批量读模型」端点，本点**不自造端点**。
 13. **F-30 与原型的有意偏差 ①（证据点开才回查）**：原型 `study.html` 从 `assets/data.js` 直接取证据详情；本页改为未展开时只呈现证据编号（LNK-02 关联行能给到的），**点开才**调 `GET /api/evidence-trace/{id}`（证据 → 查询记录 EXT-01 → 来源 CFG-01），渲染四要素与可回查判据——与 F-28 偏差 ② 同一套链路，不复制任何 mock 数据。下游 `followup.html`（F-31 追问对话）作为前向链接保留，本页不越界实现。
+14. **F-31 与原型的有意偏差 ①（Agent 应答只回显真实返回、不编造结论）**：原型在页面里直接展示「追问后的补查结果」；真实实现下 Agent 应答**只回显 F-05 真实返回**（新任务号／新研究号／`version_changed`／`tool_permissions` 数量），不伪造「补查返回的真实结果」——落实「不编造 Agent 结论」纪律与前后端分离（结论由后端 Agent 产生，前端不臆造）。
+15. **F-31 与原型的有意偏差 ②（不自造端点）**：页面只经既有 `POST /api/followup-tasks`（M1 F-05 `createFollowupTask` 写面），不自造任何前端专属端点；已注入上下文取原研究七要素字段、可调度工具取 `GET /api/source-tool-briefing`，均为既有路由。
+16. **追问页默认选 R-006（登记，未擅自改种子）**：种子里 `R-007` 的 `start_task_id=NULL`，按 F-05 硬前置（原研究须已关联 `start_task_id`）无法在其上建追问；页面默认选 `R-006`（`start_task_id='T-1021'`，可建追问），不擅自改种子令 `R-007` 可建。追问页取数＝外壳 3 ＋ 本页（研究列表 1＋原研究读 1＋来源说明 1）＝5 次进入；发送时 1 次写（`POST /api/followup-tasks`），不新增其它写面（登记，未擅自改上游）。
 
 ## 5. 跑用例
 
@@ -67,6 +71,7 @@ npm i --no-save jsdom && node frontend/test-f27.mjs
 npm i --no-save jsdom && node frontend/test-f28.mjs
 npm i --no-save jsdom && node frontend/test-f29.mjs
 npm i --no-save jsdom && node frontend/test-f30.mjs
+npm i --no-save jsdom && node frontend/test-f31.mjs
 ```
 
 缺依赖时执行器**显式失败**并打印上面这条命令——不静默跳过（前端用例被跳过＝一条无人看守的静默洞）。
@@ -76,7 +81,7 @@ npm i --no-save jsdom && node frontend/test-f30.mjs
 ## 6. 反向清单
 
 - 被 `../AGENTS.md` 索引 `frontend/` 行引用。
-- 被 `../.github/workflows/ci.yml` 的 `validate` 步骤复用（安装 `jsdom` + `node frontend/test-f27.mjs` + `node frontend/test-f28.mjs` + `node frontend/test-f29.mjs` + `node frontend/test-f30.mjs`）。
+- 被 `../.github/workflows/ci.yml` 的 `validate` 步骤复用（安装 `jsdom` + `node frontend/test-f27.mjs` + `node frontend/test-f28.mjs` + `node frontend/test-f29.mjs` + `node frontend/test-f30.mjs` + `node frontend/test-f31.mjs`）。
 - 被 `../docs/03-locks/tech-stack.md` §1.2 / §2.1 / §6 与 `../docs/04-plan/dev-plan.md` 阶段 5 引用（作为「前端零构建 + 前后端分离」的落点）。
-- 本目录内部引用图：`index.html` 与 `pages/*.html` → `assets/api.js`（唯一网络出口）、`assets/app.js`（共享口径）、`assets/base.css`（样式）；`test-f27.mjs` → `pages/goal.html` + `assets/*` + `../server/api/index.js` + `../db/`；`test-f28.mjs` → `pages/opportunities.html` + `assets/*` + `../server/api/index.js` + `../db/`；`test-f29.mjs` → `pages/propose.html` + `assets/*` + `../server/task-runner/proposal.js`（检查规则与幂等键口径）+ `../server/task-runner/hva.js`（F-04 建任务）+ `../db/`；`test-f30.mjs` → `pages/result.html` + `assets/*` + `../server/api/index.js` + `../server/agent-orchestrator/result.js`（七要素读面 `loadResearchResultContext` 与 `scanResultBoundary` 禁词表口径）+ `../db/`。
+- 本目录内部引用图：`index.html` 与 `pages/*.html` → `assets/api.js`（唯一网络出口）、`assets/app.js`（共享口径）、`assets/base.css`（样式）；`test-f27.mjs` → `pages/goal.html` + `assets/*` + `../server/api/index.js` + `../db/`；`test-f28.mjs` → `pages/opportunities.html` + `assets/*` + `../server/api/index.js` + `../db/`；`test-f29.mjs` → `pages/propose.html` + `assets/*` + `../server/task-runner/proposal.js`（检查规则与幂等键口径）+ `../server/task-runner/hva.js`（F-04 建任务）+ `../db/`；`test-f30.mjs` → `pages/result.html` + `assets/*` + `../server/api/index.js` + `../server/agent-orchestrator/result.js`（七要素读面 `loadResearchResultContext` 与 `scanResultBoundary` 禁词表口径）+ `../db/`；`test-f31.mjs` → `pages/followup.html` + `assets/*` + `../server/api/index.js` + `../server/task-runner/followup.js`（`createFollowupTask` F-05 写面真源）+ `../db/`。
 - `assets/app.js` 的两份只读口径各有唯一上游：`U.SIX_FIELDS` ← `../server/task-runner/goal.js` 的 `GOAL_FIELDS`；`U.OPP_FIELDS` ← `../server/shared-context/index.js` 的 `OPPORTUNITY_SIX_ELEMENTS` / `OPPORTUNITY_SIX_ELEMENT_LABELS`（分别由 `test-f27.mjs` / `test-f28.mjs` 逐条对齐断言守住）。
