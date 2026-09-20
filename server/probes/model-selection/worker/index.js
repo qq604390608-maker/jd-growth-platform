@@ -1,6 +1,6 @@
 // 探针 Worker：TS-10 模型选型实测 —— **不属于业务代码**，不参与任何业务流程
 // 上游：../../../../docs/03-locks/tech-stack.md §2.5 / §8 TS-10；../../agent-orchestrator/llm-client.js（复用封装，不重复造轮子）
-// 路由：GET /cases 判例清单 ｜ GET /probe 跑实测（?models=FLASH,PRO 指定模型；?dry_run=1 只跑链路验证）
+// 路由：GET /cases 判例清单 ｜ GET /probe 跑实测（?models=MAIN,HEAVY 指定模型；?dry_run=1 只跑链路验证）
 //
 // 设计原则（对齐 db/probes/type 的探针范式）：
 //   - **原样记录**模型的原始返回，不做改写、不做结论、不做模型推荐；

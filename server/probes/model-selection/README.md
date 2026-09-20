@@ -1,13 +1,13 @@
 # server/probes/model-selection/README.md · TS-10 Workers AI 模型选型探针
 
 > **本文件只记录实测。不含策略选择、不含模型推荐。**
-> 选哪个模型由技术方 + PM 依实测结果拍板（`tech-stack.md` §8 TS-10）；本目录只提供**可复核的实测事实**。
+> 选哪个模型由技术方 + PM 依实测结果拍板（TS-10 已于 2026-09-21 收口，默认 qwen3-30b）；本目录只提供**可复核的实测事实**。
 
 | 项 | 内容 |
 | ---- | ---- |
-| 实测目的 | 为 `tech-stack.md` §8 **TS-10**（Workers AI 具体模型选型）提供事实依据：**候选模型在「证据不足时敢不敢如实说不足」上的真实表现** |
-| 实测时间 | 🟡 **2026-09-20 已跑（REST 传输）**：原候选池 4 模型被 Workers Free 计划阻断（403 code=5035，未跑成）；Free 可用补充池 4 模型已跑成，见 §3。**TS-10 仍不关闭**（原候选行为未测 + 换池/升级待裁决） |
-| 上游（我来自哪） | `../../agent-orchestrator/README.md`（A-1 LLM 基础设施）；`../../../docs/03-locks/tech-stack.md` §2.5（模型要求：① JSON 结构化输出 ② 敢说不足以判断）+ §8 TS-10；`../../../docs/03-locks/external-deps.md` §6（判例证据的**素材真源**） |
+| 实测目的 | 为 `tech-stack.md` §8 **TS-10（已收口）**（Workers AI 具体模型选型）提供事实依据：**候选模型在「证据不足时敢不敢如实说不足」上的真实表现** |
+| 实测时间 | ✅ **2026-09-20 已跑（REST 传输）、2026-09-21 收口**：原候选池 4 模型被 Workers Free 计划阻断（403 code=5035，未跑成）；Free 可用补充池 4 模型已跑成，见 §3。**TS-10 已收口**（按 Free 池收口，默认 qwen3-30b，不升级 Paid） |
+| 上游（我来自哪） | `../../agent-orchestrator/README.md`（A-1 LLM 基础设施）；`../../../docs/03-locks/tech-stack.md` §2.5（模型要求：① JSON 结构化输出 ② 敢说不足以判断）+ §8 TS-10（已收口）；`../../../docs/03-locks/external-deps.md` §6（判例证据的**素材真源**） |
 | 同级范式 | `../../../db/probes/type/`（D1 类型实测，同一 worker 探针范式：README 只记实测 + worker + wrangler.toml + raw/） |
 | 事实来源 | `worker/index.js` 在 Workers AI 上的真实返回，原始响应存于 `raw/*.json`（跑后产生） |
 | 声明 | 判例证据**原样取自 §6 的 mock 响应体**，未另编业务数据；探针**不属于业务代码**、零写库、不参与任何业务流程 |
@@ -65,7 +65,7 @@ curl 'localhost:8787/probe?dry_run=1'
 npx wrangler@4.135.0 dev --config server/probes/model-selection/wrangler.toml   # 需 CLOUDFLARE_API_TOKEN
 # 或部署到 workers.dev 后远程跑
 curl 'localhost:8787/probe'                          # 默认跑 MODELS 池全部 4 个模型
-curl 'localhost:8787/probe?models=FLASH,PRO'         # 指定模型
+curl 'localhost:8787/probe?models=MAIN,HEAVY'        # 指定模型（键见 §2，默认跑全部三档）
 curl 'localhost:8787/probe > raw/$(date +%F).json'   # 原始结果落 raw/
 ```
 
@@ -88,18 +88,17 @@ node server/probes/model-selection/test-model-selection.mjs
 
 ## 2. 候选模型池
 
-真源在 `../../agent-orchestrator/llm-client.js` 的 `MODELS`（探针只引用、不复制）：
+真源在 `../../agent-orchestrator/llm-client.js` 的 `MODELS`（探针只引用、不复制）；**2026-09-21 收口为 Free 池三档**：
 
-| 键 | 模型 ID（**2026-09-20 实机核对后已订正**，`llm-client.js` 同步修） | 备注 |
+| 键 | 模型 ID（Free 池，`llm-client.js` 真源） | 备注 |
 | ---- | ---- | ---- |
-| FLASH | `@cf/deepseek-ai/deepseek-v4-flash-0731` | 当前默认值；`require_workers_paid=true` |
-| PRO | `@cf/deepseek-ai/deepseek-v4-pro-0813` | 重推理档候选；`require_workers_paid=true` |
-| GLM_FLASH | `@cf/zai-org/glm-5.3-flash` | `require_workers_paid=true` |
-| KIMI | `@cf/moonshotai/kimi-k2.6` | `require_workers_paid=true` |
+| MAIN（默认） | `@cf/qwen/qwen3-30b-a3b-fp8` | 默认主力，实测 23/0 满分 |
+| HEAVY | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | 重推理备选，实测 23/0 满分 |
+| LIGHT | `@cf/zai-org/glm-4.7-flash` | 轻量备选，实测 19/1（偶发超时） |
 
 > 修订记录：上表四行原为 `@cf/deepseek/deepseek-v4-flash` 等臆造形态，经 `/ai/models/search` 实证全部不在目录（见 §3.1），2026-09-20 经用户裁决后订正（`test-llm-client.mjs` ⑨ 断言同步）。
 
-> ⚠️ **2026-09-20 实机核对结果**：`MODELS` 四个 ID **曾全部与目录不符**（此前即为 TS-10 预警的「星号不确定 ID」问题坐实）。**已于同日经用户裁决订正**（`llm-client.js` + `test-llm-client.mjs` ⑨ 断言同步），订正前后对照见 §3.1。
+> ⚠️ **2026-09-20 实机核对结果**：`llm-client.js` 的 `MODELS` 四个 ID **曾全部与目录不符**（此前即为 TS-10 预警的「星号不确定 ID」问题坐实），**已于同日经用户裁决订正**；**2026-09-21 收口**再次改为 Free 池三档（`MAIN/HEAVY/LIGHT`，默认 `qwen3-30b`），订正前后对照见 §3.1。
 
 ## 3. 实测记录（2026-09-20，凭证到位当日）
 
@@ -119,7 +118,7 @@ node server/probes/model-selection/test-model-selection.mjs
 
 ### 3.2 原候选池实测：被 Free 计划阻断（未跑成）
 
-`raw/2026-09-20-paid-pool-blocked.json`：4 模型 × 6 判例共 24 次调用**全部 403**，错误码 `5035`「Model … is not available on the Workers Free plan」。**原候选池的真实行为一票未测，TS-10 不能就此关闭。**
+`raw/2026-09-20-paid-pool-blocked.json`：4 模型 × 6 判例共 24 次调用**全部 403**，错误码 `5035`「Model … is not available on the Workers Free plan」——原候选池（deepseek-v4/glm-5.3/kimi 等，`require_workers_paid=true`）需升 Workers Paid 才可调，已留作可选对比（见 `run-rest.mjs` 的 `REAL_MODELS` 池）。**TS-10 已改按 Free 池收口，不依赖原候选池。**
 
 附带事实：`@cf/deepseek-ai/deepseek-r1-distill-qwen-32b` Free 可调通，但返回为旧形态 `{response: …}` 而非 chat.completion，`llm-client.chat` 会判「模型返回异常」——若入池须先改封装。
 
@@ -145,12 +144,12 @@ node server/probes/model-selection/test-model-selection.mjs
 
 ### 3.5 本轮没做成的事
 
-- ❌ 原候选池 4 模型行为未测（Free 阻断）→ **TS-10 保持未关**，路径二选一待裁决：升级 Workers Paid 补跑原候选池，或换池（换池属选型变更，须技术方 + PM 拍板并同步 `llm-client.js` / `tech-stack.md`）。
+- ✅ **TS-10 已收口（2026-09-21）**：按 Free 池收口，默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（实测 23/0 满分），三档 Free 模型（`llm-client.js` 的 `MODELS`）已钉死；同步 `llm-client.js` / `tech-stack.md` §2.5 / §8 已完成。原 Paid 候选池留作可选对比（需升 Paid）。
 - ❌ wrangler Binding 路径未实测（本机无 wrangler，npx 下载缓慢）；REST 与 Binding 的等价性依据官方文档，未实机双跑比对。
 
 ## 4. 本轮明确没做的事
 
-- ❌ 未选模型、未改 `tech-stack.md` §2.5 的任何口径（TS-10 依 2026-09-20 用户裁决保持未关：**升级 Workers Paid 补跑原候选池**，升级后即跑）
+- ✅ 已选模型、已改 `tech-stack.md` §2.5 口径（TS-10 于 2026-09-21 收口：**Free 池 qwen3-30b 默认**，替代原「升级 Workers Paid 补跑」路径）
 - ✅ `llm-client.js` `MODELS` 四个错 ID 已实证并经用户裁决订正（同日）；`judge.js`/`cases.js` 两处判据误伤已修正并加回归锁
 - ❌ 探针未注册任何业务路由（`/probe` / `/cases` 仅探针 worker 自有，不在 `server/api/index.js`）
 
@@ -160,4 +159,4 @@ node server/probes/model-selection/test-model-selection.mjs
 | ---- | ---- |
 | `../../agent-orchestrator/README.md` | 模块表登记本目录（A-1 基础设施） |
 | `.github/workflows/ci.yml` validate 步骤 | 跑 `test-model-selection.mjs`（判分逻辑白盒，全 mock） |
-| `../../../docs/04-plan/go-live-checklist.md` 门禁 C | TS-10 关闭路径：凭证到位 → 本探针实测 → 依结果裁决 |
+| `../../../docs/04-plan/go-live-checklist.md` 门禁 C | TS-10 已收口（2026-09-21，Free 池 qwen3-30b 默认）；本探针实测为收口依据 |

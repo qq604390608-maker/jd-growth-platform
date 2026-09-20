@@ -10,7 +10,7 @@
 | ---- | ---- |
 | 文档编号 | LOCK-TECH-001 |
 | 版本 | **v1.3**（2026-09-20）｜ v1.0 同日首次建立；**v1.1 回填 D1 实测结论**（§3.1 类型与长度、§3.2 中文排序、§3.3 外键与 CHECK —— 对应 §8 的 **TS-11 / TS-14**）；**v1.2 将 §8 待确认项 `T-10`~`T-22` 重命名为 `TS-10`~`TS-22`**（引入 `TS-` 前缀以与 `external-deps.md` §7 的 `T-xx` 区分命名空间，消除 4 处撞号 T-10 / T-20 / T-21 / T-22），并承接 `schema.md` v1.2 三项裁决的连带同步更新；**v1.3 落地两项用户裁决（2026-09-20）**——① §2.5 模型要求由「必须支持 function calling」**放宽**为「须支持 JSON schema 结构化输出 + 敢于说『不足以判断』」（实施发现模型**并不参与工具选择**：F-19 已确定性编排排查证顺序、F-24 自建 MCP 客户端按 `tool_id` 执行，见 `server/tool-executor/mcp-client.js`；原约束过严且与代码实际不符，放宽后候选池显著扩大）；② §8 **TS-11** 裁定为**应用层校验**（`varchar(n)` 长度在 D1 一律不强制，事实面已于 v1.1 实测完成）。旧版归档 `.trash/tech-stack.md-v1.2.md` |
-| 状态 | 草稿，待 PM 与技术方评审（**TS-11 已于 2026-09-20 裁决为「应用层校验」**；**TS-10 Workers AI 模型选型仍是最大未决项，须实机验证**，见 §8） |
+| 状态 | 草稿，待 PM 与技术方评审（**TS-11 已于 2026-09-20 裁决为「应用层校验」**；**TS-10 Workers AI 模型选型已于 2026-09-21 收口（Free 池 qwen3-30b 默认，实测 23/0 满分）**，见 §8） |
 | 上游约束 | `../../AGENTS.md`（宪法：一条硬红线 白盒原则｜编号体系｜双向引用｜术语口径）｜`../01-brd/BRD.md`（F-01~F-32｜§2.2 系统形态｜§5.3 硬红线）｜`schema.md`（36 张表、§12 Q-01/Q-02；**v1.2 起含 Q-03/Q-04/Q-05 裁决**）｜`external-deps.md`（§4 交付基础设施 D-1~D-6、§7 T-21~T-27）｜`../07-decisions/ADR-001~003`（Q-03/04/05 裁决记录） |
 | 事实来源 | **Cloudflare 官方文档**（`developers.cloudflare.com` 的 D1 / Workers / Queues / Workers AI 各 Limits 与 Pricing 页），**查询日期 2026-09-18**；**本地实测证据**：`../../db/probes/type/`（D1 类型 / 长度 / CHECK，2026-09-18）、`../../db/probes/fk/`（D1 外键，2026-09-18） |
 | 交付物 | `../../server/`、`../../frontend/`、`../../db/`、`../../agent-runtime/` 的工程结构与部署配置 |
@@ -190,24 +190,22 @@ Cron 到点
 | 结构化输出 | 使用 JSON mode / `response_format: json_schema` | 强制模型返回符合结构的对象，降低「编造」风险 |
 | agent.md / skills | 本体为仓库文件（`agent-runtime/`），版本随 git；D1 的 `MD-13 agent_profile` / `MD-14 skill_registry` 存**登记与版本引用** | 与 `schema.md` 一致；原型 `agentVersion: "hva-agent v1.3 / agent.md r12"` 即此版本串 |
 
-**候选模型池**（均标注支持 Function calling，取自 Workers AI 目录，**查询日 2026-09-18**）：
+**候选模型池（已收口，TS-10，2026-09-21）**：当前账号为 Workers Free 计划，原候选池（deepseek-v4 / glm-5.3 / kimi-k2.6 等均带 `require_workers_paid=true`）调不通；改以 Free 可用且已实测的模型收口。用例取自 `external-deps.md` §6，判分见 `server/probes/model-selection/`（2026-09-20 实跑，6 判例 × 5 检查）：
 
-| 模型 | 关键能力 | 适合用在哪 |
-| ---- | ---- | ---- |
-| `deepseek-v4-pro-*` | **100 万 token 上下文**，长时程 agentic | F-20 五查这类需要同时装入多份证据的推理 |
-| `kimi-k2.6` / `kimi-k2.7-code` | 1T 参数、262K 上下文、**多轮 tool calling**、结构化输出 | F-15/F-24 的多轮工具回路 |
-| `glm-5.3` | 1M 上下文、function calling、结构化输出 | 同上，备选 |
-| `glm-5.3-flash` / `deepseek-v4-flash-*` | 轻量快速版，支持 function calling | F-14 找线索、F-31 追问回复等短回路 |
-| `qwen3.8-27b` / `gemma-4-*` / `nemotron-3-120b-*` / `gpt-oss-120b` | function calling + reasoning | 备选池 |
+| 档位 | 模型 ID | 实测计分（修正判据后） | 角色 |
+| ---- | ---- | ---- | ---- |
+| MAIN（默认） | `@cf/qwen/qwen3-30b-a3b-fp8` | **23/0 满分** | 默认主力，MoE 激活 3B 较省 token |
+| HEAVY | `@cf/meta/llama-3.3-70b-instruct-fp8-fast` | **23/0 满分** | 重推理备选（70B，质量更高） |
+| LIGHT | `@cf/zai-org/glm-4.7-flash` | 19/1 | 轻量快速备选（仅 C2 偶发 408 超时） |
 
-> ⚠️ `*`：**具体用哪个模型、以及是否所有场景都够用，⬜ 待确认**（§8 TS-10）。选型须以**实机验证**为准——特别是 F-20 第⑤项「信息是否足以支持判断」要求模型**敢于说"不足以判断"**，这与模型的对齐倾向强相关，必须用 `external-deps.md` §6 的 mock 响应做回归。
+> ✅ **已于 2026-09-21 收口（TS-10）**：默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（Free 池，实测 23/0 满分）。选型以**实机验证**为准——F-20 第⑤项要求模型**敢于说"不足以判断"**，实测四模型 honesty 全部 0 失败，**红线可达**；判别证据见 `server/probes/model-selection/raw/2026-09-20-free-pool.json` 等 + README §3。
 >
 > **v1.3 放宽说明（2026-09-20，依用户裁决）**：本表原要求「**必须支持 function calling**（F-23/F-24 的 MCP 工具调用依赖它）」——**实施发现该前提不成立**，故予放宽：
 > ① **工具不是模型选的**：F-19 已把排查证顺序（`CDP>HJE>口径>PIM/MKT/ACT>信息充分`）**确定性编排**死（`server/agent-orchestrator/research-start.js` 的 `assembleResearchCheckSequence`），模型不参与工具选择；
 > ② **调用不走模型**：F-24 用**自建 MCP 客户端**（`server/tool-executor/mcp-client.js`，DS-06）按 `tool_id` 直接执行；该文件中「模型」**仅以禁令形态出现**（`NO_SUBSTITUTE_NOTE = "不得用模型预期填充"`），自身不调模型。
 > 故 function calling 对本项目**非必需**；放宽后候选池可纳入一批不带 function calling、但对齐倾向更稳（更敢说「不足以判断」）的模型。
 >
-> **另注**：候选池中的 `*` 表示**具体 ID 未定**（查询日 2026-09-18，Workers AI 目录会变动）。落选前须以真实账号列出当前目录核对，不可凭本表字符串直接写进配置。
+> **另注**：本表上列三档 ID 已钉死（2026-09-20 经 `/ai/models/search` 实机核对，证据 `server/probes/model-selection/raw/2026-09-20-catalog.json`）；原 `require_workers_paid` 的候选（deepseek-v4 / glm-5.3 / kimi-k2.6）如需对比，见探针 `run-rest.mjs` 的 `REAL_MODELS` 池（需升 Workers Paid 才可调）。
 > 免费额度：Workers AI 有每日免费 Neuron 配额，研发期可利用；生产按推理量计费。
 
 ### 2.6 工具执行与 MCP
@@ -407,7 +405,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 
 | 编号 | 待确认事项 | 谁提供 | 阻塞什么 |
 | ---- | ---- | ---- | ---- |
-| TS-10 | **Workers AI 具体模型选型**：F-20 五查需强推理且须「敢说不足以判断」，须实机验证 | 技术方 + PM | 推理质量与「不编造」红线的达成。**2026-09-20 进展（仍未关闭）**：客户端封装已收编 —— `server/agent-orchestrator/llm-client.js`（56 断言全绿）+ `wrangler.toml` 的 `[ai]` binding（**单表**语法，非 `[[ai]]`；依据官方 docs `workers-ai/configuration/bindings`）；`MODELS` 常量池给出了**确切 ID 形态**（`@cf/<厂商>/<模型>`，如 `@cf/deepseek/deepseek-v4-flash`），解掉了原候选池 `*` 不确定 ID 的问题。**但默认值仍是待验证暂定**：用户裁决「先不定，跑实机验证」→ 须用 `external-deps.md` §6 的 mock 响应实测「敢说不足以判断」后方可钉死并关闭本项 |
+| TS-10 | **Workers AI 具体模型选型**：F-20 五查需强推理且须「敢说不足以判断」，须实机验证 | 技术方 + PM | ✅ **已于 2026-09-21 收口（Free 池）**：当前账号为 Workers Free 计划，原候选池（deepseek-v4 / glm-5.3-flash / kimi-k2.6 均 `require_workers_paid=true`）调不通；改以 Free 可用且已实测的模型收口，默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（实测 23/0 满分，honesty 全 0 失败）。客户端封装 `server/agent-orchestrator/llm-client.js`（58 断言全绿）+ `wrangler.toml` 的 `[ai]` binding + `MODELS` 常量池（MAIN/HEAVY/LIGHT 三档 Free ID 已钉死）；实测证据 `server/probes/model-selection/raw/` + README §3。红线（敢说不足/不编造）可达。若需更高 SLA 可升 Workers Paid 后补跑原候选（探针 `REAL_MODELS` 池） |
 | TS-11 | `varchar(n)` 长度约束在 D1 的兜底策略（应用层校验 or `CHECK` 约束） | 技术方 | ✅ **已决（2026-09-20，依用户裁决）：应用层校验**。事实面已由实测完成（2026-09-18，`db/probes/type/`：长度**一律不强制**；`CHECK` 可用、按**字符**计、**不拦 NULL**）；分类清单见该 README §5（编号锚点 94 / 长文本 39 / 其余短字段 47）。**连带结论**：采应用层校验 → **库级 `CHECK` 不写进 `0001`**，首版迁移不受影响；代价是**绕过写入面的路径拦不住**，故须在**各写入面分别落实**并由用例逐点锁死（不依赖统一中间件） |
 | TS-12 | 哪些列需要中文排序 → 是否增设拼音/排序键列 | PM + 前端 | F-27/F-28 列表排序。**部分实测已完成**：默认 **BINARY ≠ 拼音序**（已证实）、D1 **无拼音排序规则**（`COLLATE PINYIN` 报错）→ 仍待 PM 逐列确认「哪些列要排拼音」 |
 | TS-13 | 前端是否需要轻量组件复用手段（如 Web Components） | 前端 | `frontend/` 开发方式 |

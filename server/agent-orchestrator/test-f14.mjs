@@ -300,7 +300,7 @@ console.log("\n⑦ A-1 LLM 驱动路径 · `runDiscoveryWithLLM` / `DISCOVERY_TO
   assert(r.rounds === 1, `⑦ 模型一轮结束（实测 ${r.rounds}）`);
   assert(r.stopped_by === "model_end", `⑦ stopped_by=model_end（实测 ${r.stopped_by}）`);
   assert(r.tool_calls_executed.length === 0, "⑦ 未要求调用工具时不触发任何查询（**零外部调用**）");
-  assert(ai.calls[0].model === MODELS.FLASH, `⑦ 默认模型取自 MODELS.FLASH 常量、不硬编码（实测 ${ai.calls[0].model}）`);
+  assert(ai.calls[0].model === MODELS.MAIN, `⑦ 默认模型取自 MODELS.MAIN 常量、不硬编码（实测 ${ai.calls[0].model}）`);
 
   const userMsg = ai.calls[0].inputs.messages.find((m) => m.role === "user").content;
   assert(userMsg.includes("业务目标"), "⑦ 用户消息含「业务目标」段（注入清单已装配）");

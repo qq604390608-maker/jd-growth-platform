@@ -428,7 +428,7 @@ export async function runDiscoveryWithLLM(ai, db, task_id, opts = {}) {
     throw new Error("runDiscoveryWithLLM：ai binding 不能为空（A-1 未接入）。本地零密钥调试请显式传 opts.mock = true");
   }
 
-  const model = opts.model || MODELS.FLASH;
+  const model = opts.model || MODELS.MAIN;
   const grantee_type = opts.grantee_type || "agent";
   const grantee_ref = opts.grantee_ref || "discovery-agent";
 

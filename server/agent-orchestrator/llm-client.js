@@ -8,7 +8,7 @@
  * 硬红线：① 零写库 ② 零外部凭证 ③ 不替代查询结果
  */
 
-const DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731";
+const DEFAULT_MODEL = "@cf/qwen/qwen3-30b-a3b-fp8";
 const MAX_TOOL_ROUNDS = 10;
 
 // ================================================================== Mock 模式
@@ -185,12 +185,14 @@ export async function chatJSON(ai, systemPrompt, userMessage, options = {}) {
   try { return JSON.parse(content); } catch { throw new Error("llm-client.chatJSON: 非法 JSON: " + content.slice(0, 200)); }
 }
 
-// 2026-09-20 实机核对（/ai/models/search，证据：server/probes/model-selection/raw/2026-09-20-catalog.json）：
-// 四个 ID 原先全部与目录不符（@cf/deepseek/… 等为臆造形态），已按真实目录订正。
-// 注意 deepseek-v4-flash/pro、glm-5.3-flash、kimi-k2.6 均带 require_workers_paid=true（Workers Paid 计划才可调）。
+// 2026-09-21 收口（TS-10，Free 池）：当前账号为 Workers Free 计划，原候选池 4 模型均带
+// require_workers_paid=true 而调不通；改以 Free 可用且已实测的模型收口（证据见
+// server/probes/model-selection/raw/2026-09-20-free-pool.json 等 + README §3）。
+// 三档均 Free 可用：MAIN 默认（qwen3-30b，实测 23/0 满分）、HEAVY 重推理（llama-3.3-70b-fast，实测 23/0 满分）、
+// LIGHT 轻量快速（glm-4.7-flash，实测 19/1，偶发超时）。DEFAULT_MODEL 指向 MAIN。
+// 若后续升级 Workers Paid，可在 server/probes/model-selection/run-rest.mjs 的 REAL_MODELS 池补跑原候选。
 export const MODELS = Object.freeze({
-  FLASH: "@cf/deepseek-ai/deepseek-v4-flash-0731",
-  PRO: "@cf/deepseek-ai/deepseek-v4-pro-0813",
-  GLM_FLASH: "@cf/zai-org/glm-5.3-flash",
-  KIMI: "@cf/moonshotai/kimi-k2.6",
+  MAIN: "@cf/qwen/qwen3-30b-a3b-fp8",
+  HEAVY: "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  LIGHT: "@cf/zai-org/glm-4.7-flash",
 });

@@ -229,7 +229,7 @@ export default {
           const mock = isMockMode(env.AI);
           const completion = await chat(env.AI, [{ role: "user", content: "回复 ok" }], { max_tokens: 10 });
           const content = extractContent(completion) || "";
-          return Response.json({ ai: mock ? "mock" : "reachable", model: mock ? "mock-model" : MODELS.FLASH, response: content.trim() });
+          return Response.json({ ai: mock ? "mock" : "reachable", model: mock ? "mock-model" : MODELS.MAIN, response: content.trim() });
         } catch (e) {
           return Response.json({ ai: "error", message: String(e) }, { status: 500 });
         }
@@ -246,7 +246,7 @@ export default {
             "北京今天天气怎么样？",
             [{ type: "function", function: { name: "get_weather", description: "查询天气", parameters: { type: "object", properties: { city: { type: "string" } }, required: ["city"] } } }],
             async (toolName, args) => ({ city: args.city, weather: "晴", temp: "22°C" }),
-            { model: MODELS.FLASH },
+            { model: MODELS.MAIN },
           );
           return Response.json({ ai: mock ? "mock" : "tool_call_ok", ...result });
         } catch (e) {

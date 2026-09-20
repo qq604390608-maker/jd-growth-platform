@@ -460,7 +460,7 @@
 | T-23 | ~~agent.md 的版本管理方式（原型为 `agent.md r12`，真实形态待定）~~ → **✅ 已决（2026-09-20，依用户裁决）**：真实形态已落地，随 F-13/F-18 收口 | 收口依据：`agent_version_snapshot` 快照 + `agent-runtime/VERSIONS.md` 机制 + agent.md 文档卡版本号（F-13/F-18 用例锁死） | F-06「指令与能力版本」留痕 | `agent.md r12`，机制已兑现 |
 | T-24 | ~~Skill 加载方式与 Skill 编号映射~~ → **🟡 改窄（2026-09-20，依用户裁决）**：加载方式 ✅（A-4 落地）、主技能映射 ✅（Q-07）；**剩余仅 `S-A2~S-A4`/`S-B2~S-B4` 的 `skill_code` 名待 PM** | PM | F-13 F-18 | 主技能已种 MD-14（S-A1/S-B1）；其余 code 名待 PM |
 
-> **技术侧已有回答**（2026-09-18，依据 `tech-stack.md`）：T-21 → 选定 **Cloudflare Workers AI**（DS-02），具体模型仍须实机验证（`tech-stack.md` §8 TS-10）；T-22 → 选定**自建 MCP 客户端**（DS-06），协议细节仍取决于 T-01/T-02 的真实契约；T-23 → `agent.md` 本体为仓库文件（`agent-runtime/`），D1 的 `MD-13` 存登记与版本引用（`tech-stack.md` §2.5）。**T-20（§3 分类框架是否成立）仍待 PM 确认。**
+> **技术侧已有回答**（2026-09-18，依据 `tech-stack.md`）：T-21 → 选定 **Cloudflare Workers AI**（DS-02），**模型已于 2026-09-21 实机验证收口**（TS-10 关闭：默认 `@cf/qwen/qwen3-30b-a3b-fp8`，Free 池，实测 23/0 满分；T-21 同步关闭）；T-22 → 选定**自建 MCP 客户端**（DS-06），协议细节仍取决于 T-01/T-02 的真实契约；T-23 → `agent.md` 本体为仓库文件（`agent-runtime/`），D1 的 `MD-13` 存登记与版本引用（`tech-stack.md` §2.5）。**T-20（§3 分类框架是否成立）仍待 PM 确认。**
 
 ### 7.3 交付基础设施类（§4）
 

@@ -187,7 +187,7 @@
 | 项 | 内容 |
 | ---- | ---- |
 | 为什么需要 | F-14 / F-15 / F-19 / F-20 / F-21 都要装多份证据做判断；窗口不够会被截断，而截断是静默的 |
-| 现状 | `server/agent-orchestrator/llm-client.js` 已给出确切 ID 形态（`@cf/<厂商>/<模型>`）与 `MODELS` 常量池，但**默认值仍为待验证暂定**；`tech-stack.md` §8 **TS-10 保持未关**，按裁决须**实机验证**后定 |
+| 现状 | `server/agent-orchestrator/llm-client.js` 的 `MODELS` 常量池已钉死三档 Free 可用 ID（MAIN=qwen3-30b / HEAVY=llama-3.3-70b-fast / LIGHT=glm-4.7-flash），默认 `qwen3-30b`；`tech-stack.md` §8 **TS-10 已于 2026-09-21 收口**（Free 池实测 23/0 满分，honesty 全 0 失败） |
 | 合格回答 | 模型 ID + 窗口 token 数 + 并发数 + 计费口径 |
 | 阻塞 | F-14 / F-15 / F-19 / F-20 / F-21 |
 

@@ -102,7 +102,7 @@ console.log("\n② `chat` 正常调用：默认模型 + options 逐项透传（�
   const ai = makeAI([reply("ok")]);
   const r = await chat(ai, [{ role: "user", content: "hi" }]);
   assert(r.choices[0].message.content === "ok", "② 返回 completion 原样透传");
-  assert(ai.calls[0].model === MODELS.FLASH, `② 未指定 model 时用默认模型（实测 ${ai.calls[0].model}）`);
+  assert(ai.calls[0].model === MODELS.MAIN, `② 未指定 model 时用默认模型（实测 ${ai.calls[0].model}）`);
   assert(ai.calls[0].inputs.messages.length === 1, "② messages 原样透传给 binding");
 
   const ai2 = makeAI([reply("ok")]);
@@ -119,8 +119,8 @@ console.log("\n② `chat` 正常调用：默认模型 + options 逐项透传（�
   assert(inp.temperature === 0, "② **temperature=0 不得被吞**（假值须显式透传，实测 " + inp.temperature + "）");
 
   const ai3 = makeAI([reply("ok")]);
-  await chat(ai3, [{ role: "user", content: "hi" }], { model: MODELS.PRO });
-  assert(ai3.calls[0].model === MODELS.PRO, "② 指定 model 时覆盖默认值");
+  await chat(ai3, [{ role: "user", content: "hi" }], { model: MODELS.HEAVY });
+  assert(ai3.calls[0].model === MODELS.HEAVY, "② 指定 model 时覆盖默认值");
 }
 
 // ==================================================== ③ 纯函数：内容 / 工具调用 / 是否需执行
@@ -249,11 +249,11 @@ console.log("\n⑨ `MODELS` 常量池：冻结、形态合规（路由一律引�
 {
   assert(Object.isFrozen(MODELS), "⑨ MODELS 被冻结（防运行期改写）");
   const keys = Object.keys(MODELS);
-  assert(keys.length >= 4, `⑨ 至少 4 个候选模型（实测 ${keys.length}）`);
+  assert(keys.length >= 3, `⑨ 至少 3 档候选模型（实测 ${keys.length}）`);
   const vals = Object.values(MODELS);
   assert(vals.every((v) => typeof v === "string" && v.startsWith("@cf/")), "⑨ 所有模型 ID 均为 @cf/ 前缀形态");
-  assert(vals.includes("@cf/deepseek-ai/deepseek-v4-flash-0731"), "⑨ 含轻量档 flash（2026-09-20 实机核对的目录真实 ID）");
-  assert(vals.includes("@cf/deepseek-ai/deepseek-v4-pro-0813"), "⑨ 含重推理档 pro（2026-09-20 实机核对的目录真实 ID）");
+  assert(vals.includes("@cf/qwen/qwen3-30b-a3b-fp8"), "⑨ 含默认主力模型 qwen3-30b（Free 池，实测 23/0 满分）");
+  assert(vals.includes("@cf/meta/llama-3.3-70b-instruct-fp8-fast"), "⑨ 含重推理档 llama-3.3-70b-fast（Free 池，实测 23/0 满分）");
 }
 
 // ==================================================== ⑩ 静态核验：零外部 HTTP / 零写库
