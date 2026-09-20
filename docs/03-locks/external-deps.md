@@ -478,7 +478,7 @@
 | ---- | ---- | ---- |
 | T-30 | ~~**BRD 的实际路径与本文件引用不一致**~~ → **✅ 已解决（2026-09-19）** | 原分歧：要求写 `docs/01-brd/BRD.md`、实际曾为 `docs/BRD.md` 且无 `01-brd/` 目录。现 BRD 已迁至 `docs/01-brd/BRD.md`，本文件引用同步为 `../01-brd/BRD.md`，路径一致；`docs/README.md`、`AGENTS.md` 索引已同步 |
 | T-31 | ~~**`docs/` 目录的编号体系是否统一**~~ → **✅ 已解决（2026-09-19）** | 现状 `01-brd`/`02-prd`/`03-locks`/`04-plan`/`05-test-cases`/`07-decisions` 已建；仅 `06`（runbook）预留待建（见 `docs/README.md` 目录表「（待建）业务背景、runbook」），跳号不成立（06 为 runbook 预留层）。本项关闭 |
-| T-32 | 本文件是否需要在 `db/` 种子数据生成前定稿 | 影响 `source_registry` / `tool_registry` / `tool_permission` 的种子数据可写时点 |
+| T-32 | 本文件是否需要在 `db/` 种子数据生成前定稿 | PM + 技术方 | 影响 `source_registry` / `tool_registry` / `tool_permission` 的种子数据可写时点 | — |
 
 ---
 
