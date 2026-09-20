@@ -15,3 +15,11 @@ compatibility_date = "2026-09-19"
 binding = "DB"
 database_name = "jd-growth-platform"
 migrations_dir = "./db/migrations"
+
+# Workers AI 绑定（tech-stack §2.5 DS-02；A-1 LLM 推理服务）
+# 本地：wrangler dev 自动 mock，不需要 API Token
+# 生产：Worker 跑在 CF 基础设施上，env.AI 直接可用，代码里零凭证
+# 默认模型：deepseek-v4-flash（轻量快速，验证链路；pro 用于重推理场景）
+[[ai]]
+binding = "AI"
+# 模型在代码里按需选择，此处不锁定
