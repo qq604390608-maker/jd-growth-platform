@@ -22,9 +22,10 @@ import { scoreModel } from "./judge.js";
 import { chat, extractContent } from "../../agent-orchestrator/llm-client.js";
 
 /**
- * 原候选池（llm-client.js 的 MODELS 键位）目录核对后的真实 ID（2026-09-20 经 /ai/models/search 实证）。
+ * 原候选池（llm-client.js 改池前的旧键位）目录核对后的真实 ID（2026-09-20 经 /ai/models/search 实证）。
  * ⚠️ 这 4 个模型目录属性均带 `require_workers_paid: "true"`，Workers Free 计划下调不通
- *   （/ai/run 返回 403 code=5035，已实测）。llm-client.js 本体**待用户点头后**再改。
+ *   （/ai/run 返回 403 code=5035，已实测）。2026-09-21 收口：llm-client.js 已改为 Free 池
+ *   三档（MAIN/HEAVY/LIGHT），本池**不再作为候选**，仅留作升级 Workers Paid 后的对比复跑。
  */
 export const REAL_MODELS = Object.freeze({
   FLASH: "@cf/deepseek-ai/deepseek-v4-flash-0731",

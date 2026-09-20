@@ -115,6 +115,7 @@ node server/probes/model-selection/test-model-selection.mjs
 | KIMI | `@cf/moonshot/kimi-k2.6` | `@cf/moonshotai/kimi-k2.6` | `true` |
 
 **四个 ID 全部不可调**（组织名与版本号均写错）；且四者目录属性均带 `require_workers_paid: "true"`。
+（注：本表 `FLASH/PRO/GLM_FLASH/KIMI` 为改池前旧键位，仅作历史对照；现行键位见 `llm-client.js` 的 `MAIN/HEAVY/LIGHT`。）
 
 ### 3.2 原候选池实测：被 Free 计划阻断（未跑成）
 
