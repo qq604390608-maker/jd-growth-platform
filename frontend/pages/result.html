@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/result.html
+  功能点：F-30 研究结果页（M6 运营端工作台）——呈现结果七要素
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜一条硬红线｜索引三层）
+        ｜ ../../docs/01-brd/BRD.md（M6 F-30：呈现结果七要素；每项关键发现挂证据来源与适用范围；
+           候选 HVA 的支持 / 不支持情况并列展示；**已查明与仍受限的内容视觉可分**）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-30 验收要点）
+        ｜ ../../docs/05-test-cases/test-M6.md（**TC-I-M6-004 = 本页 oracle**：呈现结果七要素；
+            每项关键发现挂证据来源与适用范围；候选 HVA 支持 / 不支持并列；**已查明与仍受限视觉可分**）
+        ｜ ../../docs/01-brd/BRD.md §4 F-21（研究结果生成的七要素口径，本页只读回查）
+        ｜ ../../docs/03-locks/schema.md（MD-07 research：七要素 ①②④⑥｜MD-08 research_finding：
+            ③｜MD-09 candidate_behavior + MD-10 behavior_point：⑤｜MD-11 improvement_action：⑦｜
+            LNK-02 finding_evidence：逐发现挂证据）
+        ｜ ../../prototype/pages/result.html（**钉死需求的实证**：①~⑦ 一整页、③ 可折叠、⑤ 支持/不支持并列、
+            ⑦ 逐项对应表；同名页 study.html 已并入本页，仅作跳转）
+        ｜ ../README.md ｜ ../assets/api.js（唯一数据出口）｜ ../assets/app.js（跨页共享口径）
+  职责：只读呈现一次研究的**结果七要素**（① 业务目标与研究问题 / ② 研究范围与方法 / ③ 证据与关键发现 /
+        ④ 人群差异 / ⑤ 候选 HVA 及支持情况 / ⑥ 其他解释与限制 / ⑦ 改善方向）。所有数据经 server/api：
+            · 研究清单：`GET /api/research`（全量，构建「研究切换器」，并取 opportunity_id 供越页链接）
+            · 结果回查：`GET /api/research-result/{no}`（F-21 读面：七要素 ＋ 逐发现证据关联 ＋ ⑤）
+            · 证据回查：`GET /api/evidence-trace/{evidence_id}`（③ 内每条证据**点开才回查**，同 F-28）
+        页面**只做展示、不含任何业务逻辑、不写库**（PRD-M6 §1；硬红线：前端不发起任何生产写接口调用）。
+        **已查明与仍受限视觉可分**：③ 关键发现用「已查明」视觉（绿左线 .res-established），
+        ⑥ 其他解释与限制用「仍受限」视觉（琥珀底 .doc-limits / .res-limited）。
+  与原型的**有意偏差**（已登记，见 ../README.md §4）：原型从 `assets/data.js` 直接取证据详情，本页改为
+        「点开才回查」真实 `GET /api/evidence-trace/{id}`（证据 → 查询记录 EXT-01 → 来源 CFG-01），
+        未展开时只展示证据编号（LNK-02 关联行能给到的），不复制任何 mock 数据。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="result"）；被 ../index.html 链接；
+        上游跳转来源：opportunities.html（F-28「查看研究结果」）、propose.html / tasks.html 回链；
+        下游跳转：followup.html（F-31 追问对话，建新任务并关联原研究——尚未实现，作前向链接保留）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-30 研究结果</title>
+<link rel="stylesheet" href="../assets/base.css">
+<style>
+  /* ③ 「已查明」与 ⑥ 「仍受限」视觉可分：前者绿左线、后者琥珀底（base.css 已给 .doc-limits 琥珀底） */
+  .res-established { border-left: 3px solid var(--green-line); padding-left: 12px; }
+  .res-limited { border-left: 3px solid var(--amber); margin-top: 4px; }
+  .find-text { font-size: 13px; line-height: 1.7; }
+  .find-limit { font-size: 12px; }
+  .study-opt-note { font-size: 12px; color: var(--text-3); margin-left: 4px; }
+</style>
+</head>
+<body data-page="result">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-30</span>研究结果</h1>
+      <p class="page-desc" id="res-meta"></p>
+    </div>
+    <div class="page-actions">
+      <select id="study-sel" style="width:auto"></select>
+      <a class="btn" id="link-followup" href="followup.html">继续追问 →</a>
+      <a class="btn" href="opportunities.html">返回机会列表</a>
+    </div>
+  </div>
+
+  <div id="root"></div>
+
+  <div class="footer-note">
+    功能点 F-30 ｜ 上游 M4-F-21 研究结果生成（七要素只读回查）｜ 下游：<a href="followup.html">F-31 追问对话</a>（建新任务并关联原研究）
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  var root = document.getElementById("root");
+  var sel = document.getElementById("study-sel");
+  var meta = document.getElementById("res-meta");
+
+  /* 研究编号：URL ?study= / ?research= 优先；缺省取种子里的 R-007（一个已完成且证据齐备的研究）。 */
+  var selectedNo = U.qs("study") || U.qs("research") || "R-007";
+
+  /* 全量研究清单（构建切换器；并取 opportunity_id 供越页链接）。只读，经 server/api。 */
+  var listRes = await window.API.listAllResearch();
+  var studies = (listRes && listRes.items) || [];
+  var studyRowOf = {};
+  studies.forEach(function (s) { studyRowOf[s.research_no] = s; });
+  function oppIdOf(no) { var r = studyRowOf[no]; return r ? r.opportunity_id : null; }
+  function goalIdOf(no) { var r = studyRowOf[no]; return r ? r.goal_id : null; }
+
+  /* ---------- 研究切换器 ---------- */
+  sel.innerHTML = studies.map(function (s) {
+    var st = s.research_status === "done" ? "已完成" : "研究中";
+    return '<option value="' + U.esc(s.research_no) + '"' +
+      (s.research_no === selectedNo ? " selected" : "") + ">" +
+      U.esc(s.research_no) + " · " + U.esc(s.opportunity_id || "—") +
+      ' <span class="study-opt-note">（' + st + "）</span></option>";
+  }).join("");
+
+  /* ---------- 段落壳：一整页文档，①~⑦ 顺序排布 ---------- */
+  function sec(no, title, note, body, tools) {
+    return '<section class="doc-sec">' +
+      '<div class="doc-sec-head">' +
+        '<div class="doc-sec-title">' + no + " " + U.esc(title) + "</div>" +
+        '<div class="card-tools" style="align-items:center;gap:10px">' +
+          (note ? '<span class="doc-sec-note">' + U.esc(note) + "</span>" : "") +
+          (tools || "") +
+        "</div>" +
+      "</div>" + body + "</section>";
+  }
+
+  /* ③ 单条证据：点开才回查（同 F-28 的「证据链」交互）。未展开只给证据编号（LNK-02 关联行即可得）。 */
+  function evidenceFold(evId) {
+    return '<details class="fold" data-ev="' + U.esc(evId) + '">' +
+      "<summary><span class='tag mono'>" + U.esc(evId) + "</span>" +
+      "<span class='small text-3'>点开回查证据来源与适用范围</span></summary>" +
+      '<div class="fold-body" data-ev-body="' + U.esc(evId) + '">' +
+        '<div class="small text-3">展开后回查该证据的取得过程：证据 → 查询记录（EXT-01）→ 来源（CFG-01）……</div>' +
+      "</div></details>";
+  }
+
+  /* 证据回查结果（getEvidenceTrace 的真实返回，不用任何替代值；字段口径回指 F-28 同款渲染）。 */
+  function renderTrace(box, trace) {
+    var ev = trace.evidence || {};
+    var qr = trace.query_record;
+    var src = trace.source;
+    var cp = trace.completeness || { valid: false, missing_labels: [] };
+    var rows =
+      '<div class="field"><div class="field-label">查询条件</div><div class="field-value">' + U.esc(ev.query_condition || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">信息时点</div><div class="field-value">' + U.esc(ev.info_time_point || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">适用范围</div><div class="field-value">' + U.esc(ev.applicability_scope || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">查询结果</div><div class="field-value">' + U.esc(ev.result_summary || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">缺失说明</div><div class="field-value text-2">' + U.esc(ev.missing_note || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">来源</div><div class="field-value">' +
+        U.esc(src ? src.source_name + "（" + src.source_id + "）" : ev.source_id || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">查询记录</div><div class="field-value mono">' +
+        U.esc(ev.query_id || "—") + (qr ? "（" + U.esc(qr.result_status) + "）" : "（查无此查询记录）") + "</div></div>";
+    var verdict = trace.traceable
+      ? '<div class="alert alert-ok" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">四要素齐全 · 可回查</span>　该证据可回指查询记录与来源，可作为有效依据。</div></div>'
+      : '<div class="alert alert-danger" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">四要素不齐 · 不可作为有效依据</span>　缺：' +
+        U.esc((cp.missing_labels || []).join("、") || "—") + "；证据链不完整，无法回查取得过程。</div></div>";
+    box.innerHTML = '<div class="field-list">' + rows + "</div>" + verdict;
+  }
+
+  function openEvidence(detailEl) {
+    var box = detailEl.querySelector("[data-ev-body]");
+    var evId = detailEl.dataset.ev;
+    if (!box || box.dataset.loaded === "1") return;
+    box.innerHTML = '<div class="small text-3">正在回查……</div>';
+    window.API.getEvidenceTrace(evId).then(function (trace) {
+      renderTrace(box, trace);
+      box.dataset.loaded = "1";
+    }).catch(function (e) {
+      box.innerHTML = '<div class="small" style="color:#C81623">回查失败：' + U.esc((e && e.message) || String(e)) + "</div>";
+    });
+  }
+
+  /* ---------- 渲染一次研究结果 ---------- */
+  async function render(no) {
+    var ctx;
+    try {
+      ctx = await window.API.getResearchResult(no);
+    } catch (e) {
+      root.innerHTML = '<div class="card"><div class="empty">研究结果读取失败：' +
+        U.esc((e && e.message) || String(e)) + "</div></div>";
+      return;
+    }
+    if (!ctx || !ctx.elements) {
+      root.innerHTML = '<div class="card"><div class="empty">该研究暂无结果（或研究编号不存在）。</div></div>';
+      return;
+    }
+    var E = ctx.elements;
+
+    /* 页头元信息：研究编号 / 对应机会 / 目标版本 / 完成时间 */
+    var oppId = oppIdOf(no);
+    var goalId = goalIdOf(no) || ctx.goal_id;
+    var oppLink = oppId
+      ? '<a href="opportunities.html?id=' + U.esc(oppId) + (goalId ? "&goal=" + U.esc(goalId) : "") + '">' + U.esc(oppId) + "</a>"
+      : "—";
+    meta.innerHTML = "对应机会 " + oppLink +
+      (goalId ? '　·　目标 <span class="mono">' + U.esc(goalId) + (ctx.goal_version_no ? " v" + U.esc(ctx.goal_version_no) : "") + "</span>" : "") +
+      "　·　完成于 " + U.esc(ctx.finished_at || "—");
+
+    /* 顶部结论条：候选行为是否获得支持（失败/受限不否定结论） */
+    var e5 = E.e5_candidate_hva || {};
+    var supportedAny = (e5.supported_count || 0) > 0;
+    var alertHtml =
+      '<div class="alert ' + (supportedAny ? "alert-ok" : "alert-info") + '">' +
+        '<div class="flex-1"><span class="alert-title">' +
+          (supportedAny
+            ? "有候选行为获得支持（仍属候选，未定性）"
+            : "未找到足够依据支持候选行为，这也是完整的研究结果") +
+        "</span>　候选行为在研究完成前一律称「候选行为」，不提前定性为 HVA。" +
+      "</div></div>";
+
+    /* ① 业务目标与研究问题 */
+    var e1Html = '<div class="doc-body">' + U.esc(E.e1_goal_statement || "—") + "</div>";
+
+    /* ② 研究范围与方法：用 ｜ / ； 连接的条目换行展示 */
+    var scopeLines = (E.e2_scope_method || "").split(/[｜；]/)
+      .map(function (t) { return t.trim(); }).filter(Boolean)
+      .map(function (t) { return '<div class="spec-line">' + U.esc(t) + "</div>"; }).join("");
+    var e2Html = '<div class="doc-body">' + (scopeLines || U.esc(E.e2_scope_method || "—")) + "</div>";
+
+    /* ③ 证据与关键发现（「已查明」视觉）：逐条 finding + 支持徽标 + 限制 + 逐证据回查 */
+    var findings = (E.e3_evidence_findings || []).map(function (f, i) {
+      var evs = (f.evidence_refs || []).map(evidenceFold).join("");
+      return '<div class="find-item">' +
+        '<div style="display:flex;gap:10px;align-items:flex-start">' +
+          '<span class="badge ' + (f.support_flag === "supported" ? "badge-done" : "badge-neutral") + '">' + (i + 1) + "</span>" +
+          '<div style="flex:1;min-width:0">' +
+            '<div class="find-text">' + U.esc(f.finding_text || "") + "</div>" +
+            (f.limit_note ? '<div class="find-limit small text-3" style="margin-top:4px">限制：' + U.esc(f.limit_note) + "</div>" : "") +
+            evs +
+          "</div>" +
+        "</div></div>";
+    }).join("");
+    var e3Body = findings
+      ? '<div class="doc-body res-established" id="ev-body">' + findings + "</div>"
+      : '<div class="doc-body"><div class="empty">该研究暂无关键发现</div></div>';
+    var e3Note = (E.e3_evidence_findings || []).length + " 项发现 · 每项挂证据来源与适用范围（点开回查）";
+
+    /* ④ 人群差异 */
+    var e4Html = '<div class="doc-body">' + U.esc(E.e4_population_diff || "—") + "</div>";
+
+    /* ⑤ 候选 HVA 及支持情况：支持与不支持并列 */
+    var cands = (e5.candidates || []).map(function (c) {
+      var supported = (c.supported || []).map(function (p) { return "<li>" + U.esc(p.point_text || "") + "</li>"; }).join("");
+      var unsupported = (c.unsupported || []).map(function (p) { return "<li>" + U.esc(p.point_text || "") + "</li>"; }).join("");
+      var isSupported = c.behavior_status === "candidate_supported";
+      return '<div style="margin-bottom:14px">' +
+        '<div style="font-size:14px;font-weight:500;margin-bottom:10px">' + U.esc(c.behavior_name || "") + "　" +
+          (isSupported ? '<span class="badge badge-done">支持</span>' : '<span class="badge badge-neutral">不支持</span>') +
+        "</div>" +
+        '<div class="grid-2">' +
+          '<div class="alert alert-ok mb0"><div class="flex-1"><div class="alert-title">支持的方面</div>' +
+            "<ul style='padding-left:18px;margin:6px 0 0'>" + (supported || '<li class="text-3">—</li>') + "</ul></div></div>" +
+          '<div class="alert alert-warn mb0"><div class="flex-1"><div class="alert-title">不支持 / 存疑的方面</div>' +
+            "<ul style='padding-left:18px;margin:6px 0 0'>" + (unsupported || '<li class="text-3">—</li>') + "</ul></div></div>" +
+        "</div></div>";
+    }).join("");
+    var e5Body = cands
+      ? '<div class="doc-body">' + cands + "</div>"
+      : '<div class="doc-body"><div class="empty">该研究未登记候选行为（未找到足够依据亦为完整结果）</div></div>';
+
+    /* ⑥ 其他解释与限制（「仍受限」视觉，与 ③ 已查明明显可分） */
+    var e6Body = '<div class="doc-body"><div class="doc-limits res-limited">' + U.esc(E.e6_limits || "—") + "</div>" +
+      '<div class="small text-3" style="margin-top:8px">查询失败导致的未完成<b>不能</b>当作否定结论；运行失败本身不作为否定某项 HVA 的研究依据。</div></div>';
+
+    /* ⑦ 改善方向：逐项对应发现（针对什么人群 / 什么问题 / 为什么值得改善） */
+    var acts = (E.e7_improvement_actions || []).map(function (a) {
+      return "<tr><td>" + U.esc(a.target_for || "") + "</td><td>" + U.esc(a.problem_what || "") +
+        '</td><td class="text-2">' + U.esc(a.reason_why || "") + "</td></tr>";
+    }).join("");
+    var e7Body = acts
+      ? '<div class="doc-body"><table class="tbl tbl-sm"><thead><tr>' +
+          '<th style="width:180px">针对</th><th>问题</th><th>为什么值得改善</th></tr></thead><tbody>' +
+          acts + "</tbody></table>" +
+          (ctx.out_of_scope_note ? '<div class="small text-3" style="margin-top:10px">' + U.esc(ctx.out_of_scope_note) + "</div>" : "") +
+        "</div>"
+      : '<div class="doc-body"><div class="empty">该研究未登记改善方向</div></div>';
+
+    root.innerHTML =
+      alertHtml +
+      '<div class="card doc">' +
+        sec("①", "业务目标与研究问题", "本研究的输入与边界", e1Html) +
+        sec("②", "研究范围与方法", "本研究的输入与边界", e2Html) +
+        sec("③", "证据与关键发现", e3Note, e3Body) +
+        sec("④", "人群差异", "", e4Html) +
+        sec("⑤", "候选 HVA 及支持情况", "支持与不支持并列展示", e5Body) +
+        sec("⑥", "其他解释与限制", "与「已查明」视觉可分", e6Body) +
+        sec("⑦", "改善方向", "逐项对应发现：针对什么人群、什么问题、为什么值得改善", e7Body) +
+      "</div>";
+
+    /* ③ 证据：点开（或收起）→ 首次展开才回查 */
+    root.querySelectorAll("[data-ev]").forEach(function (d) {
+      var sum = d.querySelector("summary");
+      sum.addEventListener("click", function (e) {
+        e.preventDefault();
+        var willOpen = !d.hasAttribute("open");
+        if (willOpen) { d.setAttribute("open", "open"); openEvidence(d); }
+        else { d.removeAttribute("open"); }
+      });
+    });
+  }
+
+  /* 切换器改变 → 重新渲染（只读，不写库） */
+  sel.addEventListener("change", function (e) {
+    selectedNo = e.target.value;
+    render(selectedNo);
+  });
+
+  await render(selectedNo);
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记（M6 六页面之一：F-30）
+  - 被 ../assets/app.js 的导航清单登记（page="result"，fn="F-30"）
+  - 被 ../index.html 链接
+  - 上游跳转来源：opportunities.html（F-28「查看研究结果」）、propose.html / tasks.html 回链
+  - 下游跳转：followup.html（F-31 追问对话，尚未实现，前向链接保留）
+  - 版式依赖：../assets/base.css 的 .doc-sec / .doc-sec-title / .doc-body / .doc-limits / .find-item / .grid-2 / .alert-* / .badge-*
+-->

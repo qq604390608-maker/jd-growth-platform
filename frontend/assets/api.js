@@ -148,5 +148,14 @@
 
     /** 建议一页读取（建议行 + 机会现状 + 状态变更链 + 是否已触发任务）。 */
     getProposalRecord: (proposalId) => get("/api/research-proposals/" + enc(proposalId)),
+
+    /* ------------------------------------------------ F-30 研究结果页（M4 F-21 的读面）
+       全部走既有路由，**不自造端点**（../server/api/index.js 为路由真源）。 */
+
+    /** 研究全量列表（MD-07，无过滤）：F-30 研究结果页据此构建「研究切换器」。 */
+    listAllResearch: () => get("/api/research"),
+
+    /** 研究结果回查（薄读）：七要素 ＋ 逐发现证据关联 ＋ ⑤ 候选行为支持/不支持（MD-07~11）。 */
+    getResearchResult: (researchNo) => get("/api/research-result/" + enc(researchNo)),
   };
 })();
