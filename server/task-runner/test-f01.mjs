@@ -193,11 +193,12 @@ console.log("③ 口径检查：规则来自 CFG-05、别名归一可见、命�
   assert(gaps.every((g) => g.raised_by_task_id === task.task_id), "每条待补项归属本次口径检查任务（NOT NULL 外键）");
   assert(gaps.every((g) => GOAL_FIELDS.includes(g.target_field)), "PD-04.target_field 全部落在 dict:GOAL_FIELD 值域内");
   const gap3 = gaps.find((g) => g.rule_id === "GAP-3");
-  assert(gap3.target_field === "business_scope", "种子别名 scope 归一后落库为 business_scope（值域合法）");
+  assert(gap3.target_field === "business_scope", "GAP-3 target_field 已为规范值 business_scope（种子已对齐字典，Q-13 已决①）");
 
   const check = await checkGoalGaps(db, { goal_id: Q3, goal_version_no: 3, task_id: task.task_id, at: AT });
-  assert(check.alias_fields.some((a) => a.from === "scope" && a.to === "business_scope"),
-    "别名归一在使用处显式回报（种子的值域偏差可见，不被吞掉）");
+  // 种子 GAP-3/4 已对齐 dict:GOAL_FIELD（Q-13 已决①），使用处不再回报别名偏差；
+  // 别名防御本身仍生效（见 ② normalizeGoalField 单元断言 scope→business_scope / period→focus_period）
+  assert(check.alias_fields.length === 0, "种子已合规 → 使用处不产生别名回报（偏差已消除，非静默吞）");
   await assertThrows(() => checkGoalGaps(db, { goal_id: Q3, goal_version_no: 3 }),
     "缺 task_id → 拒（待补项须归属一次口径检查任务）", "task_id 必填");
   await assertThrows(() => checkGoalGaps(db, { goal_id: Q3, goal_version_no: 3, task_id: "T-NOPE" }),

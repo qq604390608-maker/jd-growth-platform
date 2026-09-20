@@ -63,7 +63,7 @@
 
 - **目标**：打通"能建库、能跑 mock、能部署、能加载指令"的最小组装。
 - **覆盖**：无独立功能点，但支撑全部阶段。
-- **已完成**：`db/migrations/0001_init.sql`（36 表 DDL，含真实外键、Q-05 六要素 CHECK、建议索引）、`db/seed/0001_mock.sql`（30 表有种子 / 6 表按裁决留空，已通过外键校验）、`db/seed/generate_mock.py`（可重跑生成器）、`db/probes/`（D1 类型/外键/排序实测证据）。
+- **已完成**：`db/migrations/0001_init.sql`（36 表 DDL，含真实外键、Q-05 六要素 CHECK、建议索引）、`db/seed/0001_mock.sql`（31 表有种子 / 5 表按裁决留空（`context_injection` / `external_validation` / `goal_gap` / `research_proposal` / `task_step` 由执行期写入，不预置基线），已通过外键校验）、`db/seed/generate_mock.py`（可重跑生成器）、`db/probes/`（D1 类型/外键/排序实测证据）。
 - **本阶段待建**：
   - `prototype/mock/` mock server（契约见 `external-deps.md` §6 七类行为 ＋ 超时/执行中两类）：让 F-14/F-15/F-24/F-26 在真实接口未接入时也能真实测试失败路径（D-6）。
   - `agent-runtime/` 骨架：目录与版本管理机制（`MD-13 agent_profile` / `MD-14 skill_registry` 的登记载体），先于 M3/M4 落地 agent.md 与 skills 本体。
