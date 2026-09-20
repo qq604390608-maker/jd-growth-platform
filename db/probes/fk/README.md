@@ -9,11 +9,9 @@
 | 范围 | 结论 | 依据 |
 | ---- | ---- | ---- |
 | `--local`（miniflare/workerd 模拟） | **默认生效** | 探针 a~f 全部实测 |
-| `--remote`（真实 D1） | **不确定（未验证）** | 本机未认证，命令被拒；见 §5 |
+| `--remote`（真实 D1） | **默认生效，且比本地更严**（详见 §5b） | 探针 R1~R5 实测（2026-09-21） |
 
-**总判定：`--local` 实测「默认生效」，与 Cloudflare 官方文档一致；但 `--remote` 未验证，不能据此断定生产行为。** 在补齐 §5 的远程验证前，TS-14 只能算「本地已证实、远程待证」。
-
-补充已证实项（本地）：`PRAGMA foreign_keys=OFF` 无效（不可关闭）；`PRAGMA defer_foreign_keys=on` 有效（事务内可临时违反，结束未消解则整体回滚）。
+**总判定（2026-09-21 更新）：本地与远程双双实测「默认强制外键」，`schema.md` §11 承诺可直接落。** 本地已证实 `PRAGMA foreign_keys=OFF` 无效、`defer_foreign_keys` 可事务内临时放行；远程补充证实 **`OFF` 同样无效**，且**远程比本地更严**：显式 `BEGIN` 被平台禁止（code 7500）、`d1 execute` 多语句批次内 `defer_foreign_keys` **不放行**（每语句即隐式事务的结束，无「先违规后消解」窗口，详见 §5b R4/R5）。
 
 ## 1. 环境
 
@@ -227,11 +225,28 @@ Cloudflare 官方文档《Define foreign keys》（Last updated 2026-04-21，`de
 
 ## 4. 待补验证（不推测填空）
 
-1. **`--remote` 未验证**：本机无 `CLOUDFLARE_API_TOKEN`、未 `wrangler login`，远程命令被拒（原文见 §5）。`--local` 走 miniflare 模拟（`served_by: miniflare.db`），**不能等同于生产 D1**。
-2. **远程会话复用性未验证**：e 组只证明了本地 Worker 运行时；远程 D1 的请求间一致性需在真实实例上复测。
+1. ~~**`--remote` 未验证**~~ → **✅ 已补测（2026-09-21，§5b）**：默认强制、OFF 无效与本地一致；defer 在批次内不放行、显式 BEGIN 被禁为远程新增事实。
+2. **远程 Worker 会话（binding `env.DB`）复测未做**：e/f 组（连续请求一致性、defer 在 Worker batch 内行为）需部署后在线上 Worker 会话内复测——已随门禁 B 部署项登记。
 3. **本地已补测项**：`PRAGMA defer_foreign_keys`（f 组）已实测，结论见 §3。
 
-## 5. `--remote` 受阻原文（步骤 1 要求分别测）
+## 5b. `--remote` 补测实录（2026-09-21，凭证到位）
+
+环境：`wrangler 4.135.0`（`npx -y`），`CLOUDFLARE_ACCOUNT_ID` / `CLOUDFLARE_API_TOKEN` 仅走环境变量、不落文件。远程库 **`jd-growth-platform`（id `853be8d3-bca2-4683-ab7a-a61725516662`，region WNAM）于 2026-09-21 实建**；建库前 `d1 list --json` 返回 `[]`（账号内零 D1 库），**无任何生产数据，探针表测毕即 DROP**，远程库现仅剩平台内部 `_cf_KV`。`database_id` 已补进 `wrangler.toml`。
+
+| # | 探针 | 原始结果 | 结论 |
+| ---- | ---- | ---- | ---- |
+| R1 | `PRAGMA foreign_keys` | `{"foreign_keys": 1}` | **默认强制，与本地一致** |
+| R2 | 建两表（`parent`/`child REFERENCES`）后插孤儿 | `FOREIGN KEY constraint failed: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_FOREIGNKEY) [code: 7500]` | **违规即拒，与本地一致** |
+| R3 | 同批次 `PRAGMA foreign_keys=OFF; INSERT 孤儿` | 同上 `FOREIGN KEY constraint failed` | **OFF 无效，与本地一致** |
+| R4 | 同批次 `PRAGMA defer_foreign_keys=ON; INSERT 孤儿` | 同上 `FOREIGN KEY constraint failed`；回查 `COUNT(*)=0` | **⚠️ 与本地不同：批次内 defer 不放行**。解释：D1 每条查询都运行在隐式事务内（官方文档原文，§3），单语句即事务结束，defer 无「窗口」可用 |
+| R5 | 多语句批次含显式 `BEGIN … COMMIT` | `✘ [ERROR] … To execute a transaction, please use the state.storage.transaction() … instead of the SQL BEGIN TRANSACTION or SAVEPOINT statements. [code: 7500]` | **远程禁止 SQL 显式事务**（官方指引走平台侧事务 API） |
+| R6 | （旁证）R5 整批失败后查 `sqlite_master` | 探针两表**无残留**（批次内 DDL 一并回滚） | 批次级原子性的直接观察 |
+
+**远程对写入面的实际约束**（比本地更严，登记给实施面）：
+1. 远程**不存在**「事务内先违规、后补父行」的 SQL 写法——`BEGIN` 被禁、defer 在批次内无窗口。迁移与种子若跨语句存在引用顺序问题，**必须靠语句排序满足**，不能指望 defer。
+2. 批次（单次 execute 多语句）呈现原子性（R6），可作为小规模原子写入的替代语境；Worker 内 `binding.batch()` 的远程行为待部署后复测（记入 §4）。
+
+## 5c. `--remote` 受阻原文（历史记录，2026-09-18）
 
 命令：
 
@@ -258,6 +273,8 @@ Resource location: remote
 ## 6. 可直接粘进 `tech-stack.md` §8 的结论句
 
 > **TS-14（实测）**：在 `wrangler 4.135.0` + `--local` 下，D1 **默认强制外键约束**——`PRAGMA foreign_keys` 读回 `1`，插入违规子行或删除被引用父行均返回 `FOREIGN KEY constraint failed: SQLITE_CONSTRAINT_FOREIGNKEY`，且 `PRAGMA foreign_keys=OFF` 无法关闭（同 batch 内 OFF 后读回仍为 1），与官方文档「等价于每个事务都设 `foreign_keys=on`、用户查询无法改变」一致。因此 **无需在连接层每次 execute 前置开启，也无需写进迁移文件首行**；`schema.md` §11 承诺的真实外键可直接落。影响面：所有带物理外键的表（MD/PD/CFG 之间的关系）在**迁移建表顺序、种子数据插入顺序、删除顺序**上必须满足引用完整性；由于 §3.3 已定「一律软删/状态位、不做物理删除」，删除顺序风险仅在迁移与 mock 数据阶段。若迁移中确需临时违反（建表/改表顺序），只能用 `PRAGMA defer_foreign_keys=on`（**已实测**：defer 可设 1；事务内先违规后补父可成功且落库，事务结束仍未消解则整体回滚报 `FOREIGN KEY constraint failed`）。**注意：以上为 `--local` 结论；`--remote` 因本机未认证未验证，上生产前须补测。**
+
+> **TS-14（远程实测，2026-09-21 补齐，详见 §5b）**：真实 D1（`jd-growth-platform`，实测时账号内零生产数据）**同样默认强制外键**（R1=1）、违规即拒（R2）、`foreign_keys=OFF` 无效（R3），与本地一致。**远程比本地更严的两点**：① `PRAGMA defer_foreign_keys=ON` 在 `d1 execute` 多语句批次内**不放行**（R4）——D1 每条查询即隐式事务，defer 无窗口，故**远程迁移/种子必须靠语句排序满足引用完整性**，不能依赖 defer；② SQL 显式 `BEGIN` 被平台禁止（R5，code 7500，官方指引走 `state.storage.transaction()`），单次 execute 批次呈现原子性（R6）可作小规模原子写替代语境。本地 f 组的「事务内先违规后消解」写法**在远程 SQL 层不存在对应物**；Worker binding（`env.DB.batch()`）下的 defer 行为待部署后线上复测（§4 第 2 条）。
 
 ## 7. 复现方式
 
@@ -307,6 +324,6 @@ curl -s http://localhost:8787/rows
 
 | 引用方 | 性质 | 状态 |
 | ---- | ---- | ---- |
-| `docs/03-locks/tech-stack.md` §3.3 / §8 TS-14 | 实测证据回填 | ✅ **已回填（2026-09-19，tech-stack v1.2）**：§3.3 已按本文件结论改写，§8 TS-14 标 `✅ 实测已完成 2026-09-18`。**残留**：`--remote` 待补测（线上 D1 未验） |
+| `docs/03-locks/tech-stack.md` §3.3 / §8 TS-14 | 实测证据回填 | ✅ **已回填（2026-09-19，tech-stack v1.2）**：§3.3 已按本文件结论改写，§8 TS-14 标 `✅ 实测已完成 2026-09-18`。**`--remote` 已补测（2026-09-21）**，tech-stack TS-14 行同步翻为「本地+远程双实测」 |
 | `docs/03-locks/schema.md`（v1.3） | §11 外键可兑现性的实测依据 | ✅ 已互指（2026-09-19）：其 §11 可直接落的判断引用本文件（v1.3 仅校正宪法交叉引用，未改字段） |
 | `db/` 迁移与种子数据 | 建表/插入/删除顺序约束 | ✅ 已建（2026-09-19） |

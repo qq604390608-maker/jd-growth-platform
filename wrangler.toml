@@ -8,12 +8,13 @@ name = "jd-growth-platform"
 main = "server/api/index.js"
 compatibility_date = "2026-09-19"
 
-# D1 数据库绑定（tech-stack §2.3 / §3；外键本地默认强制，已实测）
+# D1 数据库绑定（tech-stack §2.3 / §3；外键强制已本地+远程双实测，见 db/probes/fk/）
 # 本地：wrangler dev / wrangler d1 migrations apply --local 自动建本地库
-# 生产：合并主干后由 CI 用 CLOUDFLARE_API_TOKEN 创建并 apply（account_id 经 Secrets 注入，不落本文件）
+# 远程：2026-09-21 已实建（id 见下；无生产数据前由本机实跑探针，门禁 B 后由 CI 接管迁移）
 [[d1_databases]]
 binding = "DB"
 database_name = "jd-growth-platform"
+database_id = "853be8d3-bca2-4683-ab7a-a61725516662"
 migrations_dir = "./db/migrations"
 
 # Workers AI 绑定（tech-stack §2.5 DS-02；A-1 LLM 推理服务）

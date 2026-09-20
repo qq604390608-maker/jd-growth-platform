@@ -276,7 +276,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | **迁移的引用完整性顺序** | 因外键默认强制，**建表 / 插入 / 删除顺序**必须满足引用完整性（先建父表后建子表、先删子行后删父行）。若迁移中确需临时违反（如调整建表顺序），只能用 `PRAGMA defer_foreign_keys=on` |
 
 > **实测依据**：外键 —— `../../db/probes/fk/README.md`（§2 a~f、§3 与官方文档对照）；约束与类型 —— `../../db/probes/type/README.md`（§2.2 / §2.6 与 §3 落差表）。
-> **未验证面**：两份探针均为 `--local`（miniflare）。**`--remote`（真实 D1）未验证**（本机无 `CLOUDFLARE_API_TOKEN`）——上生产前须补测，尤其是 `CHECK` 与外键的**线上行为是否与本地逐条一致**。
+> **未验证面（更新于 2026-09-21）**：两份探针原均为 `--local`（miniflare）。**外键探针已于 2026-09-21 补齐 `--remote` 实测**（真实 D1 `jd-growth-platform`：默认强制、`OFF` 无效与本地一致；**defer 在批次内不放行、SQL 显式 `BEGIN` 被禁**为远程更严的新事实，详见 `db/probes/fk/README.md` §5b）；**类型/长度探针（`db/probes/type/`）仍限 `--local`**——`CHECK` 与长度的线上行为是否与本地逐条一致，待部署后线上复测。
 > **对 `schema.md` v1.2 的直接落点**：`MD-06` 六要素的必填约束（`NOT NULL` 拦 `NULL` + `CHECK (length(trim(x)) > 0)` 拦空串）**正是依据本表第 3 行**设计的——`NOT NULL` 与 `CHECK` **不可互相替代**。
 
 ### 3.4 表名前缀
@@ -409,7 +409,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | TS-11 | `varchar(n)` 长度约束在 D1 的兜底策略（应用层校验 or `CHECK` 约束） | 技术方 | ✅ **已决（2026-09-20，依用户裁决）：应用层校验**。事实面已由实测完成（2026-09-18，`db/probes/type/`：长度**一律不强制**；`CHECK` 可用、按**字符**计、**不拦 NULL**）；分类清单见该 README §5（编号锚点 94 / 长文本 39 / 其余短字段 47）。**连带结论**：采应用层校验 → **库级 `CHECK` 不写进 `0001`**，首版迁移不受影响；代价是**绕过写入面的路径拦不住**，故须在**各写入面分别落实**并由用例逐点锁死（不依赖统一中间件） |
 | TS-12 | 哪些列需要中文排序 → 是否增设拼音/排序键列 | PM + 前端 | F-27/F-28 列表排序。**部分实测已完成**：默认 **BINARY ≠ 拼音序**（已证实）、D1 **无拼音排序规则**（`COLLATE PINYIN` 报错）→ 仍待 PM 逐列确认「哪些列要排拼音」 |
 | TS-13 | 前端是否需要轻量组件复用手段（如 Web Components） | 前端 | `frontend/` 开发方式 |
-| TS-14 | **D1 中 `PRAGMA foreign_keys` 是否默认生效**（`schema.md` §11 承诺了真实外键，须实测） | 技术方 | `schema.md` §11 的可兑现性。**✅ 实测已完成 2026-09-18**（`db/probes/fk/`）：**默认强制外键**、`OFF` 无法关闭、临时放行只能 `defer_foreign_keys`；§11 可直接落。**限 `--local`；`--remote` 待补测**（见 §3.3 未验证面） |
+| TS-14 | **D1 中 `PRAGMA foreign_keys` 是否默认生效**（`schema.md` §11 承诺了真实外键，须实测） | 技术方 | `schema.md` §11 的可兑现性。**✅ 本地+远程双实测**：`--local` 2026-09-18（`db/probes/fk/`）——**默认强制外键**、`OFF` 无法关闭、临时放行只能 `defer_foreign_keys`；`--remote` 2026-09-21 补测——默认强制与 `OFF` 无效**同本地**，且**更严**：`defer_foreign_keys` 在批次内不放行、SQL 显式 `BEGIN` 被平台禁（code 7500）→ **远程迁移/种子必须靠语句排序满足引用完整性**（详见 `db/probes/fk/README.md` §5b）。§11 可直接落 |
 | TS-15 | 前端与 API 是否长期保持同源（若拆域名需补 CORS 与鉴权） | PM | 部署形态 |
 | TS-16 | 长文本（`result_summary` / 注入快照）的截断或分段策略（受 2 MB/行 限制） | 技术方 | F-09 F-12 F-24 |
 | TS-17 | **是否给 `schema.md` `CFG-04` 增补 `retry_delay_sec` / `dead_letter_flag`**（§5.1） | PM | F-06 重试行为能否配置化 |
