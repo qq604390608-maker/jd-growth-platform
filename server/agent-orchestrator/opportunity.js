@@ -16,7 +16,10 @@
  *   ② **零自有写语句**（无 INSERT/UPDATE/DELETE、无裸 SQL）：MD-06 经 `createOpportunity`、LNK-03 经 `linkOpportunityRelation`，
  *      取号与判重一律走 `../shared-context/index.js` 的读面（`listOpportunities` / `listOpportunityRelations`）；
  *   ③ **不下 HVA 判断、不输出生产动作**（PRD-M3 §4 红线 1：止于机会＋初步依据）；
- *   ④ `unknown_item` 纯空白串 → **应用层显式拒**（ADR-003：库级 `NOT NULL` 拦不住空白串）。
+ *   ④ `unknown_item` 纯空白串 → **应用层显式拒**（ADR-003：库级 `NOT NULL` 拦不住空白串）；
+ *   ⑤ **未知项写入策略前置守卫**（ADR-003 §7，2026-09-20 用户裁决）：空串态「已评估且确无」
+ *      **只允许 PM 写入**，Agent 路径（`producing_task_id` 非空）一律拒——须留 `NULL` 走待补，
+ *      **不逼 Agent 编造未知项充数**；产出来源即由 `producing_task_id` 判定（**不新增列、不改 DDL**）。
  * 边界：机会形成与去重的**判断**归本文件（F-16）；M2 的 `shared-context` 只提供关系登记/读取与六要素判定纯函数。
  *   缺口记录**不落表**（schema 无缺口专表；缺口的出处是 `EXT-02.missing_note` 与 `CFG-01.capability_cannot`）。
  * 反向清单：登记 ./README.md（文件清单 / 用例表 / 路由面 / 口径 / 反向清单）与 server/README.md（模块表 / 状态位）；
@@ -27,6 +30,7 @@
 
 import {
   assessOpportunitySixElements,
+  classifyUnknownItem,
   UNKNOWN_ITEM_STATES,
   createOpportunity,
   listOpportunities,
@@ -42,6 +46,47 @@ export const OPPORTUNITY_OUTCOMES = {
 
 /** 判重命中时的关系语义（`dict:OPP_RELATION` 码；「相同问题关联」）。 */
 export const DEFAULT_RELATION_KIND = "same_issue";
+
+/** 机会产出来源（由 `MD-06.producing_task_id` 派生，**不新增列**）。ADR-003 §7-②。 */
+export const OPPORTUNITY_SOURCES = {
+  AGENT: "agent", // producing_task_id 非空 → 由机会发现任务产出（Agent 路径）
+  PM: "pm", // 无产出任务 → PM 手工补录路径
+};
+
+/**
+ * 机会产出来源判定（**纯函数**）。ADR-003 §7-②「两者皆有，按来源区分」：
+ * 以 `MD-06.producing_task_id` 是否为空区分——非空即由某个机会发现任务产出（Agent 路径），
+ * 为空即无产出任务（PM 手工补录路径）。**不新增列、不改 DDL**（该列本就可空，FK → PD-01）。
+ */
+export function classifyOpportunitySource(producing_task_id) {
+  const raw =
+    producing_task_id === undefined || producing_task_id === null ? "" : String(producing_task_id);
+  return raw.trim() === "" ? OPPORTUNITY_SOURCES.PM : OPPORTUNITY_SOURCES.AGENT;
+}
+
+/**
+ * 未知项写入策略判定（**纯函数**，写入前置守卫用）。ADR-003 §7：
+ * - ① 「确无未知项」（空串态 `''`）**只允许 PM 写入**——Agent 不得自行结论「确无」，
+ *   类比 F-01「Agent 和产品经理不能替业务方另定指标定义」；Agent 未识别出未知项时应留
+ *   `NULL`（未评估）并触发待补，交由 PM 确认，**不得编造未知项充数**；
+ * - ② 防 `NULL` 规避**不由本函数判定**——已由 `assessOpportunitySixElements` 的
+ *   `pending_supplement` 承担（未评估 → 六要素不齐 → 依据不足走缺口分支，不写库），
+ *   此处不重造第二套口径。
+ * @returns {{ state:string, source:string, allowed:boolean, reason:string }}
+ */
+export function judgeUnknownItemWrite({ unknown_item, producing_task_id } = {}) {
+  const state = classifyUnknownItem(unknown_item);
+  const source = classifyOpportunitySource(producing_task_id);
+  const blocked = state === UNKNOWN_ITEM_STATES.NONE_CONFIRMED && source === OPPORTUNITY_SOURCES.AGENT;
+  return {
+    state,
+    source,
+    allowed: !blocked,
+    reason: blocked
+      ? "未知项「已评估且确无」（空串）只允许 PM 写入：Agent 不得自行结论「确无未知项」（ADR-003 §7-①）。未识别出未知项时应留 NULL（未评估）并触发待补，不得编造未知项充数。"
+      : "允许写入",
+  };
+}
 
 /**
  * 新机会的默认状态（`dict:OPP_STATUS` 码 `candidate`＝候选）。
@@ -287,8 +332,13 @@ export function buildGapRecord({ goal = {}, clue = {}, verification = {}, sixEle
  * S-A4 编排（**写面全部委托 shared-context**）：
  * 1. 组装六要素 + 依据足够性判定；
  * 2. `unknown_item` 纯空白串 → **显式拒**（ADR-003：应用层须拒，库级拦不住）；
- * 3. 依据不足 → 返回 `outcome="gap"` + 缺口记录，**不写任何表**；
- * 4. 依据足够 → 取号 → `createOpportunity`（MD-06）→ 命中已有机会则 `linkOpportunityRelation`（LNK-03）→ 返回 `outcome="opportunity"`。
+ * 3. **未知项写入策略前置守卫**（ADR-003 §7-①，在取号与写库之前判）：空串态（已评估且确无）
+ *    **只允许 PM 写入**；Agent 路径（`producing_task_id` 非空）一律拒，须留 `NULL` 走待补；
+ * 4. 依据不足 → 返回 `outcome="gap"` + 缺口记录，**不写任何表**；
+ * 5. 依据足够 → 取号 → `createOpportunity`（MD-06）→ 命中已有机会则 `linkOpportunityRelation`（LNK-03）→ 返回 `outcome="opportunity"`。
+ *
+ * **产出来源**（ADR-003 §7-②）以 `producing_task_id` 判定：非空＝机会发现任务（Agent）产出，
+ * 空＝PM 手工补录。**不新增列、不改 DDL**；防 `NULL` 规避由 `pending_supplement` 承担（见 `judgeUnknownItemWrite`）。
  *
  * 「相同问题」关系方向**对齐种子 `LK-OR-002`（`same_issue`）**：`from`＝**已有机会**（原机会），`to`＝**新机会**。
  *
@@ -315,6 +365,14 @@ export async function formOpportunityOrGap(db, input = {}) {
       "未知项（unknown_item）不得为纯空白串：未评估（未提供或 NULL）与已评估且确无（空串）是两种状态，须显式表达"
     );
   }
+
+  // ADR-003 §7-①：**前置守卫**（在取号与写库之前判，不留半截状态）——
+  // 空串态（已评估且确无）只允许 PM 写入；Agent 路径（producing_task_id 非空）一律拒。
+  const writePolicy = judgeUnknownItemWrite({
+    unknown_item: six.elements.unknown_item,
+    producing_task_id: input.producing_task_id,
+  });
+  if (writePolicy.allowed === false) throw new Error(writePolicy.reason);
 
   const basis = hasEnoughBasis({ verification, sixElements: six });
 

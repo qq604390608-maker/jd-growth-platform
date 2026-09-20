@@ -30,12 +30,16 @@ import {
   buildGapRecord,
   OPPORTUNITY_OUTCOMES,
   DEFAULT_RELATION_KIND,
+  OPPORTUNITY_SOURCES,
+  classifyOpportunitySource,
+  judgeUnknownItemWrite,
 } from "./opportunity.js";
 import {
   getOpportunity,
   listOpportunities,
   listOpportunityRelations,
   assessOpportunitySixElements,
+  UNKNOWN_ITEM_STATES,
 } from "../shared-context/index.js";
 
 const DDL_PATH = new URL("../../db/migrations/0001_init.sql", import.meta.url);
@@ -395,6 +399,80 @@ console.log("\n⑨ 静态核验 · 零外部调用 / 零写语句（写全委托
 
   const banned = ["../task-runner", "../tool-executor"];
   assert(!banned.some((b) => importTargets.some((t) => t.includes(b))), "⑨ 不反向依赖 task-runner / tool-executor");
+}
+
+// ==================================================== ⑩ ADR-003 §7 未知项写入策略（2026-09-20 用户裁决）
+console.log("\n⑩ ADR-003 §7 · 未知项写入策略：空串态只允许 PM / 来源按 `producing_task_id` 区分（**不新增列**）");
+{
+  // 来源判定：producing_task_id 非空＝Agent 任务产出；空＝PM 补录
+  assert(classifyOpportunitySource("T-1022") === OPPORTUNITY_SOURCES.AGENT, "⑩ producing_task_id='T-1022' → agent");
+  assert(classifyOpportunitySource(null) === OPPORTUNITY_SOURCES.PM, "⑩ producing_task_id=null → pm");
+  assert(classifyOpportunitySource(undefined) === OPPORTUNITY_SOURCES.PM, "⑩ 未提供 producing_task_id → pm（既有调用不受影响）");
+  assert(classifyOpportunitySource("") === OPPORTUNITY_SOURCES.PM, "⑩ producing_task_id='' → pm（空串不算产出任务）");
+  assert(classifyOpportunitySource("   ") === OPPORTUNITY_SOURCES.PM, "⑩ producing_task_id 纯空白 → pm");
+
+  // ① 空串态（已评估且确无）：Agent 拒、PM 放行
+  const agentNone = judgeUnknownItemWrite({ unknown_item: "", producing_task_id: "T-1022" });
+  assert(agentNone.allowed === false, "⑩ §7-① Agent 路径写空串（确无未知项）→ 拒绝（Agent 不得自行结论）");
+  assert(
+    agentNone.source === "agent" && agentNone.state === UNKNOWN_ITEM_STATES.NONE_CONFIRMED,
+    `⑩ 拒绝时来源=agent、态=none_confirmed（实测 ${agentNone.source}/${agentNone.state}）`
+  );
+  assert(
+    judgeUnknownItemWrite({ unknown_item: "", producing_task_id: null }).allowed === true,
+    "⑩ §7-① PM 路径写空串（确无未知项）→ 允许"
+  );
+
+  // 门禁只挡空串态，不误伤其他态
+  assert(
+    judgeUnknownItemWrite({ unknown_item: "样本量不足", producing_task_id: "T-1022" }).allowed === true,
+    "⑩ Agent 路径写非空未知项 → 允许（门禁只挡空串态）"
+  );
+  assert(
+    judgeUnknownItemWrite({ unknown_item: null, producing_task_id: "T-1022" }).allowed === true,
+    "⑩ Agent 路径留 NULL（未评估）→ 允许，转待补而非拒写（不逼 Agent 编造未知项）"
+  );
+
+  // ② 防 NULL 规避：NULL → 待补 + 六要素不齐（既有口径 `pending_supplement`，此处锁定）
+  const full = {
+    opportunity_title: "t", goal_id: "G", goal_version_no: 1,
+    target_object: "人群", phenomenon: "现象", initial_basis_note: "依据", research_reason: "理由",
+  };
+  const aNull = assessOpportunitySixElements({ ...full, unknown_item: null });
+  assert(
+    aNull.pending_supplement === true && aNull.six_elements_complete === false,
+    "⑩ §7-② 防 NULL 规避：未评估 → pending_supplement 且六要素不齐（不静默通过）"
+  );
+  const aNone = assessOpportunitySixElements({ ...full, unknown_item: "" });
+  assert(
+    aNone.pending_supplement === false && aNone.six_elements_complete === true,
+    "⑩ 空串态计入齐全——故才须限制谁可写（门禁的必要性）"
+  );
+
+  // 端到端：Agent 路径 + 空串 → 前置守卫抛错，且**不写库**（守卫在取号与写库之前，不留半截状态）
+  const { sqlite, db } = freshDb();
+  const before = countRows(sqlite, "opportunity");
+  await assertThrows(
+    () => formOpportunityOrGap(db, { goal: GOAL, clue: CLUE, verification: okVerification(), producing_task_id: "T-1022" }),
+    "⑩ 端到端：Agent 路径（producing_task_id='T-1022'）+ 空串态 → 守卫抛错",
+    "只允许 PM 写入"
+  );
+  assert(
+    countRows(sqlite, "opportunity") === before,
+    `⑩ 守卫在写库之前：**不写 MD-06**（实测 ${countRows(sqlite, "opportunity")}＝改前 ${before}）`
+  );
+
+  // 端到端：Agent 路径 + 非空未知项 → 正常落库（门禁不误伤）
+  const { sqlite: s2, db: db2 } = freshDb();
+  const b2 = countRows(s2, "opportunity");
+  const r2 = await formOpportunityOrGap(db2, {
+    goal: GOAL,
+    clue: { ...CLUE, unknown_item: "尚未核对两组人群可比性" },
+    verification: okVerification(),
+    producing_task_id: "T-1022",
+  });
+  assert(r2.outcome === OPPORTUNITY_OUTCOMES.OPPORTUNITY, "⑩ 端到端：Agent 路径 + 非空未知项 → 正常形成机会（门禁不误伤）");
+  assert(countRows(s2, "opportunity") === b2 + 1, `⑩ 该落库的落库（实测 ${countRows(s2, "opportunity")}，改前 ${b2}）`);
 }
 
 finish();
