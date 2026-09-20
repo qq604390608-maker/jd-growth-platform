@@ -21,6 +21,8 @@
 | `test-f15.mjs` | F-15 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + **注入式 transport**（复用 `prototype/mock/scenarios.js`）；断言经 M5 真实查询透传（含哨兵串证「模型预期不进事实」）/ 五项检查齐备与缺口标注 / 倒挂隔离非整包失败 / 缺字段退回请补 / 证据草稿四要素 + 落 EXT-02 回查 / 一步编排成败两路 / `parseStamp` / 静态零外部调用 + 零写语句 + 读语句仅 CFG-05） | ✅ 已建（**87 断言全绿**） |
 | `opportunity.js` | **F-16 机会形成与去重**：S-A4 整理（**零自有写语句、零裸 SQL**——MD-06 归 F-10 `createOpportunity`、LNK-03 归 F-10 `linkOpportunityRelation`，取号/判重走读面）。`nextOpportunityId`/`nextOpportunityRelationId`（`OPP-NNN`/`LK-OR-NNN` 库内最大+1）、`buildOpportunitySixElements`（六要素组装 + 二态判定）、`hasEnoughBasis`（依据足够性：真实返回/来源可回查/未倒挂/六要素**已评估**齐备/标题可派生；适用范围未判定**不阻断**记 caveat）、`buildGapRecord`（缺口记录：检查范围+信息缺口+影响判断，**不落表**）、`formOpportunityOrGap`（S-A4 编排：足够→机会记录(+判重关联 `same_issue`)；不足→缺口记录且**不写任何表**） | ✅ F-16 已建 2026-09-20（**73 断言全绿**） |
 | `test-f16.mjs` | F-16 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + 结构性注入的 F-15 查证结果；断言依据足够→落 MD-06 六要素+二态 / 依据不足→缺口记录且**行数不变** / unknown 未评估判不齐 / unknown 纯空白串显式拒 / 判重命中→LNK-03 `same_issue` 方向 / 取号推进 / 缺口记录结构 / 纯函数与 caveat / 静态零外部调用 + 零写语句 + 零裸 SQL + 唯一依赖 shared-context） | ✅ 已建（**73 断言全绿**） |
+| `handoff.js` | **F-17 两步衔接**（M3 收尾）：确定性衔接编排/契约层（**零写库、零裸 SQL、零外部调用，且绝不触发 M4**）。`assemblePmDecisionContext`（M3 产出→PM 决策上下文：机会六要素＋评定＋**初步依据四要素**（来源/条件/时点/适用范围）＋未知项＋缺口＋「尚不构成 HVA 结论」声明）、`evaluateHandoffGate`（**人工节点守卫**：完成判据＝MD-12 有无该机会的真实建议行——**不看 `opportunity_status`**，防状态假通过；`auto_handoff` 恒 false）、`collectSupplementRequests`（**反向问 PM**：必要信息缺失→请补项，不静默回退不编造）、`composeHandoffPackage`（交接包**只组装不触发**：未过守卫 `handoff:null`＋`blocked_by='human_node'`；已过则给「供 M1 F-04 消费」的输入前提） | ✅ F-17 已建 2026-09-20（**66 断言全绿**） |
+| `test-f17.mjs` | F-17 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + 夹具「无证据+未知项 NULL」机会；用 F-03 `submitProposal` **造人工节点产物**。断言 PM 上下文四要素透传+性质声明 / **状态为 submitted 但 MD-12 无建议 → 仍不得交接**（防假通过）/ 提交建议后放行但 `auto_handoff` 仍 false / 反向问 PM 请补项 / 交接包只组装（**`task` 与 `hva_research` 行数不变**）/ 机会不存在报错 / 常量口径 / 静态零外部调用+零写库+零裸 SQL+**不 import hva.js 且不出现 M4 建任务函数名**） | ✅ 已建（**66 断言全绿**） |
 
 ## F-13 已通过用例（`test-f13.mjs`，30 断言）
 
@@ -71,7 +73,20 @@
 | ⑧ 纯函数与 caveat | F-16 判据口径 | 标题派生（取现象 / 显式优先 / 无来源→null / 截断 80）；六要素装配含 `unknown_item`；**适用范围未判定不阻断**（`caveats.scope_decided=false` 而 `enough=true`，仍形成机会由人工节点复核）；`hasEnoughBasis` 返回结构稳定 |
 | ⑨ 静态核验 | 硬红线纪律 | 零 `fetch(`、无 http(s) 字面；**零自有写语句**（实测命中 0）；**零裸 SQL**（`SELECT` 实测 0，取号/判重走读面）；唯一 `import` 来自 `../shared-context/index.js`；不反向依赖 `task-runner`/`tool-executor` |
 
-## HTTP 路由面（`server/api/index.js`，F-13/F-14/F-15/F-16 接入）
+## F-17 已通过用例（`test-f17.mjs`，66 断言）
+
+| 组别 | oracle 来源 | 关键断言 |
+| ---- | ---- | ---- |
+| ① PM 决策上下文 | **PRD-M3** F-17 | 锚定机会；现象原样透传；依据条数＝LNK-01 关联数（`OPP-012`→2 条）；每条四要素（来源/条件/时点/适用范围）**逐项非空**且可回查；`linked_at` **原样透传不解析**（值形式见 `schema.md` §12 Q-16）；未知项二态正确；**性质声明**「尚不构成 HVA 结论」；下一步＝人工节点且 `auto:false`；**不含生产动作类内容**（BRD §5.3） |
+| ② 人工节点守卫（**防假通过**） | **TC-I-M3-001** | 前置：种子 `OPP-012` 状态为 `submitted`、且 MD-12 **零建议行**；→ `human_node_completed=false`、**`can_handoff=false`（状态为 submitted 也不放行）**、`auto_handoff=false`、`blocked_by='human_node'`、`reasons` 引「MD-12 无建议行」、`required_node` 指 M1 F-03、`proposal_ids=[]` |
+| ③ 完成人工节点后放行 | **TC-I-M3-001** | 经 F-03 `submitProposal` 后 MD-12 出现 1 行 → `can_handoff=true`、`blocked_by=null`、`proposal_ids` 指向真实建议、研究问题透传；**但 `auto_handoff` 仍 false**；守卫本身**不建任何 M4 任务** |
+| ④ 反向问 PM | **PRD-M3** F-17 | 夹具机会（无证据 + 未知项 `NULL`）→ `ask_pm=true`、`to='PM'`，请补项含 `initial_basis`（无 LNK-01 关联）与 `unknown_item`（未评估）、每条含「为何请补」与「请补什么」、不越界为生产动作；六要素齐且有证据的机会 → `ask_pm=false`（不无病呻吟） |
+| ⑤ 交接包（只组装不触发） | **PRD-M3** F-17 / **TC-I-M3-001** | 未过守卫 → `handoff:null`＋`blocked_by='human_node'`＋`no_auto_handoff:true`，但 PM 上下文仍完整；过守卫 → `handoff` 带 `research_question`/`goal_version_no`/`already_triggered:false`＋**入口提示文字**（指向 M1 F-04）；**关键红线**：组装前后 **`task` 行数不变、`hva_research` 行数不变**（不代为启动 M4） |
+| ⑥ 前置校验 | 确定性编排纪律 | 机会不存在 → 三个入口一律报错（不静默造上下文）；必填缺失 → 报错 |
+| ⑦ 常量口径 | BRD §3.1 / §6 | `HANDOFF_NODE.auto === false`、指向 M1 F-03→F-04、常量冻结；四要素常量 4 项且冻结 |
+| ⑧ 静态核验 | 硬红线纪律 | 零 `fetch(`、无 http(s) 字面；**零写库**（实测命中 0）；**零裸 SQL**（`SELECT` 实测 0）；**不 import `../task-runner/hva.js`**、**代码中不出现 M4 建任务函数名**（TC-I-M3-001）；import 恰 2 条＝`../shared-context/index.js` ＋ `../task-runner/proposal.js`；不依赖 `tool-executor` |
+
+## HTTP 路由面（`server/api/index.js`，F-13/F-14/F-15/F-16/F-17 接入）
 
 | 路由 | 职责 | 成功 / 错误码 |
 | ---- | ---- | ---- |
@@ -93,6 +108,10 @@
 | `POST /api/opportunity-basis` | F-16 · 依据足够性判定（纯计算：真实返回/来源可回查/未倒挂/六要素已评估齐备/标题可派生） | 200 |
 | `POST /api/opportunity-gap-record` | F-16 · 缺口记录（检查范围 + 信息缺口 + 影响判断，纯计算，不落表） | 200 |
 | `GET /api/opportunity-next-id` | F-16 · 取号（`OPP-NNN` / `LK-OR-NNN`，库内最大 +1） | 200 |
+| `POST /api/pm-decision-context` | F-17 · M3 产出→PM 决策上下文（六要素＋初步依据四要素＋未知项＋缺口＋性质声明；只读纯计算） | 200；机会不存在 404；缺 `opportunity_id` 400 |
+| `GET /api/handoff-gate/{opportunity_id}` | F-17 · **人工节点守卫**（完成判据＝MD-12 有无真实建议行；`auto_handoff` 恒 false） | 200；机会不存在 404 |
+| `POST /api/pm-supplement-requests` | F-17 · **反向问 PM**（必要信息缺失→请补项；不静默回退不编造） | 200；机会不存在 404；缺 `opportunity_id` 400 |
+| `POST /api/handoff-package` | F-17 · 交接包**只组装不触发**（未过守卫 `handoff:null`＋`blocked_by='human_node'`） | 200；机会不存在 404；缺 `opportunity_id` 400 |
 
 ## 口径（本模块已定，含登记在案的取舍）
 
@@ -152,11 +171,25 @@
 
 **⑦ 适用范围未判定不阻断**：目标未声明业务范围时，F-15 五项检查的 `applicability` 记「未知」——本文件把它作为 **caveat**（`caveats.scope_decided=false`）随机会记录一并暴露，**不因此丢弃已成立的证据**，由后续人工节点（F-03）复核。
 
+### 5. F-17 两步衔接（M3 收尾 · 衔接经人工节点、不自动交接）
+
+**① 零写库 + 零裸 SQL + 零外部调用**：`handoff.js` 自己**不含任何 `INSERT`/`UPDATE`/`DELETE`**、**不含 `SELECT`**（`test-f17` ⑧ 静态断言），一律走 `../shared-context/index.js`（读面）与 `../task-runner/proposal.js`（F-03 只读 `listProposals`）。
+
+**② 绝不触发 M4（TC-I-M3-001）**：**不 import `../task-runner/hva.js`**、代码里**不出现 M4 建任务函数名 `createHvaResearchTask`**（⑧ 静态断言）；交接物非空时也只给**入口提示文字**（指向 M1 F-04），不代为启动。`test-f17` ⑤ 以「组装前后 `task` / `hva_research` 行数不变」实测证明。
+
+**③ 人工节点完成判据＝MD-12 真实建议行（不看机会状态）**：`evaluateHandoffGate` 只认「该机会在 `MD-12 research_proposal` 是否有真实行」——**种子 `OPP-012` 状态为 `submitted` 却无建议行**（该表在「有意留空」清单内），若以状态为判据会造成**假通过**；本文件故明确以**建议实行为准**（`test-f17` ② 断言）。
+
+**④ `auto_handoff` 恒 false**：无论守卫是否通过，`auto_handoff` 一律 `false`，并附 `NO_AUTO_HANDOFF_NOTE` 声明——机会 → 研究建议 → HVA 任务之间必须经 PM（BRD §3.1 / §6）。
+
+**⑤ PM 上下文只含机会＋初步依据（PRD-M3 §4 红线 1/3）**：`assemblePmDecisionContext` 输出恒带 `PM_CONTEXT_NOTICE`（「尚不构成 HVA 结论」），不下 HVA 判断、不含生产动作类内容；证据四要素逐一透传，**`linked_at` 只原样带出、不解析为时点**（种子值形式见 `schema.md` §12 **Q-16**）。
+
+**⑥ 反向问 PM 只补要查清的内容**：`collectSupplementRequests` 在六要素不齐 / 未知项未评估 / 无关联证据时列出请补项（含「为何请补」与「请补什么」），**不静默回退、不编造**，也不要求重填已有材料（承接 M1 F-03 口径）。
+
 ## 反向清单
 
-- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 / F-15 / F-16 路由**）｜阶段4 `../agent-orchestrator` 后续 F-17~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 复用注入清单；`verification.js` 的 `verifyClueAndDraftEvidence`/`buildEvidenceDraft` 供 **F-16 机会形成与去重**消费「查证结果 → 机会或缺口记录」；`opportunity.js` 的 `formOpportunityOrGap` 供 **F-17 两步衔接**消费「机会记录 → PM 决策上下文」）｜`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`
-- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14 真源）｜`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）｜`verification.js` 引用 `../tool-executor/index.js`（**M5**：`runQueryWithRecovery` / `RETRY_OUTCOME`）与 `../shared-context/index.js`（读面 `listOpportunities` + **F-09 写入面** `createEvidence`/`validateEvidenceCompleteness`）｜`opportunity.js` 引用 `../shared-context/index.js`（**F-10 写入面** `createOpportunity`/`linkOpportunityRelation` + 读面 `listOpportunities`/`listOpportunityRelations` + 纯函数 `assessOpportunitySixElements`）
-- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-14~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`verification.js` 为 F-15 编排层（**零自有写语句**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`opportunity.js` 为 F-16 编排层（**零自有写语句、零裸 SQL**），同样只由 `../api/index.js` 消费（F-17 两步衔接将复用其 `formOpportunityOrGap`）；`test-f13.mjs`/`test-f14.mjs`/`test-f15.mjs`/`test-f16.mjs` 仅用作 CI 验证，不进运行期
+- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 / F-15 / F-16 / F-17 路由**）｜阶段4 `../agent-orchestrator` 后续 F-18~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 复用注入清单；`verification.js` 的 `verifyClueAndDraftEvidence`/`buildEvidenceDraft` 供 **F-16 机会形成与去重**消费「查证结果 → 机会或缺口记录」；**F-17 两步衔接**消费 `opportunity.js` 产出的机会记录（经 MD-06 读面）组装 PM 决策上下文，并交出「供 M1 F-04 消费」的输入前提）｜`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`；**F-17 反向引用** `../task-runner/proposal.js` 的只读 `listProposals`（人工节点产物）
+- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14/MD-06/MD-12 真源）｜`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）｜`verification.js` 引用 `../tool-executor/index.js`（**M5**：`runQueryWithRecovery` / `RETRY_OUTCOME`）与 `../shared-context/index.js`（读面 `listOpportunities` + **F-09 写入面** `createEvidence`/`validateEvidenceCompleteness`）｜`opportunity.js` 引用 `../shared-context/index.js`（**F-10 写入面** `createOpportunity`/`linkOpportunityRelation` + 读面 `listOpportunities`/`listOpportunityRelations` + 纯函数 `assessOpportunitySixElements`）｜`handoff.js` 引用 `../shared-context/index.js`（读面 `getOpportunity`/`listEvidenceByOpportunity`/`getEvidence` + 纯函数 `assessOpportunitySixElements`/`UNKNOWN_ITEM_STATES`）与 `../task-runner/proposal.js`（**F-03 只读** `listProposals`）
+- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-18~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`verification.js` 为 F-15 编排层（**零自有写语句**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`opportunity.js` 为 F-16 编排层（**零自有写语句、零裸 SQL**），同样只由 `../api/index.js` 消费；`handoff.js` 为 F-17 衔接编排层（**零写库、零裸 SQL、绝不触发 M4**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`test-f13.mjs`/`test-f14.mjs`/`test-f15.mjs`/`test-f16.mjs`/`test-f17.mjs` 仅用作 CI 验证，不进运行期
 
 ## 种子基线（本模块相关，只读参照）
 
@@ -165,3 +198,5 @@
 **F-15 额外只读参照**（不属本模块写入面、运行期以只读消费）：`gap_rule` 4 行（`GAP-1`~`GAP-4`，口径规则真源，F-15 的「信息缺口」检查逐条读它）、`opportunity` 8 行（「已有机会」比对读它）、`evidence` 7 行（EXT-02，回查链验证用）。F-15 **不新增种子行**：证据由 F-09 写入面按业务写入（`test-f15` ⑤ 落 `EV-9001` 后回查）。
 
 **F-16 额外只读参照 / 基线推进**：`opportunity` 8 行（`OPP-005`~`OPP-014`，判重比对与取号基准读它）、`opportunity_relation` 2 行（`LK-OR-001` `superseded` / `LK-OR-002` `same_issue`，**F-16 的 `same_issue` 方向口径以其为准**）。F-16 **不新增种子行**：机会与关系均由 F-10 写入面按业务写入（`test-f16` ①/⑤ 落 `OPP-015`/`OPP-016` + `LK-OR-003` 后回查）；种子 `opportunity` 的 `unknown_item` **全部非空**（原型只呈现「有未知项」一态），二态中的 `NULL`/`''` 由 ADR-003 补齐、由 F-16 判定与写入侧承担。
+
+**F-17 额外只读参照**（不属本模块写入面、运行期以只读消费）：`opportunity` 8 行（PM 决策上下文与守卫的目标对象）、`opportunity_evidence` **10 行**（`LK-OE-001`~`LK-OE-010`，**初步依据四要素的来源**）、`evidence` 7 行（EXT-02，四要素明细）。**`research_proposal` 种子 0 行**（该表在「有意留空」清单内）——故种子机会 `OPP-012`/`OPP-010` 虽标 `submitted` 却**无建议行**，这正是 F-17「人工节点完成判据＝MD-12 实行为准（不看状态）」的由来；`test-f17` 用 F-03 `submitProposal` 现场造建议（不新增种子行）。另登记 **`schema.md` §12 Q-16**：`opportunity_evidence.linked_at` 种子值为产出任务 ID（`'T-1022'` 等）与该列 `datetime`「关联建立时点」定义不符，F-17 按「只透传不解析」推进、**未擅自改种子**。

@@ -1,6 +1,6 @@
 # 文档卡（阶段0-CI · 2026-09-19）
 # 上游：AGENTS.md（宪法：硬红线零写 / 凭证不落库）｜ docs/04-plan/dev-plan.md（L70 CI 任务书 / L158 CI/CD 纪律：每 F-xx 一 PR、wrangler deploy + d1 migrations apply、凭证仅经 Secrets）｜ docs/03-locks/tech-stack.md（§1.3 部署形态 / §7.2 凭证落实）｜ wrangler.toml（Worker 名 jd-growth-platform / D1 绑定 DB）
-# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
+# 职责：GitHub Actions 流水线——PR 校验（标题白盒命名 + D1 迁移可应用 + 入口静态检查 + mock 自检 + F-01/F-02/F-03/F-04/F-05/F-06/F-07/F-08/F-09/F-10/F-11/F-12/F-13/F-14/F-15/F-16/F-17/F-23/F-24/F-25/F-26 用例 + 引用自检「孤儿/悬空/重号 0 命中」与其骨架）+ 主干部署（D1 迁移 apply + wrangler deploy）。
 # 硬红线落实：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 GitHub Secrets 注入，绝不写入本文件或仓库；流水线本身不直连任何生产写接口，部署的"写"由 Cloudflare 平台侧凭据授权，符合 BRD §5.3。
 # 反向清单：被 AGENTS.md 索引 .github/ 行引用；被 server/ 各模块（阶段1~5 部署）与 dev-plan §3 阶段0 验收要点复用。
 # 注：分支保护（main 需 PR 审核 + 状态检查通过）为仓库设置项，不在本文件内，须在 GitHub 仓库 Settings → Branches 手动开启（见 .github/README.md）。
@@ -86,6 +86,8 @@ jobs:
         run: node server/agent-orchestrator/test-f15.mjs
       - name: 跑 F-16 用例（M3 机会形成与去重·agent-orchestrator，跑 S-A4 整理：依据足够→组装六要素（对应目标/涉及对象/观察现象/初步依据/研究理由＋未知项二态）落 MD-06＋判重命中落 LNK-03 相同问题关联更新（方向对齐种子 LK-OR-002）（TC-A-M3-004）+ 依据不足→缺口记录（检查范围＋信息缺口＋影响判断）且不写任何表（合法产出）+ ADR-003 二态（未评估→不齐 / 确无→齐全 / 纯空白串应用层显式拒）+ 依据足够性判据（真实返回/来源可回查/未倒挂/六要素已评估齐备/标题可派生，适用范围未判定不阻断）+ 取号推进 + 静态零外部调用 / 零自有写语句 / 零裸 SQL / 唯一依赖 shared-context）
         run: node server/agent-orchestrator/test-f16.mjs
+      - name: 跑 F-17 用例（M3 两步衔接·agent-orchestrator，跑 M3 产出→PM 决策上下文（机会六要素＋初步依据四要素（来源/条件/时点/适用范围）＋未知项＋缺口＋「尚不构成 HVA 结论」声明）+ 人工节点守卫（完成判据＝MD-12 有无真实建议行——不看 opportunity_status 防状态假通过；auto_handoff 恒 false；TC-I-M3-001）+ 经 F-03 submitProposal 完成人工节点后放行（仍不自动、仍不建 M4 任务）+ 反向问 PM 请补项 + 交接包只组装不触发（task/hva_research 行数不变）+ 机会不存在报错 + 常量口径 + 静态零外部调用 / 零写库 / 零裸 SQL / 不 import hva.js / 不出现 M4 建任务函数名）
+        run: node server/agent-orchestrator/test-f17.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
