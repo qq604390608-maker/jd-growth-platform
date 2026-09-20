@@ -96,6 +96,8 @@ jobs:
         run: node server/agent-orchestrator/test-f20.mjs
       - name: 跑 F-21 用例（M4 研究结果生成·agent-orchestrator，跑 S-B4 七要素组装契约（业务目标与研究问题/研究范围与方法/证据与关键发现/人群差异/候选HVA及支持情况/其他解释与限制/改善方向，对齐 TC-C-M4-001）+ 逐发现挂证据（LNK-02 写入归 F-11）+ 支持与不支持并列 + 缺证据记缺口 + due_to_failure 发现不进「证据与关键发现」+ 未找到有足够依据支持候选 HVA 亦成完整结果（TC-A-M4-004）+ 失败不否定（TC-A-M4-005）+ 输出边界扫描（活动配置/权益组合/预算/排期禁词，out_of_scope_note 豁免；复用 F-18 禁词表）+ 改善方向逐项对应发现（对不上记 orphan/malformed）+ 落库五路前置守卫（边界/对应性/齐备/研究存在/已出报告）+ MD-07 FK 反例（TC-D-M4-001）/ MD-08 复合 UK 反例（TC-D-M4-002）/ MD-11 UK 反例（TC-D-M4-005）+ 运行期零写（真库行数不变 + fake-db 全 SELECT）+ 静态零外部调用 / 零 SQL 语句 / 口径全复用 F-11 与 F-18/F-20）
         run: node server/agent-orchestrator/test-f21.mjs
+      - name: 跑 F-22 用例（M4 继续追问承接·agent-orchestrator，跑 承接已有研究上的新问题→检查既有依据是否仍适用（TC-I-M4-001：时间范围/查询条件/适用范围三维度→沿用 or 补查三态判定；未声明变更→undetermined＋llm_gated 不硬猜；更窄适用范围沿用、更宽/未声明/无法解析一律保守补查）+ 版本口径（追问可落新版本、原任务与原研究钉在启动版本；范围变更未升版提示 new_version_required，建版本行归 M1 F-01）+ 新一轮入口 S-B1（链 F-19>F-20>F-21、五查键派生自 F-19、比较条件复用 F-19）+ 保留原结果与依据（original_preserved 前后快照逐字节自检、negates_original_conclusion 恒 false）+ 追问越界只提示不拦截 + 下游派发可注入（未注入不触发）+ 入口守卫五路 + 运行期零写（7 张表行数 + research/task/research_finding 逐行不变）+ 静态零外部调用 / 零写语句 / 零 SELECT / import 恰 6 条全为既有读面 / 不重复实现上游写面）
+        run: node server/agent-orchestrator/test-f22.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
