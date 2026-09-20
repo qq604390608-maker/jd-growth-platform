@@ -1,42 +1,83 @@
 /**
  * 文档卡（A-1 LLM 推理服务 · 2026-09-20）
- * 上游：../03-locks/tech-stack.md §2.5（DS-02 Cloudflare Workers AI｜A-1 是唯一完全空缺项）
- *   ｜ ../03-locks/external-deps.md §3 A-1（LLM 推理服务，两个 Agent 的线索判断/查证决策/结果组装）
- *   ｜ ../02-prd/PRD-M3-机会发现Agent.md §1.1.1（F-14/F-15 线索判断与查证决策）
- *   ｜ ../02-prd/PRD-M4-HVA分析Agent.md §1.1.1（F-19/F-20/F-21 HVA 分析与结果组装）
- *   ｜ ../01-brd/BRD.md §5.3 硬红线（不调生产写接口）、§7 验收总则
- * 本文件：server/agent-orchestrator/llm-client.js —— A-1 LLM 推理服务的运行期客户端
- *   封装 Workers AI Binding 调用：chat(messages, tools?, options?)
- *   + function calling 循环（调用→判断→执行工具→再调用→直到模型给出最终回答）
- *   + JSON mode（response_format: { type: "json_object" }）
- * 职责：提供 Agent 编排层可调用的 LLM 能力，不包含业务逻辑。
- * 硬红线：① 零写库（本文件不做任何 DB 操作）；② 零外部凭证（依赖 env.AI binding，代码里无密钥）；
- *   ③ 不替代查询结果（LLM 只做推理判断，不代替 tool-executor 的真实返回）。
- * 反向清单：被 discovery.js / research-start.js / result.js / behavior.js 等 agent-orchestrator 模块引用。
+ * 上游：../03-locks/tech-stack.md §2.5（DS-02 Cloudflare Workers AI）
+ *   ｜ ../03-locks/external-deps.md §3 A-1（LLM 推理服务）
+ *   ｜ ../01-brd/BRD.md §5.3 硬红线、§7 验收总则
+ * 本文件：server/agent-orchestrator/llm-client.js
+ *   封装 Workers AI Binding 调用 + function calling 循环 + mock 模式（env.AI 不存在时自动降级）
+ * 硬红线：① 零写库 ② 零外部凭证 ③ 不替代查询结果
  */
 
-/** 默认模型（轻量快速，验证链路；重推理场景换 deepseek-v4-pro） */
 const DEFAULT_MODEL = "@cf/deepseek/deepseek-v4-flash";
-
-/** function calling 最大循环次数（防止无限循环） */
 const MAX_TOOL_ROUNDS = 10;
 
-/**
- * 基础 chat 调用（单次，不做 tool loop）。
- * @param {Ai} ai Workers AI binding（env.AI）
- * @param {Array} messages [{ role: "system"|"user"|"assistant"|"tool", content: string, ... }]
- * @param {object} [options]
- * @param {string} [options.model] 模型名，默认 deepseek-v4-flash
- * @param {Array} [options.tools] function calling 工具定义
- * @param {object} [options.response_format] { type: "json_object" } 强制 JSON 输出
- * @param {number} [options.max_tokens] 最大输出 token
- * @param {number} [options.temperature] 温度
- * @returns {Promise<object>} OpenAI 兼容格式的 completion
- */
+// ================================================================== Mock 模式
+
+function mockCompletion(content, toolCalls = []) {
+  return {
+    id: `mock-${Date.now()}`,
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model: "mock-model",
+    choices: [{
+      index: 0,
+      message: {
+        role: "assistant",
+        content,
+        ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+      },
+      finish_reason: toolCalls.length > 0 ? "tool_calls" : "stop",
+    }],
+  };
+}
+
+function mockToolExecutor(toolName, args) {
+  const mockResults = {
+    cdp_crowd_query: { crowd_size: 125000, top_tags: ["复购率偏低", "价格敏感", "品类偏好:日百"], source: "CDP-MOCK" },
+    hje_traffic_entry: { entries: [{ type: "搜索", uv: 45000, cvr: 3.2 }, { type: "推荐", uv: 32000, cvr: 5.8 }], source: "HJE-MOCK" },
+    hje_slot_exposure: { slots: [{ id: "home-banner", exposure: 120000, click: 8500, ctr: 7.1 }], source: "HJE-MOCK" },
+    hje_path_conversion: { paths: [{ name: "搜索-详情-加购-支付", conversion: 2.1 }, { name: "推荐-详情-支付", conversion: 4.5 }], source: "HJE-MOCK" },
+    mkt_feedback_query: { feedbacks: [{ type: "价格投诉", count: 230 }, { type: "物流投诉", count: 180 }], source: "MKT-MOCK" },
+    act_campaign_touch: { campaigns: [{ name: "周末秒杀", reach: 89000, touch_rate: 12.3 }], source: "ACT-MOCK" },
+  };
+  return mockResults[toolName] || { note: "mock: " + toolName, args };
+}
+
+function mockDiscoveryResponse() {
+  return {
+    clues: [
+      { attribution: "audience:新客-价格敏感人群", phenomenon: "搜索入口新客复购率(3.2%)低于推荐入口(5.8%)", evidence_refs: ["MOCK-Q-001"] },
+      { attribution: "journey:加购到支付", phenomenon: "加购到支付转化率仅2.1%，远低于推荐路径4.5%", evidence_refs: ["MOCK-Q-002"] },
+    ],
+    opportunities: [{
+      target_object: "搜索入口新客的支付转化",
+      observation: "搜索入口新客加购后支付转化率偏低",
+      preliminary_evidence: "搜索路径转化 2.1% vs 推荐路径 4.5%（HJE-MOCK）",
+      research_reason: "支付环节转化差异可能指向可干预机会点",
+      unknown_items: ["是否受优惠券/价格策略影响", "支付环节具体卡点未知"],
+    }],
+    gaps: [],
+    summary: "本轮发现搜索入口新客在支付环节存在转化缺口。",
+    _mock: true,
+  };
+}
+
+// ================================================================== 核心 API
+
+export function isMockMode(ai) {
+  return !ai;
+}
+
 export async function chat(ai, messages, options = {}) {
-  if (!ai) throw new Error("llm-client.chat：ai binding 不能为空（env.AI 未注入）");
   if (!Array.isArray(messages) || messages.length === 0) {
-    throw new Error("llm-client.chat：messages 须为非空数组");
+    throw new Error("llm-client.chat: messages 须为非空数组");
+  }
+
+  // mock 模式：ai 不存在时返回确定性假数据
+  if (!ai) {
+    const lastMsg = messages[messages.length - 1];
+    const content = lastMsg?.content || "(mock: 无输入)";
+    return mockCompletion(content.includes("回复") ? "ok (mock)" : JSON.stringify(mockDiscoveryResponse()));
   }
 
   const model = options.model || DEFAULT_MODEL;
@@ -50,177 +91,100 @@ export async function chat(ai, messages, options = {}) {
 
   const result = await ai.run(model, inputs);
 
-  // Workers AI binding 返回 OpenAI 兼容格式
-  // { id, object, created, model, choices: [{ index, message, finish_reason }] }
   if (!result || !result.choices || !Array.isArray(result.choices) || result.choices.length === 0) {
-    throw new Error(`llm-client.chat：模型返回异常 ${JSON.stringify(result).slice(0, 200)}`);
+    throw new Error("llm-client.chat: 模型返回异常 " + JSON.stringify(result).slice(0, 200));
   }
 
   return result;
 }
 
-/**
- * 提取 completion 中 assistant message 的文本内容。
- * @param {object} completion chat() 的返回值
- * @returns {string|null}
- */
 export function extractContent(completion) {
-  const msg = completion?.choices?.[0]?.message;
-  return msg?.content ?? null;
+  return completion?.choices?.[0]?.message?.content ?? null;
 }
 
-/**
- * 提取 completion 中 assistant message 的 tool_calls。
- * @param {object} completion chat() 的返回值
- * @returns {Array} tool_calls 数组，每项 { id, type: "function", function: { name, arguments } }
- */
 export function extractToolCalls(completion) {
-  const msg = completion?.choices?.[0]?.message;
-  return msg?.tool_calls ?? [];
+  return completion?.choices?.[0]?.message?.tool_calls ?? [];
 }
 
-/**
- * 检查 completion 是否因 tool_calls 而结束（需要执行工具后再调用）。
- * @param {object} completion
- * @returns {boolean}
- */
 export function needsToolExecution(completion) {
   const finishReason = completion?.choices?.[0]?.finish_reason;
-  const toolCalls = extractToolCalls(completion);
-  return finishReason === "tool_calls" && toolCalls.length > 0;
+  return finishReason === "tool_calls" && extractToolCalls(completion).length > 0;
 }
 
-/**
- * Function calling 循环：调 LLM → 执行工具 → 把结果喂回 LLM → 重复，直到模型给出最终回答。
- *
- * 这是 Agent 编排层的核心调用入口。用法：
- *   const result = await chatWithTools(ai, systemPrompt, userMessage, tools, toolExecutor);
- *
- * @param {Ai} ai Workers AI binding
- * @param {string} systemPrompt 系统指令（agent.md 角色指令）
- * @param {string|Array} userMessage 用户消息或消息数组
- * @param {Array} tools function calling 工具定义（OpenAI 格式）
- * @param {Function} toolExecutor async (toolName, args) => result —— 执行工具并返回结果
- * @param {object} [options]
- * @param {string} [options.model] 模型名
- * @param {number} [options.max_rounds] 最大循环次数（默认 MAX_TOOL_ROUNDS）
- * @param {object} [options.response_format] JSON mode
- * @returns {Promise<{ content: string|null, tool_calls_executed: Array, rounds: number, stopped_by: string }>}
- */
 export async function chatWithTools(ai, systemPrompt, userMessage, tools, toolExecutor, options = {}) {
-  if (!ai) throw new Error("llm-client.chatWithTools：ai binding 不能为空");
   if (typeof toolExecutor !== "function") {
-    throw new Error("llm-client.chatWithTools：toolExecutor 须为 async 函数 (toolName, args) => result");
+    throw new Error("llm-client.chatWithTools: toolExecutor 须为 async 函数");
+  }
+
+  // mock 模式：直接执行工具 + 返回 mock 结论
+  if (!ai) {
+    const executed = [];
+    for (const t of (tools || [])) {
+      const name = t.function?.name;
+      if (name) {
+        const result = mockToolExecutor(name, {});
+        executed.push({ name, args: {}, result });
+      }
+    }
+    const content = JSON.stringify(mockDiscoveryResponse());
+    return { content, tool_calls_executed: executed, rounds: 1, stopped_by: "mock_mode" };
   }
 
   const model = options.model || DEFAULT_MODEL;
   const maxRounds = options.max_rounds || MAX_TOOL_ROUNDS;
 
-  // 初始化消息列表
   const messages = [
     { role: "system", content: systemPrompt },
-    ...(Array.isArray(userMessage)
-      ? userMessage
-      : [{ role: "user", content: String(userMessage) }]),
+    ...(Array.isArray(userMessage) ? userMessage : [{ role: "user", content: String(userMessage) }]),
   ];
 
   const toolCallsExecuted = [];
   let rounds = 0;
-  let stoppedBy = "model_end";
 
   for (let round = 0; round < maxRounds; round++) {
     rounds = round + 1;
 
-    // 调用 LLM
     const completion = await chat(ai, messages, {
       model,
       tools: tools && tools.length > 0 ? tools : undefined,
       ...(options.response_format ? { response_format: options.response_format } : {}),
     });
 
-    // 无 tool_calls → 模型给出最终回答，结束循环
     if (!needsToolExecution(completion)) {
-      const content = extractContent(completion);
-      // 收编时修正：此处恒为「模型自然结束」，不沿用上一轮留下的 stoppedBy
-      // （原写法会在「执行过工具后正常结束」时错报成 max_rounds）
-      return { content, tool_calls_executed: toolCallsExecuted, rounds, stopped_by: "model_end" };
+      return { content: extractContent(completion), tool_calls_executed: toolCallsExecuted, rounds, stopped_by: "model_end" };
     }
 
-    // 有 tool_calls → 逐个执行工具
     const toolCalls = extractToolCalls(completion);
-    const toolMessage = { role: "assistant", content: extractContent(completion) || null, tool_calls: toolCalls };
-    messages.push(toolMessage);
+    messages.push({ role: "assistant", content: extractContent(completion) || null, tool_calls: toolCalls });
 
     for (const tc of toolCalls) {
       const fnName = tc.function?.name;
       let fnArgs;
-      try {
-        fnArgs = JSON.parse(tc.function?.arguments || "{}");
-      } catch {
-        fnArgs = {};
-      }
+      try { fnArgs = JSON.parse(tc.function?.arguments || "{}"); } catch { fnArgs = {}; }
 
-      // 执行工具
       let toolResult;
-      try {
-        toolResult = await toolExecutor(fnName, fnArgs);
-      } catch (err) {
-        toolResult = { error: String(err?.message || err) };
-      }
+      try { toolResult = await toolExecutor(fnName, fnArgs); } catch (err) { toolResult = { error: String(err?.message || err) }; }
 
       toolCallsExecuted.push({ tool_call_id: tc.id, name: fnName, args: fnArgs, result: toolResult });
-
-      // 把工具结果喂回消息列表
-      messages.push({
-        role: "tool",
-        tool_call_id: tc.id,
-        content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult),
-      });
+      messages.push({ role: "tool", tool_call_id: tc.id, content: typeof toolResult === "string" ? toolResult : JSON.stringify(toolResult) });
     }
-
   }
 
-  // 用尽循环次数（未由模型自然结束）——只有走到这里才标 max_rounds
-  stoppedBy = "max_rounds";
-
-  // 用尽循环次数：取**最后一条 assistant 消息**的内容。
-  // 收编时修正：原实现只判断「最后一条是否为 assistant」，而每轮末尾都会 push 一条 tool 消息，
-  // 该判断**恒假** → content 恒 null，用尽轮次时拿不到任何内容。
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const lastContent = lastAssistant ? lastAssistant.content ?? null : null;
-  return { content: lastContent, tool_calls_executed: toolCallsExecuted, rounds, stopped_by: stoppedBy };
+  return { content: lastAssistant?.content ?? null, tool_calls_executed: toolCallsExecuted, rounds, stopped_by: "max_rounds" };
 }
 
-/**
- * JSON mode chat：强制模型返回 JSON，自动解析。
- * @param {Ai} ai
- * @param {string} systemPrompt
- * @param {string} userMessage
- * @param {object} [options] 透传给 chat()（除 response_format 外）
- * @returns {Promise<object>} 解析后的 JSON 对象
- */
 export async function chatJSON(ai, systemPrompt, userMessage, options = {}) {
-  const completion = await chat(ai, systemPrompt ? [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: String(userMessage) },
-  ] : [
-    { role: "user", content: String(userMessage) },
-  ], {
-    ...options,
-    response_format: { type: "json_object" },
-  });
+  const msgs = systemPrompt
+    ? [{ role: "system", content: systemPrompt }, { role: "user", content: String(userMessage) }]
+    : [{ role: "user", content: String(userMessage) }];
 
+  const completion = await chat(ai, msgs, { ...options, response_format: { type: "json_object" } });
   const content = extractContent(completion);
-  if (!content) throw new Error("llm-client.chatJSON：模型返回空内容");
-
-  try {
-    return JSON.parse(content);
-  } catch (err) {
-    throw new Error(`llm-client.chatJSON：模型返回内容不是合法 JSON：${content.slice(0, 200)}`);
-  }
+  if (!content) throw new Error("llm-client.chatJSON: 模型返回空内容");
+  try { return JSON.parse(content); } catch { throw new Error("llm-client.chatJSON: 非法 JSON: " + content.slice(0, 200)); }
 }
 
-/** 常用模型名常量 */
 export const MODELS = Object.freeze({
   FLASH: "@cf/deepseek/deepseek-v4-flash",
   PRO: "@cf/deepseek/deepseek-v4-pro",

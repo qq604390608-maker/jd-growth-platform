@@ -17,10 +17,14 @@ database_name = "jd-growth-platform"
 migrations_dir = "./db/migrations"
 
 # Workers AI 绑定（tech-stack §2.5 DS-02；A-1 LLM 推理服务）
-# 本地：wrangler dev 需要 CLOUDFLARE_API_TOKEN（AI binding 走 remote）
-# 生产：Worker 跑在 CF 基础设施上，env.AI 直接可用，代码里零凭证
-# ⚠️ 不要改成数组表 `[[ai]]`：Workers AI 绑定是**单表**语法（与 `[[d1_databases]]` 不同）。
-#    依据：Cloudflare 官方 docs `workers-ai/configuration/bindings`（2026-04-21 更新）示例即 `[ai]`；
-#    2026-09-20 曾误改成 `[[ai]]`（从 `[[d1_databases]]` 类推），查官方文档后改回。
+# ⚠️ 生产必须保留此段（勿注释）：ci.yml 的部署步是 `wrangler deploy` **原样使用本文件**，
+#    不存在「CI 追加 binding」机制，也无 wrangler.prod.toml——注释掉 [ai] 会导致
+#    生产 env.AI = undefined（A-1 门禁会响亮抛错，不会静默降级，见 discovery.js）。
+# 语法：单表 [ai]（Workers AI 是单一绑定；官方 docs `workers-ai/configuration/bindings`
+#    示例即 [ai]，与可多实例的 [[d1_databases]] 不同类；2026-09-20 曾误改 [[ai]]，查证后订正）。
+# 本地 dev 两种跑法（均勿提交对[ai]的临时注释，git 内始终保持生效）：
+#    a) 带 CLOUDFLARE_API_TOKEN：AI binding 走 remote（官方文档明示本地亦计费）；
+#    b) 零密钥临时注释 [ai] 后：编排调用须显式传 opts.mock = true（输出带 _mock 标记、
+#       零写库、模型名 mock-model，/api/health 会如实上报 ai: "mock_mode"）。
 [ai]
 binding = "AI"

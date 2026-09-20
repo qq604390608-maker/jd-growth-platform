@@ -233,6 +233,18 @@ console.log("\n⑦ A-1 LLM 驱动路径 · `runDiscoveryWithLLM` / `DISCOVERY_TO
   // A-1 门禁：无 binding → 不进 LLM 路径
   await assertThrows(() => runDiscoveryWithLLM(null, {}, "T-1022"), "⑦ ai 为空 → 抛错（A-1 未接入）", "ai binding 不能为空");
 
+  // 显式 mock（2026-09-20 收编并发改动）：opts.mock = true + 无 binding → 走 mock 路径。
+  // 红线锚定：mock 输出带 _mock 标记 + stopped_by=mock_mode（可观测、防误信），
+  // 且 mock 工具执行不触注入的 toolExecutor（llm-client 内部假执行器，零写库）。
+  const mockRes = await runDiscoveryWithLLM(null, {}, "T-1022", { mock: true });
+  assert(mockRes && mockRes.stopped_by === "mock_mode", "⑦ 显式 mock → stopped_by=mock_mode（可观测）");
+  assert(mockRes.content && mockRes.content._mock === true, "⑦ mock 结论带 _mock=true 标记（防误信伪造数据）");
+  assert(Array.isArray(mockRes.tool_calls_executed) && mockRes.tool_calls_executed.length > 0, `⑦ mock 工具执行记录非空（实测 ${mockRes.tool_calls_executed.length}）`);
+  assert(
+    mockRes.tool_calls_executed.every((t) => t.result && t.result.source && String(t.result.source).endsWith("-MOCK")),
+    "⑦ mock 工具结果全部带 -MOCK 来源标记（不冒充真实返回）"
+  );
+
   // 工具定义：function calling 契约合规
   assert(Array.isArray(DISCOVERY_TOOLS) && DISCOVERY_TOOLS.length > 0, `⑦ DISCOVERY_TOOLS 非空（实测 ${DISCOVERY_TOOLS.length}）`);
   assert(

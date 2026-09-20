@@ -84,7 +84,10 @@ const tc = (name, args, id = "call_1") => ({
 // ==================================================== ① chat 参数校验（前置守卫，不静默降级）
 console.log("① `chat` 参数校验：缺 binding / 空 messages 一律抛错（不静默降级）");
 {
-  await assertThrows(() => chat(null, [{ role: "user", content: "hi" }]), "① ai 为空 → 抛错", "ai binding 不能为空");
+  // 2026-09-20 收编：库层空 ai 走 mock 兜底（模型名 mock-model，可观测）；
+  // 业务侧防静默伪造由编排层 A-1 门禁把关（见 test-f14 ⑦：默认拒跑、显式 opts.mock 放行）。
+  const mockChat = await chat(null, [{ role: "user", content: "hi" }]);
+  assert(mockChat && mockChat.model === "mock-model", "① ai 为空 → mock 兜底（model=mock-model，可观测）");
   await assertThrows(() => chat(makeAI([reply("ok")]), []), "① messages 为空数组 → 抛错", "非空数组");
   await assertThrows(() => chat(makeAI([reply("ok")]), "not-an-array"), "① messages 非数组 → 抛错", "非空数组");
   await assertThrows(
@@ -191,7 +194,13 @@ console.log("\n⑥ 收编修复② · 用尽轮次：`stopped_by='max_rounds'`�
 // ==================================================== ⑦ chatWithTools 参数校验与容错
 console.log("\n⑦ `chatWithTools` 参数校验与工具容错（工具失败不中断整轮）");
 {
-  await assertThrows(() => chatWithTools(null, "s", "u", [], async () => ({})), "⑦ ai 为空 → 抛错", "ai binding 不能为空");
+  // 2026-09-20 收编：库层空 ai → mock 工具执行（不调注入的 toolExecutor，零写库）
+  let executorTouched = false;
+  const TOOLS_LIKE = [{ type: "function", function: { name: "cdp_crowd_query", description: "d", parameters: {} } }];
+  const mockToolRes = await chatWithTools(null, "s", "u", TOOLS_LIKE, async () => { executorTouched = true; return {}; });
+  assert(mockToolRes.stopped_by === "mock_mode", "⑦ ai 为空 → mock 兜底（stopped_by=mock_mode，可观测）");
+  assert(executorTouched === false, "⑦ mock 分支不调注入的 toolExecutor（零写库红线）");
+  assert(JSON.parse(mockToolRes.content)._mock === true, "⑦ mock 结论带 _mock=true 标记");
   await assertThrows(
     () => chatWithTools(makeAI([reply("x")]), "s", "u", [], "not-a-function"),
     "⑦ toolExecutor 非函数 → 抛错（不静默忽略）", "toolExecutor 须为 async 函数"
@@ -227,7 +236,7 @@ console.log("\n⑧ `chatJSON` · 强制 JSON mode + 解析（非法/空一律抛
 
   await assertThrows(
     () => chatJSON(makeAI([reply("不是 JSON")]), "s", "u"),
-    "⑧ 返回非 JSON → 抛错（不静默返回空对象）", "不是合法 JSON"
+    "⑧ 返回非 JSON → 抛错（不静默返回空对象；2026-09-20 收编：错误措辞由「不是合法 JSON」改为「非法 JSON」）", "非法 JSON"
   );
   await assertThrows(
     () => chatJSON(makeAI([reply("")]), "s", "u"),

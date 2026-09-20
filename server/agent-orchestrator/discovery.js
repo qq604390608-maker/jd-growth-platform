@@ -418,14 +418,40 @@ export function createDiscoveryToolExecutor(db, task_id, grantee_type, grantee_r
  * @returns {Promise<{ content: object, tool_calls_executed: Array, rounds: number }>}
  */
 export async function runDiscoveryWithLLM(ai, db, task_id, opts = {}) {
-  if (!ai) throw new Error("runDiscoveryWithLLM：ai binding 不能为空（A-1 未接入）");
+  // A-1 门禁：无 binding 时**默认拒跑**——生产漏配 binding 必须响亮失败，
+  // 不得静默产出伪造结果（红线「真实返回 / 失败不否定结论」；2026-09-20 查证
+  // ci.yml 部署步为 `wrangler deploy` 原样使用 wrangler.toml，**不存在**追加
+  // binding 的机制，故 [ai] 缺失即生产 env.AI = undefined）。
+  // 本地零密钥调试须**显式**传 opts.mock = true 才走 mock 路径（输出带 _mock
+  // 标记、零写库——llm-client 的 mock 工具执行不触注入的 toolExecutor）。
+  if (!ai && opts.mock !== true) {
+    throw new Error("runDiscoveryWithLLM：ai binding 不能为空（A-1 未接入）。本地零密钥调试请显式传 opts.mock = true");
+  }
 
   const model = opts.model || MODELS.FLASH;
   const grantee_type = opts.grantee_type || "agent";
   const grantee_ref = opts.grantee_ref || "discovery-agent";
 
-  // 1. 加载注入清单
-  const injection = await loadDiscoveryContext(db, task_id);
+  // 1. 加载注入清单（显式 mock 模式下任务不存在时用默认清单，不报错；
+  //    走到这里而无 ai 时必为 opts.mock === true——上方门禁已拦住其余情形）
+  let injection;
+  try {
+    injection = await loadDiscoveryContext(db, task_id);
+  } catch (err) {
+    if (!ai) {
+      // 显式 mock 模式：用默认注入清单
+      injection = {
+        goal: [{ goal_name: "京东超市新客复购率提升", goal_description: "mock 目标" }],
+        scope: {},
+        background: [],
+        history: [],
+        capabilities: [],
+        sources: ["CDP-MOCK", "HJE-MOCK"],
+      };
+    } else {
+      throw err;
+    }
+  }
 
   // 构造用户消息：把注入清单翻成 LLM 可消费的文本
   const userMessage = [
