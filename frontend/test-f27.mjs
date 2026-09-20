@@ -23,7 +23,8 @@
  *       实跑 F-27 用例并断言。
  * 硬红线：仅本机内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构、语义与版本隔离）。
  * 边界：本执行器只验 F-27；F-28~F-32 各自的执行器覆盖。静态扫描一律**先 strip 注释**（本文件自身的
- *       文档卡里就出现 `frontend`、`fetch` 等被扫词，不 strip 会自伤）。
+ *       文档卡里就出现 `frontend`、`fetch` 等被扫词，不 strip 会自伤），且**按执行器通配排除**同目录的
+ *       其它 `test-f*.mjs`（它们是 jsdom 装置，不是前端运行期产物）。
  * 反向清单：登记 `./README.md`；被 `.github/workflows/ci.yml` 的 `validate` 步骤复用
  *       （`node frontend/test-f27.mjs`）。
  *
@@ -233,7 +234,10 @@ console.log("③ 静态红线：只经 server/api、不持凭证、不写库、�
   const files = frontendFiles();
   const code = {};
   for (const f of files) {
-    if (/test-f27\.mjs$/.test(f)) continue; // 执行器自身不属于前端运行期产物
+    // 受检对象＝**前端运行期产物**：本目录下的 .js/.html/.css。执行器（test-f*.mjs）不是运行期产物，
+    // 它自带 SQL 语句、`fetch(`、`http://localhost` 等字面（jsdom 装置与断言），必须整体排除——
+    // 排除规则按**执行器通配**而非「自己的文件名」，否则同目录每新增一个 F-xx 执行器都会把本组断言打红。
+    if (/^test-f\d+\.mjs$/.test(path.basename(f))) continue;
     const kind = f.endsWith(".html") ? "html" : "js";
     code[rel(f)] = stripAllComments(readFileSync(f, "utf8"), kind);
   }

@@ -7,7 +7,7 @@
 - 宪法：`../AGENTS.md`（索引 `frontend/` 行；白盒原则；双向引用；索引三层）
 - 需求：`../docs/01-brd/BRD.md`（M6 F-27~F-32；§5.3 硬红线）；`../docs/02-prd/PRD-M6-运营端工作台.md`
 - 锁定：`../docs/03-locks/tech-stack.md`（**§1.2 前后端分离的落点与判断标准**；**§2.1 前端形态＝零构建静态资源，数据来源＝`server/api`，原型的 mock 数据不复制进前端**；§6 工程结构）；`../docs/03-locks/schema.md`（六要素与各表口径）
-- 用例：`../docs/05-test-cases/test-M6.md`（`TC-I-M6-001` 目标配置页 / `TC-C-M6-001` 契约 / `TC-D-M6-001` 前端不写库 / `TC-I-M6-007` 前后端分离判断标准）
+- 用例：`../docs/05-test-cases/test-M6.md`（`TC-I-M6-001` 目标配置页 / **`TC-I-M6-002` 机会列表与详情页** / `TC-C-M6-001` 契约 / `TC-D-M6-001` 前端不写库 / `TC-I-M6-007` 前后端分离判断标准）
 - 实证：`../prototype/`（**钉死需求的实证**：各页区块 / 交互 / 文案以原型为准；原型使命已完成，仅作证据保留）
 - 接口真源：`../server/api/index.js`（路由）+ `../server/task-runner/`、`../server/shared-context/` 等（返回体结构）
 
@@ -21,7 +21,7 @@
 | 数据来源 | 只读消费 `server/api` 的 JSON。**前端不直连数据库、不持有任何外部系统凭证** |
 | 业务逻辑 | **零**。前端只做「取数 → 渲染 → 发动作」，判断逻辑一律在后端（PRD-M6 §1） |
 | 业务数据落点 | **只在服务端**。前端 `localStorage` 仅存会话态（当前浏览目标、未读绿点），不入库、不回传（schema.md §8.1 已判定不建表） |
-| 不做什么 | 不复制原型的 mock 数据；不自造端点；不复制第二个六要素口径（键与标签取自服务端 `GOAL_FIELDS`） |
+| 不做什么 | 不复制原型的 mock 数据；**不自造端点**（前端只按 `server/api` 既有路由拼路径）；不复制第二个六要素口径——目标六要素键取自服务端 `GOAL_FIELDS`，机会六要素键与标签取自服务端 `OPPORTUNITY_SIX_ELEMENTS` / `OPPORTUNITY_SIX_ELEMENT_LABELS`；**证据回查一律走 `GET /api/evidence-trace/{id}`**，不自己拼「证据 + 查询记录」 |
 
 ## 3. 目录
 
@@ -32,12 +32,13 @@
 | `assets/api.js` | — | **唯一数据出口**：把 `server/api` 收成薄封装（统一 JSON / 统一错误映射 / 统一同源约束）。两条运行期守卫——路径必须 `/api/` 开头、不得是绝对地址（含 `://` 即抛错不发请求） | ✅ 已建（2026-09-20） |
 | `assets/app.js` | — | 跨页共享逻辑：外壳注入与导航、目标解析、版本与运行链派生、未读绿点、通用工具（`window.U` / `window.PX`）。六要素键与序号取自服务端口径 | ✅ 已建（2026-09-20） |
 | `pages/goal.html` | **F-27** | 目标配置：选择 / 新建目标 → 编辑六要素 → 保存为新版本（自动跑一次口径检查）→ 口径待补项以任务形式提示（可逐项补充）→ 「应用配置」使版本生效并触发机会发现（F-02） | ✅ 已建（2026-09-20） |
-| `pages/opportunities.html` | F-28 | 机会列表与详情 | 待建 |
+| `pages/opportunities.html` | **F-28** | 机会列表与详情（原型两页合并的左右布局一页）：按目标浏览机会（三状态 + 对象筛选）→ 详情＝机会六要素 + 未知项二态 + 证据链（点开即回查 `/api/evidence-trace/`）+ 可用来源与工具 → 人工处置（提交研究建议 F-29 / 标记暂不研究 / 恢复为候选 / 查看研究结果 F-30）。**准入条件**：目标从未执行过机会发现且无产出 → 门禁态（与「空态」刻意分开） | ✅ 已建（2026-09-20） |
 | `pages/propose.html` | F-29 | 研究建议提交 | 待建 |
 | `pages/result.html` | F-30 | 研究结果 | 待建 |
 | `pages/followup.html` | F-31 | 追问对话 | 待建 |
 | `pages/tasks.html` | F-32 | 任务与状态 | 待建 |
 | `test-f27.mjs` | F-27 | 用例执行器：jsdom 加载**真实页面** + 真实 Worker + 真实 D1（`node:sqlite` 载真实 DDL / 种子），10 组 130 断言 | ✅ 已建（2026-09-20；130 断言全绿） |
+| `test-f28.mjs` | F-28 | 用例执行器：同上装置，11 组 **159 断言**。含**反例**——库级放行「适用范围＝纯空白串」的证据行，应用层判「四要素不齐 · 不可作为有效依据」 | ✅ 已建（2026-09-20；159 断言全绿） |
 
 ## 4. 已知缺口（登记，未擅自改上游）
 
@@ -45,6 +46,10 @@
 2. **口径检查不自动去重**（F-01 既有口径，本点只登记不改）：`checkGoalGaps` 只跳过「规则命中」与「已补充」，对**仍未补充**的规则重跑会再落一批同规则的新待补项。F-27 的「重新检查口径」因此每次点击都会新增待补项行；是否去重由 F-01 决定。用例 `test-f27.mjs` ⑥ 组已**如实锁住**该行为（实测 3 → 6），不把既有口径当成本点的缺陷。
 3. **静态资源同源绑定的具体方式待确认**：tech-stack §7.3 的 `TS-20`（五模块打包成一个还是多个 Worker）尚未定，`../wrangler.toml` 因此**未加**静态资源绑定（`[assets]`）——本点**不改部署配置**。当前 F-27 只依赖「同源相对路径」这一前提，绑定方式落定后无需改前端代码。
 4. **与原型的有意偏差 ①**：口径检查**不在进入页面时自动跑**。原型进入即跑一次本地模拟检查；真实后端下那会产生 `goal_check` 任务与 `PD-04` 行（等于「看页面就写库」）。前端改为**保存新版本后自动跑一次**，另给显式「重新检查口径」按钮；进入页面只**读**已有待补项。
+5. **F-28 与原型的有意偏差 ①（状态处置落库）**：原型的机会状态处置是**会话态覆盖**（`../assets/data.js` + `U.Store("oppStatus")`），刷新即丢；真实实现走 `PATCH /api/opportunity-status`，写平台 D1 的 MD-06 并落 PD-05 **逐次留痕**（`candidate ↔ deferred` 可回查、`defer_reason` 仅 `deferred` 时保留）。PD-05 的 `change_reason` 为 `NOT NULL`，故由页面给出**固定语义的处置说明**（含「经 F-28 人工处置」），不让前端自由编造业务口径。**边界**：这是**平台自身**的写面，不是外部生产系统写接口——硬红线「前端不发起任何生产写接口调用」仍成立，`test-f28.mjs` ⑨ 组断言写请求**只**落在 `/api/opportunity-status`。
+6. **F-28 与原型的有意偏差 ②（证据链点开才回查）**：原型从 mock 一次性取全五字段；真实实现下未展开时只呈现 LNK-01 关联行拿得到的「来源 / 标题 / 时点」，**点开才**调 `GET /api/evidence-trace/{id}`（证据 → 查询记录 EXT-01 → 来源 CFG-01）。用例 ⑦ 组含**反例**：库级放行「适用范围＝纯空白串」的证据行（`NOT NULL` 拦不住空白串，实测确认），应用层判「四要素不齐 · 不可作为有效依据」。
+7. **机会状态字典无只读接口**（登记，未擅自改上游）：`dict:OPP_STATUS` 等值域没有暴露给前端的只读路由，故状态徽标文案沿用原型同一份文案表（`assets/app.js` 的 `STATUS`）。这是**展示副本而非业务口径**；若后续补上字典只读路由，可改为从库读。
+8. **机会页首次加载取数 13 次**（登记，未擅自改上游）：外壳启动 3 次（目标列表 / 目标一页读 / 机会计数）+ 本页 10 次（机会列表 1 + 逐条读模型 6 + 已提交研究 2 + 来源说明 1）。原因是 `server/api` 无「机会批量读模型」端点，本点**不自造端点**；机会量级变大时可由后端补一个批读面，前端只换调用点。
 
 ## 5. 跑用例
 
@@ -52,6 +57,7 @@
 
 ```
 npm i --no-save jsdom && node frontend/test-f27.mjs
+npm i --no-save jsdom && node frontend/test-f28.mjs
 ```
 
 缺依赖时执行器**显式失败**并打印上面这条命令——不静默跳过（前端用例被跳过＝一条无人看守的静默洞）。
@@ -61,6 +67,7 @@ npm i --no-save jsdom && node frontend/test-f27.mjs
 ## 6. 反向清单
 
 - 被 `../AGENTS.md` 索引 `frontend/` 行引用。
-- 被 `../.github/workflows/ci.yml` 的 `validate` 步骤复用（安装 `jsdom` + `node frontend/test-f27.mjs`）。
+- 被 `../.github/workflows/ci.yml` 的 `validate` 步骤复用（安装 `jsdom` + `node frontend/test-f27.mjs` + `node frontend/test-f28.mjs`）。
 - 被 `../docs/03-locks/tech-stack.md` §1.2 / §2.1 / §6 与 `../docs/04-plan/dev-plan.md` 阶段 5 引用（作为「前端零构建 + 前后端分离」的落点）。
-- 本目录内部引用图：`index.html` 与 `pages/*.html` → `assets/api.js`（唯一网络出口）、`assets/app.js`（共享口径）、`assets/base.css`（样式）；`test-f27.mjs` → `pages/goal.html` + `assets/*` + `../server/api/index.js` + `../db/`。
+- 本目录内部引用图：`index.html` 与 `pages/*.html` → `assets/api.js`（唯一网络出口）、`assets/app.js`（共享口径）、`assets/base.css`（样式）；`test-f27.mjs` → `pages/goal.html` + `assets/*` + `../server/api/index.js` + `../db/`；`test-f28.mjs` → `pages/opportunities.html` + `assets/*` + `../server/api/index.js` + `../db/`。
+- `assets/app.js` 的两份只读口径各有唯一上游：`U.SIX_FIELDS` ← `../server/task-runner/goal.js` 的 `GOAL_FIELDS`；`U.OPP_FIELDS` ← `../server/shared-context/index.js` 的 `OPPORTUNITY_SIX_ELEMENTS` / `OPPORTUNITY_SIX_ELEMENT_LABELS`（分别由 `test-f27.mjs` / `test-f28.mjs` 逐条对齐断言守住）。

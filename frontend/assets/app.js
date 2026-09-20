@@ -13,14 +13,16 @@
          ① 目标解析：U.allGoals / U.goalById / U.currentGoalId
          ② 运行链状态：U.runState —— 决定 F-28 机会列表能否进入
          ③ 未读标记：U.markUnread / U.clearUnread —— 侧栏小绿点
-       另持两份**只读口径**（不复制第二份）：
-         · U.SIX_FIELDS —— 六要素键与中文标签；**键＝服务端 `server/task-runner/goal.js#GOAL_FIELDS`**
+       另持三份**只读口径**（不复制第二份）：
+         · U.SIX_FIELDS —— 目标六要素键与中文标签；**键＝服务端 `server/task-runner/goal.js#GOAL_FIELDS`**
            （`test-f27.mjs` 逐条对齐断言，改一处漏另一处立刻红）。
+         · U.OPP_FIELDS —— 机会六要素键与中文标签；**键＝服务端
+           `server/shared-context/index.js#OPPORTUNITY_SIX_ELEMENTS`**（`test-f28.mjs` 逐条对齐断言）。
          · U.STATUS —— 状态徽标文案（与原型同一份口径）。
    硬约定（可静态核对）：本文件**不发任何请求**，一律经 `./api.js`；**不出现绝对地址与凭证**；
        业务数据**不写 localStorage**（只有会话态：当前浏览目标 / 未读标记）。
-   反向清单：被 ../index.html（前端外壳）与 ../pages/goal.html（F-27）及后续 F-28~F-32 各页经
-       <script src> 加载；对外只暴露 `window.U`（页面用）与 `window.PX`（兼容原型命名）。
+   反向清单：被 ../index.html（前端外壳）与 ../pages/goal.html（F-27）、../pages/opportunities.html（F-28）
+       及后续 F-29~F-32 各页经 <script src> 加载；对外只暴露 `window.U`（页面用）与 `window.PX`（兼容原型命名）。
    ============================================================ */
 
 (function () {
@@ -59,6 +61,42 @@
     SIX_KEYS.forEach(function (k) { o[k] = ""; });
     return o;
   }
+
+  /** 机会六要素（F-28 详情）：**键与中文标签逐字取自服务端**
+   *  `../server/shared-context/index.js#OPPORTUNITY_SIX_ELEMENTS` / `OPPORTUNITY_SIX_ELEMENT_LABELS`
+   *  （ADR-003 §3 的准确清单：「对应目标」占 `goal_id` + `goal_version_no` 两列）。
+   *  此处只加展示形态（`form`：mono 标识 / 版本 / 正文），**不复制第二份口径**——
+   *  `test-f28.mjs` ② 组逐条对齐断言，上游改一处而此处没跟随会立刻红。
+   *  注：`unknown_item` **不在这六项里**，它是二态判定列（未评估 / 确无 / 有未知项），单独呈现。 */
+  const OPP_FIELDS = [
+    { key: "goal_id", label: "对应目标", form: "mono" },
+    { key: "goal_version_no", label: "对应目标（版本）", form: "version" },
+    { key: "target_object", label: "涉及对象", form: "text" },
+    { key: "phenomenon", label: "观察现象", form: "text" },
+    { key: "initial_basis_note", label: "初步依据", form: "text" },
+    { key: "research_reason", label: "研究理由", form: "text" },
+  ];
+  const OPP_KEYS = OPP_FIELDS.map(function (f) { return f.key; });
+
+  /** 机会六要素取值（版本列按服务端口径显示为 `v<n>`；空值统一成空串）。 */
+  function oppFields(opp) {
+    const o = {};
+    OPP_FIELDS.forEach(function (f) {
+      if (!opp) { o[f.key] = ""; return; }
+      const v = opp[f.key];
+      if (v === undefined || v === null) { o[f.key] = ""; return; }
+      o[f.key] = f.key === "goal_version_no" ? "v" + v : String(v);
+    });
+    return o;
+  }
+
+  /** 未知项二态的中文呈现（口径回指服务端 `classifyUnknownItem` 的四个状态，不另立判据）。 */
+  const UNKNOWN_TEXT = {
+    not_assessed: "未评估（尚未判断是否存在未知项 → 计入「六要素不齐」，触发待补）",
+    none_confirmed: "已评估：确无未知项",
+    has_unknown: "", // 有未知项时直接展示原文
+    invalid_blank: "（非法：并非空串但内容为空）",
+  };
 
   const STATUS = {
     candidate: { cls: "badge-candidate", text: "候选" },
@@ -378,6 +416,10 @@
   const U = {
     SIX_FIELDS: SIX_FIELDS,
     SIX_KEYS: SIX_KEYS,
+    OPP_FIELDS: OPP_FIELDS,
+    OPP_KEYS: OPP_KEYS,
+    oppFields: oppFields,
+    UNKNOWN_TEXT: UNKNOWN_TEXT,
     STATUS: STATUS,
     OPERATOR: OPERATOR,
     blankFields: blankFields,

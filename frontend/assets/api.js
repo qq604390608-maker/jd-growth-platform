@@ -15,8 +15,9 @@
    ② 无凭证：不读 cookie/token、不设 Authorization、不读 localStorage 里的任何密钥；
        `credentials` 保持浏览器默认（同源即发送同源 cookie，前端不自行拼装凭证）。
    ③ 无业务逻辑：只做「路径 + 方法 + JSON」，判断逻辑一律在后端（PRD-M6 §1）。
-   反向清单：被 ../assets/app.js（外壳与共享口径取数）、../pages/goal.html（F-27）
-       与后续 F-28~F-32 各页经 window.API 调用；**前端唯一的网络出口**。
+   反向清单：被 ../assets/app.js（外壳与共享口径取数）、../pages/goal.html（F-27）、
+       ../pages/opportunities.html（F-28）与后续 F-29~F-32 各页经 window.API 调用；
+       **前端唯一的网络出口**。
    ============================================================ */
 
 (function () {
@@ -58,6 +59,7 @@
 
   const get = (path) => request("GET", path);
   const post = (path, body) => request("POST", path, body);
+  const patch = (path, body) => request("PATCH", path, body);
   const enc = encodeURIComponent;
 
   window.API = {
@@ -97,13 +99,32 @@
     /** 到点／手动创建一次机会发现任务（F-02）。 */
     createDiscoveryTask: (payload) => post("/api/discovery-tasks", payload),
 
-    /* ------------------------------------------------ 机会（F-27 运行链状态只读；F-28 起为主要消费方） */
+    /* ------------------------------------------------ F-28 机会列表与详情页（M2 F-09/F-10 读面 + 状态写面）
+       全部走既有路由，**不自造端点**（`../server/api/index.js` 为路由真源）。 */
 
-    /** 机会列表（可按目标过滤）。 */
+    /** 机会列表（MD-06，可按目标 / 状态过滤）。F-27 用它算运行链条数；F-28 用它渲染列表。 */
     listOpportunities: (goalId, status) =>
       get(
         "/api/opportunities?goal_id=" + enc(goalId) +
         (status ? "&status=" + enc(status) : "")
       ),
+
+    /** 机会读模型：本体 + 六要素二态判定 + 状态链 + 关系 + 证据关联（`getOpportunityRecord`）。 */
+    getOpportunityRecord: (opportunityId) => get("/api/opportunities/" + enc(opportunityId)),
+
+    /** **证据回查链路**：证据 → 查询记录（EXT-01）→ 来源（CFG-01），含四要素齐全性与 `traceable`。
+     *  证据链「可回查」必须走这条路由——前端不自己拼「证据 + 查询记录」（F-09 验收要点）。 */
+    getEvidenceTrace: (evidenceId) => get("/api/evidence-trace/" + enc(evidenceId)),
+
+    /** 机会状态变更（PD-05 逐次留痕；`deferred` 时 `defer_reason` 才保留）。
+     *  这是**平台自身的写面**（本平台 D1），不是外部生产系统写接口——前端不调任何生产写接口。 */
+    changeOpportunityStatus: (payload) => patch("/api/opportunity-status", payload),
+
+    /** 研究列表（MD-07，可按机会过滤）：F-28 详情「已提交研究」据此指向研究结果页。 */
+    listResearch: (opportunityId) =>
+      get("/api/research?opportunity_id=" + enc(opportunityId)),
+
+    /** 可用来源与工具说明（CFG-01 + CFG-02 只读）：来源名称映射与「可用 / 降级」徽标。 */
+    getSourceToolBriefing: () => get("/api/source-tool-briefing"),
   };
 })();

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<!--
+  文件：frontend/pages/opportunities.html
+  功能点：F-28 机会列表与详情页（M6 运营端工作台）——原型的「机会列表 + 机会详情」两页合并为左右布局一页
+  文档卡：上游 ../../AGENTS.md（宪法：白盒原则｜一条硬红线｜索引三层）
+        ｜ ../../docs/01-brd/BRD.md（M6 F-28：按目标浏览机会（候选 / 暂不研究 / 已提交研究）；详情＝
+           机会六要素 ＋ 证据链（来源、条件、时点可点开回查）＋ 未知项；验收要点＝六要素齐全、证据可回查到查询记录）
+        ｜ ../../docs/02-prd/PRD-M6-运营端工作台.md（F-28 验收要点；§4 约束 1/2/3/6）
+        ｜ ../../docs/05-test-cases/test-M6.md（**TC-I-M6-002 = 本页 oracle**；TC-C-M6-001 / TC-D-M6-001 /
+           TC-I-M6-007 为模块级纪律）
+        ｜ ../../docs/03-locks/schema.md（MD-06 opportunity / PD-05 opportunity_status_log /
+           LNK-01 opportunity_evidence / EXT-02 evidence / EXT-01 query_record / CFG-01 source_registry）
+        ｜ ../../docs/07-decisions/ADR-003（六要素必填与未知项二态）
+        ｜ ../../prototype/pages/opportunities.html（**钉死需求的实证**：区块 / 交互 / 文案以其为准；
+           同名页 opportunity-detail.html 已并入本页，仅作跳转）
+        ｜ ../README.md ｜ ../assets/api.js（唯一数据出口）｜ ../assets/app.js（跨页共享口径）
+  职责：按目标浏览机会（三状态筛选 ＋ 对象筛选）→ 选中一条看详情（六要素 ＋ 未知项二态 ＋ 证据链 ＋
+        可用来源与工具）→ 人工处置入口（提交研究建议 F-29 / 标记暂不研究 / 恢复为候选 / 查看研究结果 F-30）。
+        页面**只做展示与人工操作入口，不含业务逻辑**（PRD-M6 §1），所有读写经 server/api
+        （../assets/api.js），**不直连数据库、不持任何凭证、不调任何外部生产写接口**。
+        **准入条件（本页的门禁）**：目标配置只登记了六要素、从未执行过机会发现、也没有历史产出 →
+        本页不进，给门禁态并指回目标配置（「没有产出」不等于「没有机会」，两者刻意分开）。
+  与原型的**有意偏差**（已登记，见 ../README.md §4）：
+        ① 状态处置（暂不研究 / 恢复为候选）**落库**而非会话态——原型用 ../assets/data.js 做会话覆盖；
+           真实实现走 `PATCH /api/opportunity-status`（写平台 D1 的 MD-06 ＋ PD-05 逐次留痕）。
+           PD-05 的 `change_reason` 为 NOT NULL：本页由**固定语义的处置说明**充当（含「经 F-28 人工处置」），
+           不让前端自由编造业务口径。
+        ② 证据链**点开才回查**：展开某条证据时才调 `GET /api/evidence-trace/{evidence_id}`
+           （证据 → 查询记录 EXT-01 → 来源 CFG-01），不再像原型那样从 mock 里直接取；
+           未展开时只从 LNK-01 关联行展示「来源 / 标题 / 时点 / 适用范围」。
+  反向清单：被 ../assets/app.js 的导航清单登记（page="opportunities"）；被 ../index.html 链接；
+        上游跳转来源：goal.html（F-27「应用配置」后）、propose.html / result.html / tasks.html 回链；
+        下游跳转：propose.html（F-29 研究建议提交）、result.html（F-30 研究结果）、tasks.html（F-32 任务与状态）、
+        goal.html（F-27 目标配置，带 goal 参数）。
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F-28 机会列表与详情</title>
+<link rel="stylesheet" href="../assets/base.css">
+</head>
+<body data-page="opportunities">
+<main class="content">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title"><span class="fn">F-28</span>机会列表与详情</h1>
+      <p class="page-desc" id="opp-meta"></p>
+    </div>
+    <div class="page-actions">
+      <a class="btn" id="link-goal" href="goal.html">查看目标口径</a>
+      <a class="btn" href="tasks.html">查看任务与状态</a>
+    </div>
+  </div>
+
+  <div id="action-note"></div>
+
+  <div class="chain-bar" id="chain"></div>
+  <div id="gate-box"></div>
+
+  <div class="split-layout" id="split">
+    <div>
+      <div class="card" id="filter-card">
+        <div class="card-head">
+          <div class="card-title">筛选</div>
+          <div class="card-note" id="count-note"></div>
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="text-2">状态</span>
+            <button class="chip" data-filter="status" data-value="all">全部</button>
+            <button class="chip" data-filter="status" data-value="candidate">候选</button>
+            <button class="chip" data-filter="status" data-value="submitted">已提交研究</button>
+            <button class="chip" data-filter="status" data-value="deferred">暂不研究</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span class="text-2">对象</span>
+            <button class="chip" data-filter="obj" data-value="all">全部</button>
+            <button class="chip" data-filter="obj" data-value="人群">人群</button>
+            <button class="chip" data-filter="obj" data-value="品类">品类</button>
+            <button class="chip" data-filter="obj" data-value="旅程">旅程环节</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="opp-list" id="list"></div>
+    </div>
+
+    <div id="detail"></div>
+  </div>
+
+  <div class="footer-note">
+    功能点 F-28（列表 ＋ 详情合并）｜ 上游 M3-F-16 机会形成与去重、M2-F-09 证据管理、M2-F-10 机会记录
+    ｜ 下游：<a href="propose.html">F-29 研究建议提交</a>（人工节点）、<a href="result.html">F-30 研究结果</a>、
+    <a href="tasks.html">F-32 任务与状态</a>
+  </div>
+
+</main>
+<script src="../assets/api.js"></script>
+<script src="../assets/app.js"></script>
+<script>
+window.pageInit = async function (U) {
+  var fStatus = "all", fObj = "all";
+
+  /* ---------- 本页展示哪套目标配置的机会 ----------
+     目标解析口径统一走 assets/app.js（URL goal → 会话 applied → 列表第一条），不在本页再写一遍。 */
+  var GOAL_ID = U.currentGoalId();
+  var goal = U.goalById(GOAL_ID);
+  var applied = U.appliedVersion(GOAL_ID);
+  var appliedVer = applied ? "v" + applied.version_no : (U.goalVersion(GOAL_ID) || "—");
+
+  /* 只有本目标配置下产出的机会进入本页 */
+  var selected = U.qs("id") || null;
+  var state = { rows: [], records: {}, studies: {}, sources: [], gaps: [] };
+
+  /* 人工处置说明：PD-05 的 change_reason 为 NOT NULL，由页面给出**固定语义**的说明（见页头偏差①）。 */
+  var DEFER_NOTE = "PM 在 F-28 机会列表标记「暂不研究」（F-28 人工处置，经 server/api 留痕 PD-05）";
+  var DEFER_REASON = "PM 评估：该现象暂不列入本轮研究范围（记录保留，条件变化或出现新证据后可再选）";
+  var RESTORE_NOTE = "PM 在 F-28 机会列表将机会恢复为「候选」（F-28 人工处置，经 server/api 留痕 PD-05）";
+
+  /* ---------- 页头 / 越页链接：一律带上当前目标 ---------- */
+  var goalParam = "?goal=" + encodeURIComponent(GOAL_ID);
+  document.getElementById("link-goal").setAttribute("href", "goal.html" + goalParam);
+  document.getElementById("opp-meta").innerHTML =
+    U.esc(U.goalFields(GOAL_ID).business_goal || "（业务目标未填写）") +
+    "　·　<span class='mono'>" + U.esc(GOAL_ID) + "</span>　·　生效 " + U.esc(appliedVer);
+
+  /* ---------- 提示条 ---------- */
+  function note(kind, msg) {
+    document.getElementById("action-note").innerHTML =
+      '<div class="alert alert-' + (kind === "err" ? "danger" : "ok") + '">' +
+      '<div class="flex-1"><span class="alert-title">' + (kind === "err" ? "操作未完成" : "已执行") +
+      "</span>　" + U.esc(msg) + "</div></div>";
+  }
+  function showErr(e) { note("err", (e && e.message) || String(e)); }
+
+  /* ============================================================
+     取数：一律经 window.API（server/api）；**本页不发任何其它请求**
+     ============================================================ */
+  function sourceRow(sid) {
+    return state.sources.filter(function (s) { return s.source_id === sid; })[0] || null;
+  }
+  function sourceName(sid) {
+    var s = sourceRow(sid);
+    return s ? s.source_name : sid;
+  }
+
+  /* 一条机会的读模型（+ 已提交研究者取研究编号，供 F-30 跳转）。 */
+  async function fetchRecord(oppId) {
+    var rec = await window.API.getOpportunityRecord(oppId);
+    state.records[oppId] = rec;
+    var st = rec && rec.opportunity ? rec.opportunity.opportunity_status : "";
+    var studies = [];
+    if (st === "submitted") {
+      var res = await window.API.listResearch(oppId);
+      studies = (res && res.items) || [];
+    }
+    state.studies[oppId] = studies;
+    return rec;
+  }
+
+  async function loadAll() {
+    var res = await window.API.listOpportunities(GOAL_ID);
+    state.rows = (res && res.items) || [];
+    await Promise.all(state.rows.map(function (r) { return fetchRecord(r.opportunity_id); }));
+    var brief = await window.API.getSourceToolBriefing();
+    state.sources = (brief && brief.sources) || [];
+    state.gaps = (brief && brief.gaps) || [];
+  }
+
+  /* ============================================================
+     准入条件（门禁）：没跑过机会发现、也没有历史产出 → 这一步不成立
+     ============================================================ */
+  var gate = U.gateOf("opportunities", GOAL_ID);
+
+  function renderGate() {
+    var chain = document.getElementById("chain");
+    chain.className = "chain-bar";
+    chain.innerHTML =
+      '<span class="chain-key">运行链</span>' +
+      "<span>① 目标配置 " + U.esc(appliedVer) + " 已登记　→　<b>② 机会发现未执行</b>　→　③ 暂无机会产出</span>";
+    document.getElementById("gate-box").innerHTML =
+      '<div class="card"><div class="gate">' +
+        '<div class="gate-mark">!</div>' +
+        '<div class="gate-title">' + U.esc(gate.reason) + "</div>" +
+        '<div class="gate-text">机会列表呈现的是机会发现的产出。该目标配置只登记了六要素，' +
+          "还没有执行过机会发现，所以这一步还不成立 —— 这里暂时没有可看的内容，也不等于「没有机会」。</div>" +
+        '<div class="gate-how">' + U.esc(gate.how) + "</div>" +
+        '<div class="gate-actions">' +
+          '<a class="btn btn-primary" href="goal.html' + goalParam + '">去目标配置执行机会发现 →</a>' +
+          '<a class="btn" href="tasks.html">查看任务与状态</a>' +
+        "</div>" +
+      "</div></div>";
+    document.getElementById("split").style.display = "none";
+    U.clearUnread("opportunities", GOAL_ID);
+  }
+
+  /* 已放行：把「上一个动作跑到哪了」摆在列表上方 */
+  function renderChain() {
+    var el = document.getElementById("chain");
+    var rs = gate.rs;
+    var running = rs.state === "queued";
+    el.className = "chain-bar" + (running ? " is-running" : "");
+    el.innerHTML = '<span class="chain-key">运行链</span>' +
+      "<span>① 目标配置 " + U.esc(appliedVer) + " 已登记　→　" +
+      "② 机会发现 " + (running
+        ? "<b>运行中</b>（任务 " + U.esc(rs.runningCount) + " 个）"
+        : (rs.lastRun ? "已完成（任务 " + U.esc(rs.lastRun.task_id) + "）" : "已执行")) +
+      "　→　③ 机会产出 " + state.rows.length + " 条</span>" +
+      (running ? "<span>列表会随运行结果补全</span>" : "");
+  }
+
+  /* ============================================================
+     左列：列表（该目标下的机会；三状态 + 对象筛选）
+     ============================================================ */
+  function statusOf(oppId) {
+    var rec = state.records[oppId];
+    return rec && rec.opportunity ? rec.opportunity.opportunity_status : "";
+  }
+  function filtered() {
+    return state.rows.filter(function (r) {
+      if (fStatus !== "all" && statusOf(r.opportunity_id) !== fStatus) return false;
+      if (fObj !== "all" && String(r.target_object || "").indexOf(fObj) === -1) return false;
+      return true;
+    });
+  }
+
+  function renderList() {
+    var rows = filtered();
+    if (rows.length && !rows.some(function (r) { return r.opportunity_id === selected; })) {
+      selected = rows[0].opportunity_id;
+    }
+    document.getElementById("count-note").textContent =
+      "共 " + rows.length + " 条（" + GOAL_ID + " 下 " + state.rows.length + " 条）";
+
+    if (!rows.length) {
+      document.getElementById("list").innerHTML =
+        '<div class="card"><div class="empty">' +
+        (state.rows.length
+          ? "当前筛选条件下没有机会记录"
+          : "该目标 <span class='mono'>" + U.esc(GOAL_ID) + "</span> 本轮发现未产出机会记录。" +
+            '<div class="small text-3" style="margin-top:6px">没有足够依据也是合法产出（M3-F-16）：' +
+            "本轮检查范围与信息缺口已留存在任务记录里。</div>") +
+        '<div class="small text-3" style="margin-top:6px">可到 <a href="goal.html' + goalParam +
+        '">目标配置</a> 切换其他配置，或再执行一次机会发现。</div>' +
+        "</div></div>";
+      return;
+    }
+
+    document.getElementById("list").innerHTML = rows.map(function (r) {
+      var id = r.opportunity_id;
+      var rec = state.records[id] || {};
+      var evs = (rec.evidences || []).map(function (e) {
+        return '<span class="ev-src">' + U.esc(sourceName(e.source_id)) + "</span>";
+      }).join(" ");
+      return '<div class="opp-item' + (id === selected ? " active" : "") + '" data-opp="' + U.esc(id) + '">' +
+        '<div style="display:flex;gap:8px;align-items:flex-start;justify-content:space-between">' +
+          '<div style="font-size:13px;font-weight:500;min-width:0">' + U.esc(r.opportunity_title) + "</div>" +
+          "<div>" + U.badge(statusOf(id)) + "</div>" +
+        "</div>" +
+        '<div class="kv-inline" style="margin-top:4px"><span class="mono">' + U.esc(id) + "</span>" +
+          "<span>" + U.esc(r.created_at || "") + "</span>" +
+          "<span>来自 " + U.esc(r.producing_task_id || "—") + "</span></div>" +
+        '<div class="small text-2" style="margin-top:6px">' + U.esc(r.phenomenon) + "</div>" +
+        '<div style="margin-top:6px">' + evs + "</div>" +
+        "</div>";
+    }).join("");
+
+    document.querySelectorAll("[data-opp]").forEach(function (el) {
+      el.addEventListener("click", function () {
+        selected = el.dataset.opp;
+        renderList();
+        renderDetail();
+      });
+    });
+  }
+
+  /* ============================================================
+     右列：详情（六要素 + 未知项二态 + 证据链 + 可用来源与工具 + 人工处置）
+     ============================================================ */
+
+  /** 证据链：一条证据一个可展开项。**点开才回查**（`/api/evidence-trace/{id}`）。
+   *  未展开时只呈现 LNK-01 关联行能给到的「来源 / 标题 / 时点 / 适用范围」。 */
+  function evidenceFold(ev) {
+    return '<details class="fold" data-ev="' + U.esc(ev.evidence_id) + '">' +
+      "<summary><span class='ev-src'>" + U.esc(sourceName(ev.source_id)) + "</span>" +
+      "<span>" + U.esc(ev.evidence_title) + "</span>" +
+      "<span class='tag mono'>" + U.esc(ev.evidence_id) + "</span>" +
+      "<span class='tag'>" + U.esc(ev.link_kind) + "</span>" +
+      "<span class='small text-3'>" + U.esc(ev.info_time_point || "") + "</span></summary>" +
+      '<div class="fold-body" data-ev-body="' + U.esc(ev.evidence_id) + '">' +
+        '<div class="small text-3">展开后回查该证据的取得过程：证据 → 查询记录（EXT-01）→ 来源（CFG-01）……</div>' +
+      "</div></details>";
+  }
+
+  /** 证据回查结果（`getEvidenceTrace` 的真实返回，**不用任何替代值**）。 */
+  function renderTrace(box, trace) {
+    var ev = trace.evidence || {};
+    var qr = trace.query_record;
+    var src = trace.source;
+    var cp = trace.completeness || { valid: false, missing_labels: [] };
+    var rows =
+      '<div class="field"><div class="field-label">查询条件</div><div class="field-value">' +
+        U.esc(ev.query_condition || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">信息时点</div><div class="field-value">' +
+        U.esc(ev.info_time_point || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">适用范围</div><div class="field-value">' +
+        U.esc(ev.applicability_scope || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">查询结果</div><div class="field-value">' +
+        U.esc(ev.result_summary || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">缺失说明</div><div class="field-value text-2">' +
+        U.esc(ev.missing_note || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">来源</div><div class="field-value">' +
+        U.esc(src ? src.source_name + "（" + src.source_id + "）" : ev.source_id || "—") + "</div></div>" +
+      '<div class="field"><div class="field-label">查询记录</div><div class="field-value mono">' +
+        U.esc(ev.query_id || "—") + (qr ? "（" + U.esc(qr.result_status) + "）" : "（查无此查询记录）") +
+      "</div></div>";
+
+    var verdict = trace.traceable
+      ? '<div class="alert alert-ok" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">四要素齐全 · 可回查</span>　该证据可回指查询记录与来源，可作为有效依据。</div></div>'
+      : '<div class="alert alert-danger" style="margin-top:10px"><div class="flex-1">' +
+        '<span class="alert-title">四要素不齐 · 不可作为有效依据</span>　缺：' +
+        U.esc((cp.missing_labels || []).join("、") || "—") + "；证据链不完整，无法回查取得过程。</div></div>";
+
+    box.innerHTML = '<div class="field-list">' + rows + "</div>" + verdict;
+  }
+
+  async function openEvidence(detailEl) {
+    var box = detailEl.querySelector("[data-ev-body]");
+    var evId = detailEl.dataset.ev;
+    if (!box || box.dataset.loaded === "1") return;
+    box.innerHTML = '<div class="small text-3">正在回查……</div>';
+    try {
+      var trace = await window.API.getEvidenceTrace(evId);
+      renderTrace(box, trace);
+      box.dataset.loaded = "1";
+    } catch (e) {
+      box.innerHTML = '<div class="small" style="color:#C81623">回查失败：' + U.esc((e && e.message) || String(e)) + "</div>";
+    }
+  }
+
+  function renderDetail() {
+    var box = document.getElementById("detail");
+    var rec = state.records[selected];
+    if (!rec || !rec.opportunity) {
+      box.innerHTML = '<div class="card"><div class="empty">从左侧选择一条机会查看六要素与证据链</div></div>';
+      return;
+    }
+    var o = rec.opportunity;
+    var as = rec.assessment || {};
+    var status = o.opportunity_status;
+
+    /* 六要素：键与标签取自 ../assets/app.js 的 U.OPP_FIELDS（＝服务端 OPPORTUNITY_SIX_ELEMENTS 口径） */
+    var fv = U.oppFields(o);
+    var fieldsHtml = U.OPP_FIELDS.map(function (f) {
+      var raw = fv[f.key];
+      var val = raw === "" ? '<span class="muted">（未填写）</span>'
+        : (f.form === "mono" ? '<span class="mono">' + U.esc(raw) + "</span>" : U.esc(raw));
+      return '<div class="field" data-field="' + f.key + '"><div class="field-label">' + U.esc(f.label) +
+        '</div><div class="field-value">' + val + "</div></div>";
+    }).join("");
+
+    /* 未知项二态（口径回指服务端 classifyUnknownItem 的四个状态，不另立判据） */
+    var unknownState = as.unknown_state;
+    var unknownVal;
+    if (unknownState === "has_unknown") unknownVal = U.esc(o.unknown_item);
+    else if (unknownState === "none_confirmed") unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.none_confirmed) + "</span>";
+    else if (unknownState === "not_assessed") unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.not_assessed) + "</span>";
+    else unknownVal = '<span class="muted">' + U.esc(U.UNKNOWN_TEXT.invalid_blank) + "</span>";
+
+    var completeBadge = as.six_elements_complete
+      ? '<span class="badge badge-done"><span class="badge-dot"></span>六要素齐全</span>'
+      : '<span class="badge badge-blocked"><span class="badge-dot"></span>六要素不齐（缺 ' +
+        U.esc((as.missing_labels || []).join("、") || "未评估项") + "）</span>";
+
+    /* 人工处置（按状态给不同入口） */
+    var action = "";
+    if (status === "candidate") {
+      action = '<div class="btn-row">' +
+          '<a class="btn btn-primary" href="propose.html?opp=' + U.esc(o.opportunity_id) +
+            "&goal=" + U.esc(GOAL_ID) + '">提交研究建议 →</a>' +
+          '<button class="btn" data-defer="' + U.esc(o.opportunity_id) + '">标记暂不研究</button>' +
+        "</div>" +
+        '<div class="small text-3" style="margin-top:8px">「提交研究建议」进入 F-29（人工节点：PM 提研究问题）；' +
+        "「标记暂不研究」只改状态、<b>不删记录</b>，条件变化或出现新证据后可再恢复为候选。</div>";
+    } else if (status === "submitted") {
+      var studies = state.studies[o.opportunity_id] || [];
+      action = '<div class="small text-2">已提交研究建议' +
+        (studies.length
+          ? "，研究 <span class='mono'>" + U.esc(studies.map(function (s) { return s.research_no; }).join("、")) +
+            "</span> 已登记。"
+          : "（该机会暂无登记在案的研究行，以任务与状态页为准）。") + "</div>" +
+        '<div class="btn-row">' +
+          (studies.length
+            ? '<a class="btn btn-primary" href="result.html?study=' + U.esc(studies[0].research_no) +
+              "&goal=" + U.esc(GOAL_ID) + '">查看研究结果 →</a>'
+            : '<a class="btn btn-primary" href="tasks.html">查看任务与状态 →</a>') +
+          '<a class="btn" href="propose.html?opp=' + U.esc(o.opportunity_id) + "&goal=" + U.esc(GOAL_ID) +
+            '">再提一份研究建议</a>' +
+        "</div>";
+    } else {
+      action = '<div class="small text-2">已标记暂不研究，记录保留。</div>' +
+        '<div class="btn-row"><button class="btn" data-restore="' + U.esc(o.opportunity_id) +
+          '">恢复为候选</button></div>';
+    }
+
+    var evidences = rec.evidences || [];
+    var evHtml = evidences.length
+      ? evidences.map(evidenceFold).join("")
+      : '<div class="empty">该机会暂无关联证据</div>';
+
+    var sourcesHtml = state.sources.map(function (s) {
+      return '<div class="card-section">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center">' +
+          "<b>" + U.esc(s.source_name) + '</b><span class="mono">' + U.esc(s.source_id) + "</span>" +
+          (s.availability_status === "ok"
+            ? '<span class="badge badge-done">可用</span>'
+            : '<span class="badge badge-blocked">' + U.esc(s.availability_status === "degraded" ? "降级" : "未接入") + "</span>") +
+        "</div>" +
+        '<div class="small" style="margin-top:4px">可查：' + U.esc(s.capability_can || "—") + "</div>" +
+        '<div class="small text-3">不可查：' + U.esc(s.capability_cannot || "—") + "</div>" +
+      "</div>";
+    }).join("");
+
+    box.innerHTML =
+      '<div class="card">' +
+        '<div class="card-head">' +
+          '<div style="min-width:0">' +
+            '<div style="font-size:15px;font-weight:500"><span class="mono">' + U.esc(o.opportunity_id) +
+              "</span> ｜ " + U.esc(o.opportunity_title) + "</div>" +
+            '<div class="kv-inline" style="margin-top:4px"><span>创建 ' + U.esc(o.created_at || "—") +
+              "</span><span>来自发现任务 " + U.esc(o.producing_task_id || "—") + "</span>　" +
+              completeBadge + "</div>" +
+          "</div>" +
+          "<div>" + U.badge(status) + "</div>" +
+        "</div>" +
+        (status === "deferred"
+          ? '<div class="alert alert-info"><div class="flex-1"><span class="alert-title">暂不研究</span>　' +
+            U.esc(o.defer_reason || "记录保留，条件变化或出现新证据后可再选。") + "</div></div>"
+          : "") +
+        '<div class="field-list">' + fieldsHtml +
+          '<div class="field" data-field="unknown_item"><div class="field-label">未知项</div>' +
+          '<div class="field-value">' + unknownVal + "</div></div>" +
+        "</div>" +
+        '<div class="card-section">' + action + "</div>" +
+      "</div>" +
+
+      '<div class="card">' +
+        '<div class="card-head"><div class="card-title">证据链</div>' +
+          '<div class="card-note">共 ' + evidences.length + " 条关联（LNK-01，新旧依据并存）· 点开即回查</div></div>" +
+        evHtml +
+      "</div>" +
+
+      '<details class="fold" style="margin-top:14px" id="source-fold">' +
+        "<summary>可用来源与工具（M2-F-08）</summary>" +
+        '<div class="fold-body">' + (sourcesHtml || '<div class="empty">暂无可用来源登记</div>') + "</div>" +
+      "</details>";
+
+    /* 人工处置：状态变更写平台 D1（MD-06 + PD-05 留痕），一律经 server/api */
+    box.querySelectorAll("[data-defer]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        setStatus(b.dataset.defer, "deferred", DEFER_NOTE, DEFER_REASON);
+      });
+    });
+    box.querySelectorAll("[data-restore]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        setStatus(b.dataset.restore, "candidate", RESTORE_NOTE);
+      });
+    });
+
+    /* 证据链：点开（或收起）→ 首次展开才回查 */
+    box.querySelectorAll("[data-ev]").forEach(function (d) {
+      var sum = d.querySelector("summary");
+      sum.addEventListener("click", function (e) {
+        e.preventDefault();
+        var willOpen = !d.hasAttribute("open");
+        if (willOpen) { d.setAttribute("open", "open"); openEvidence(d); }
+        else { d.removeAttribute("open"); }
+      });
+    });
+  }
+
+  /** 机会状态变更：经 `PATCH /api/opportunity-status` → 重新读该机会 → 重绘（状态链随之增长）。 */
+  async function setStatus(oppId, to, changeReason, deferReason) {
+    try {
+      await window.API.changeOpportunityStatus({
+        opportunity_id: oppId,
+        to_status: to,
+        change_reason: changeReason,
+        changed_by: U.OPERATOR,
+        defer_reason: deferReason,
+      });
+      await fetchRecord(oppId);
+      renderList();
+      renderDetail();
+      note("ok", "机会 " + oppId + " 状态已变更为「" + (U.STATUS[to] ? U.STATUS[to].text : to) +
+        "」，并记入状态变更链（PD-05）。");
+    } catch (e) { showErr(e); }
+  }
+
+  function render() { renderList(); renderDetail(); }
+
+  /* ---------- 筛选 chips（激活态用 data-active 标记语义，内联样式只管观感） ---------- */
+  function paintChips() {
+    document.querySelectorAll(".chip[data-filter]").forEach(function (c) {
+      var on = (c.dataset.filter === "status" ? fStatus : fObj) === c.dataset.value;
+      if (on) { c.dataset.active = "1"; c.style.borderColor = "#E1251B"; c.style.color = "#E1251B"; }
+      else { delete c.dataset.active; c.style.borderColor = ""; c.style.color = ""; }
+    });
+  }
+  document.querySelectorAll(".chip[data-filter]").forEach(function (c) {
+    c.addEventListener("click", function () {
+      if (c.dataset.filter === "status") fStatus = c.dataset.value; else fObj = c.dataset.value;
+      paintChips();
+      render();
+    });
+  });
+
+  /* ---------- 启动 ---------- */
+  if (gate.locked) { renderGate(); return; }
+
+  await loadAll();
+  U.clearUnread("opportunities", GOAL_ID);
+  renderChain();
+  paintChips();
+  render();
+};
+</script>
+</body>
+</html>
+<!--
+  反向清单：
+  - 被 ../README.md 登记（M6 六页面之一：F-28）
+  - 被 ../assets/app.js 的导航清单登记（page="opportunities"，fn="F-28"）
+  - 被 ../index.html 链接
+  - 上游跳转来源：goal.html（F-27「应用配置」后）、tasks.html、propose.html、result.html
+  - 下游跳转：propose.html（F-29）、result.html（F-30）、tasks.html（F-32）、goal.html（F-27）
+-->
