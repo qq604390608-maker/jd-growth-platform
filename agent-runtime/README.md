@@ -14,7 +14,7 @@
 agent-runtime/
 ├── README.md                 # 本文件（枝杈索引）
 ├── VERSIONS.md               # 版本管理机制（MD-13/MD-14 登记载体）★核心交付
-├── business-rules.md         # 公共业务指令（两 Agent 共用，建壳）
+├── business-rules.md         # 公共业务指令（两 Agent 共用，✅ 本体 F-18 2026-09-20）
 ├── discovery/                # 机会发现 Agent（M3）
 │   ├── agent.md              # 角色指令（建壳）
 │   └── skills/
@@ -23,7 +23,7 @@ agent-runtime/
 │       ├── S-A3.md           # （建壳，code 名待 T-24）
 │       └── S-A4.md           # （建壳，code 名待 T-24）
 └── hva/                      # HVA 分析 Agent（M4）
-    ├── agent.md              # 角色指令（建壳）
+    ├── agent.md              # 角色指令（✅ 本体 F-18 2026-09-20）
     └── skills/
         ├── S-B1.md           # HVA 五查（MD-14 已种：hva-five-checks）
         ├── S-B2.md           # （建壳，code 名待 T-24）
@@ -32,8 +32,10 @@ agent-runtime/
 ```
 
 ## 状态
-- **阶段0 骨架已建（2026-09-19）**：目录 + 版本管理机制 `VERSIONS.md` + `agent.md`/`business-rules.md`/`S-A1~S-A4`/`S-B1~S-B4` 建壳（仅文件与文档卡，本体待阶段4 落地）。
-- **待阶段4**：agent.md / business-rules.md / skills 本体内容（dev-plan 阶段4 M3/M4）。
+- **阶段0 骨架已建（2026-09-19）**：目录 + 版本管理机制 `VERSIONS.md` + `agent.md`/`business-rules.md`/`S-A1~S-A4`/`S-B1~S-B4` 建壳（仅文件与文档卡）。
+- **阶段4 落地（进行中）**：`business-rules.md`（公共业务指令 8 条）与 `hva/agent.md`（角色指令五段）本体已由 **F-18** 落地（2026-09-20；服务端装载见 `server/agent-orchestrator/role.js`）。
+- **待阶段4**：`discovery/agent.md` 与 skills 本体内容（`S-A2~S-A4`/`S-B2~S-B4` 的 `skill_code` 受 T-24 阻塞）。
+- **已登记未擅自改（F-18 实施发现）**：`discovery/agent.md` 仍为建壳，其建壳声明写「待阶段4 落地」，而 M3（F-13~F-17）已于 2026-09-20 收口——**F-13 只落了服务端 MD-13/MD-14 登记与版本管理，未落 agent.md 本体**，故 M3 侧角色指令本体形成缺口。本文件只如实登记，**不擅自补写**（等用户裁决）。
 - **未决项**：⚠️ T-23（agent.md 版本管理真实形态，external-deps §7）；⚠️ T-24（Skill 加载方式与 S-A2~S-A4/S-B2~S-B4 code 名，external-deps §7）。
 
 ## 反向清单

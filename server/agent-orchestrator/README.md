@@ -23,6 +23,8 @@
 | `test-f16.mjs` | F-16 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + 结构性注入的 F-15 查证结果；断言依据足够→落 MD-06 六要素+二态 / 依据不足→缺口记录且**行数不变** / unknown 未评估判不齐 / unknown 纯空白串显式拒 / 判重命中→LNK-03 `same_issue` 方向 / 取号推进 / 缺口记录结构 / 纯函数与 caveat / 静态零外部调用 + 零写语句 + 零裸 SQL + 唯一依赖 shared-context） | ✅ 已建（**73 断言全绿**） |
 | `handoff.js` | **F-17 两步衔接**（M3 收尾）：确定性衔接编排/契约层（**零写库、零裸 SQL、零外部调用，且绝不触发 M4**）。`assemblePmDecisionContext`（M3 产出→PM 决策上下文：机会六要素＋评定＋**初步依据四要素**（来源/条件/时点/适用范围）＋未知项＋缺口＋「尚不构成 HVA 结论」声明）、`evaluateHandoffGate`（**人工节点守卫**：完成判据＝MD-12 有无该机会的真实建议行——**不看 `opportunity_status`**，防状态假通过；`auto_handoff` 恒 false）、`collectSupplementRequests`（**反向问 PM**：必要信息缺失→请补项，不静默回退不编造）、`composeHandoffPackage`（交接包**只组装不触发**：未过守卫 `handoff:null`＋`blocked_by='human_node'`；已过则给「供 M1 F-04 消费」的输入前提） | ✅ F-17 已建 2026-09-20（**66 断言全绿**） |
 | `test-f17.mjs` | F-17 用例执行器（node:sqlite + D1 适配层，载真实 DDL/种子 + 夹具「无证据+未知项 NULL」机会；用 F-03 `submitProposal` **造人工节点产物**。断言 PM 上下文四要素透传+性质声明 / **状态为 submitted 但 MD-12 无建议 → 仍不得交接**（防假通过）/ 提交建议后放行但 `auto_handoff` 仍 false / 反向问 PM 请补项 / 交接包只组装（**`task` 与 `hva_research` 行数不变**）/ 机会不存在报错 / 常量口径 / 静态零外部调用+零写库+零裸 SQL+**不 import hva.js 且不出现 M4 建任务函数名**） | ✅ 已建（**66 断言全绿**） |
+| `role.js` | **F-18 角色指令配置**（M4 开局；**零写库、零裸 SQL**——MD-13/MD-14 读面全复用 F-13 `profile.js`）：`loadAgentRole`（装载运行期角色指令包：MD-13 登记＋生效 Skill＋版本快照＋`agent.md` 段落骨架 5 段＋`business-rules.md` 编号 8 条＋结束条件与边界声明；**叙述文本本体在 `agent-runtime/`，本文件只持编号与判据键**）、`evaluateResearchClosure`（结束条件二选一：有依据的研究回答 / 说明无法完成判断的原因＝**合法结束**；无依据不构成回答、产品假设不得当回答、失败导致的否定不得作依据——BRD §7 第 4 条）、`labelProductHypothesis`（假设性质标注，**不预设结论**）、`scanProductionActions`（输出边界禁词扫描——TC-C-M4-001 硬红线的可运行形式） | ✅ F-18 已建 2026-09-20（**71 断言全绿**） |
+| `test-f18.mjs` | F-18 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；断言装载全字段 / 5 段骨架顺序与来源回指 / 8 条业务指令 / 生效 Skill 与版本快照串对齐 F-13 / 本体逐条对齐（`business-rules.md` 有序列表 8 条标题、`hva/agent.md` 五段章节、已去建壳声明）/ 结束条件七路（含两条红线反例）/ 假设标注 / 输出边界扫描 / **运行期零写**（真库行数不变 + fake-db 全 SELECT）/ 静态零外部调用 + 零写语句 + 零裸 SQL + 仅依赖 F-13 读面） | ✅ 已建（**71 断言全绿**） |
 
 ## F-13 已通过用例（`test-f13.mjs`，30 断言）
 
@@ -86,7 +88,19 @@
 | ⑦ 常量口径 | BRD §3.1 / §6 | `HANDOFF_NODE.auto === false`、指向 M1 F-03→F-04、常量冻结；四要素常量 4 项且冻结 |
 | ⑧ 静态核验 | 硬红线纪律 | 零 `fetch(`、无 http(s) 字面；**零写库**（实测命中 0）；**零裸 SQL**（`SELECT` 实测 0）；**不 import `../task-runner/hva.js`**、**代码中不出现 M4 建任务函数名**（TC-I-M3-001）；import 恰 2 条＝`../shared-context/index.js` ＋ `../task-runner/proposal.js`；不依赖 `tool-executor` |
 
-## HTTP 路由面（`server/api/index.js`，F-13/F-14/F-15/F-16/F-17 接入）
+## F-18 已通过用例（`test-f18.mjs`，71 断言）
+
+| 组别 | oracle 来源 | 关键断言 |
+| ---- | ---- | ---- |
+| ① 装载角色指令 | **PRD-M4 §1.1.1/§1.1.2** | `loadAgentRole(db,'hva-agent')` 全字段取自 MD-13（`agent_stage=M4`、`v1.3`/`r12`）；版本快照串与 F-13/种子**逐字一致**；生效 Skill 取自 MD-14（仅 `S-B1 hva-five-checks`）；段落骨架 5 段且顺序＝职责→输入→工作方式→输出→结束条件，每段 `source` 回指 `agent.md`；业务指令 8 条（`BR-01`~`BR-08`）；两条红线与边界声明随装载暴露；反例：不存在 / 空 `agent_code` → 报错 |
+| ② 本体逐条对齐（**回指不重述**） | F-18 口径 | `business-rules.md` 有序列表恰 8 条、标题与 `BUSINESS_RULE_IDS` **逐条一致**；`hva/agent.md` 含五个章节标题与「产品假设不预先作为研究结论」；两本体**已去建壳声明** |
+| ③ 结束条件 | **PRD-M4 F-18 验收要点** | 有依据回答 → `closed/kind=research_answer`（依据条数如实）；**无依据 → 不结束**（原因回指 `BR-01`）；说明限制 → `kind=limitation_stated`（**合法结束**、原因原样透传、`negation_allowed=false`）；二者皆无 → 不结束并列 `missing` 两项；**红线①**：`answer_nature=hypothesis` → 拒绝（须先经查证）；**红线②**：`unsupport + due_to_failure` → 拒绝（BRD §7 第 4 条），而**非失败的「未支持」是完整结果**；入参非对象 → 报错 |
+| ④ 假设性质标注 | **PRD-M4 红线 2 / BRD §6** | `nature=hypothesis`、`is_conclusion=false`、`must_verify=true`；字符串入参可、去空白；空白 / 缺文本 → 报错（不静默降级） |
+| ⑤ 输出边界扫描 | **TC-C-M4-001**（硬红线可运行形式） | 合规文本 → `clean=true`、扫描项数＝禁词表长度（恰 4 项：活动配置 / 权益组合 / 预算 / 排期）；含生产动作 → `clean=false` 且**逐个列出命中与位置**；非字符串 → 报错 |
+| ⑥ 运行期零写 | **TC-I-M4-002** | 装载前后 `agent_profile`/`skill_registry` 行数不变；fake-db 记录到的语句**全为 `SELECT`**（实测 4 条、非 SELECT 0 条） |
+| ⑦ 静态核验 | 硬红线纪律 | 零 `fetch(`、无 http(s) 字面；**零写语句**（实测 0）；**零裸 SQL**（`SELECT` 实测 0）；import **恰 1 条**＝`./profile.js`；不依赖 `node:sqlite`/`node:fs`/`tool-executor`/`task-runner`/`shared-context`；不出现下游建任务 / 查询入口函数名 |
+
+## HTTP 路由面（`server/api/index.js`，F-13/F-14/F-15/F-16/F-17/F-18 接入）
 
 | 路由 | 职责 | 成功 / 错误码 |
 | ---- | ---- | ---- |
@@ -112,6 +126,10 @@
 | `GET /api/handoff-gate/{opportunity_id}` | F-17 · **人工节点守卫**（完成判据＝MD-12 有无真实建议行；`auto_handoff` 恒 false） | 200；机会不存在 404 |
 | `POST /api/pm-supplement-requests` | F-17 · **反向问 PM**（必要信息缺失→请补项；不静默回退不编造） | 200；机会不存在 404；缺 `opportunity_id` 400 |
 | `POST /api/handoff-package` | F-17 · 交接包**只组装不触发**（未过守卫 `handoff:null`＋`blocked_by='human_node'`） | 200；机会不存在 404；缺 `opportunity_id` 400 |
+| `GET /api/agent-roles/{agent_code}` | F-18 · 装载运行期角色指令包（`agent.md` 段落骨架 5 段＋`business-rules.md` 8 条＋生效 Skill＋版本快照；只读 F-13 读面） | 200；角色指令不存在 404 |
+| `POST /api/research-closure` | F-18 · 结束条件判定（有依据的研究回答 / 说明无法完成判断的原因；二者皆缺 → 不结束） | 201（可结束）/ 200（未结束——只回报判定，不算错误） |
+| `POST /api/hypothesis-label` | F-18 · 产品假设性质标注（**不预设结论**，纯计算） | 200；假设内容为空 400 |
+| `POST /api/output-boundary-scan` | F-18 · 输出边界扫描（禁活动配置 / 权益组合 / 预算 / 排期，纯计算） | 200（clean）/ 409（含生产动作）；入参非字符串 400 |
 
 ## 口径（本模块已定，含登记在案的取舍）
 
@@ -185,11 +203,27 @@
 
 **⑥ 反向问 PM 只补要查清的内容**：`collectSupplementRequests` 在六要素不齐 / 未知项未评估 / 无关联证据时列出请补项（含「为何请补」与「请补什么」），**不静默回退、不编造**，也不要求重填已有材料（承接 M1 F-03 口径）。
 
+### 6. F-18 角色指令配置（M4 开局 · 装载与结束条件；**本体归 `agent-runtime/`**）
+
+**① 零写库 + 零裸 SQL + 复用 F-13 读面**：`role.js` 不含任何 `INSERT`/`UPDATE`/`DELETE`、不含 `SELECT`（`test-f18` ⑦ 静态断言）——MD-13/MD-14 一律经 `./profile.js` 的 `getAgentProfile`/`listAgentSkills`/`composeAgentVersionSnapshot`；**MD-13/MD-14 的写入面仍唯一属于 `profile.js`**，本文件不新增写面。运行期零写另有实测：装载前后 `agent_profile`/`skill_registry` 行数不变，fake-db 记录到的语句全为 `SELECT`（⑥ 组）。
+
+**② 不复制第二个口径（回指不重述）**：角色指令与公共业务指令的**叙述文本本体在 `agent-runtime/`**（`hva/agent.md`、`business-rules.md`），`role.js` 只持「段落键 / 指令编号 / 判据键 + 来源回指」；`ROLE_SECTIONS`（5 段）与 `BUSINESS_RULE_IDS`（8 条 `BR-01`~`BR-08`）在 `test-f18` ② 组与本体**逐条对齐断言**——本体改了标题而服务端未跟随，用例立刻失败。版本号同理：不内联，一律从 MD-13 现读（`v1.3`/`r12` 只在断言里与种子比对一致性）。
+
+**③ 结束条件二选一做成确定性判据（PRD-M4 F-18 验收要点）**：`evaluateResearchClosure`——①「有依据的研究回答」须**同时**有回答正文与 `evidence_refs`（无依据不算「有依据」）；②「说明无法完成判断的原因」（`limitation_reason`）**同样是合法结束**（BRD §7 第 4 条精神：不硬做）；③ 二者皆缺 → `closed=false` 并列出 `missing`。这是「角色指令的结束条件」在运行期的**可运行形态**，不是注释。
+
+**④ 两条红线做成判据（而非注释）**：**产品假设不预先作为结论**——`answer_nature='hypothesis'` 时拒绝当研究回答（联动 `labelProductHypothesis`：假设一律 `is_conclusion=false`、`must_verify=true`）；**失败不否定结论**——`answer_stance='unsupport'` 且 `due_to_failure=true` 时拒绝结束并置 `negation_allowed=false`，而**非失败的「未支持」是完整结果**（PRD-M4 F-21 口径）。
+
+**⑤ 输出边界扫描＝硬红线的可运行形式（TC-C-M4-001）**：`FORBIDDEN_PRODUCTION_PATTERNS` 恰 4 项（活动配置 / 权益组合 / 预算 / 排期，取自 PRD-M4 §1.1.2 第 7 条与 BRD §5.2），`scanProductionActions` 返回 `clean`/`hits`（带位置）；HTTP 层据此把「含生产动作」回 **409**。该 oracle 的「七要素结构化 JSON」部分属 A-1 LLM 推理契约，**登记为「门禁未关闭、非发布门禁」**。
+
+**⑥ LLM 门禁边界（明确登记）**：本文件只做**装载与确定性判定**（不推理、不调 LLM）——`TC-C-M4-001` 的推理产出契约受 A-1（LLM ⬜ 未提供）门禁，待 A-1 落实后由 F-19~F-22 补验；`test-f18` 只验结构契约与红线扫描，**demo 值不进断言**。
+
+**⑦ 本体落地（`agent-runtime/` 侧，F-18 一并交付）**：`agent-runtime/business-rules.md`（公共业务指令 8 条）与 `agent-runtime/hva/agent.md`（角色指令五段）由「建壳」升级为「本体」，状态位同步 `agent-runtime/VERSIONS.md` §2.1/§2.2 与 `agent-runtime/README.md`。**实施中发现**：`discovery/agent.md` 仍为建壳（F-13 只落服务端登记、未落本体），**已登记未擅自改**，见 `agent-runtime/README.md` §状态。
+
 ## 反向清单
 
-- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 / F-15 / F-16 / F-17 路由**）｜阶段4 `../agent-orchestrator` 后续 F-18~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 复用注入清单；`verification.js` 的 `verifyClueAndDraftEvidence`/`buildEvidenceDraft` 供 **F-16 机会形成与去重**消费「查证结果 → 机会或缺口记录」；**F-17 两步衔接**消费 `opportunity.js` 产出的机会记录（经 MD-06 读面）组装 PM 决策上下文，并交出「供 M1 F-04 消费」的输入前提）｜`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`；**F-17 反向引用** `../task-runner/proposal.js` 的只读 `listProposals`（人工节点产物）
-- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14/MD-06/MD-12 真源）｜`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）｜`verification.js` 引用 `../tool-executor/index.js`（**M5**：`runQueryWithRecovery` / `RETRY_OUTCOME`）与 `../shared-context/index.js`（读面 `listOpportunities` + **F-09 写入面** `createEvidence`/`validateEvidenceCompleteness`）｜`opportunity.js` 引用 `../shared-context/index.js`（**F-10 写入面** `createOpportunity`/`linkOpportunityRelation` + 读面 `listOpportunities`/`listOpportunityRelations` + 纯函数 `assessOpportunitySixElements`）｜`handoff.js` 引用 `../shared-context/index.js`（读面 `getOpportunity`/`listEvidenceByOpportunity`/`getEvidence` + 纯函数 `assessOpportunitySixElements`/`UNKNOWN_ITEM_STATES`）与 `../task-runner/proposal.js`（**F-03 只读** `listProposals`）
-- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-18~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`verification.js` 为 F-15 编排层（**零自有写语句**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`opportunity.js` 为 F-16 编排层（**零自有写语句、零裸 SQL**），同样只由 `../api/index.js` 消费；`handoff.js` 为 F-17 衔接编排层（**零写库、零裸 SQL、绝不触发 M4**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`test-f13.mjs`/`test-f14.mjs`/`test-f15.mjs`/`test-f16.mjs`/`test-f17.mjs` 仅用作 CI 验证，不进运行期
+- **下游（我被谁引用）**：`../api/index.js`（**F-13 / F-14 / F-15 / F-16 / F-17 / F-18 路由**）｜阶段4 `../agent-orchestrator` 后续 F-18~F-22（消费 `getAgentProfile` / `composeAgentVersionSnapshot` 装配运行期上下文；`discovery.js` 的 `loadDiscoveryContext` 供 F-15 复用注入清单；`verification.js` 的 `verifyClueAndDraftEvidence`/`buildEvidenceDraft` 供 **F-16 机会形成与去重**消费「查证结果 → 机会或缺口记录」；**F-17 两步衔接**消费 `opportunity.js` 产出的机会记录（经 MD-06 读面）组装 PM 决策上下文，并交出「供 M1 F-04 消费」的输入前提）｜`../task-runner`（F-02 发现任务、F-06 任务态冻结版本快照）复用 `composeAgentVersionSnapshot`；**F-17 反向引用** `../task-runner/proposal.js` 的只读 `listProposals`（人工节点产物）
+- **上游（我引用谁）**：`../../db`（DDL/种子，MD-13/MD-14/MD-06/MD-12 真源）｜`discovery.js` 引用 `../shared-context/index.js`（读面：`getTaskContext`/`getResearch`）｜`verification.js` 引用 `../tool-executor/index.js`（**M5**：`runQueryWithRecovery` / `RETRY_OUTCOME`）与 `../shared-context/index.js`（读面 `listOpportunities` + **F-09 写入面** `createEvidence`/`validateEvidenceCompleteness`）｜`opportunity.js` 引用 `../shared-context/index.js`（**F-10 写入面** `createOpportunity`/`linkOpportunityRelation` + 读面 `listOpportunities`/`listOpportunityRelations` + 纯函数 `assessOpportunitySixElements`）｜`handoff.js` 引用 `../shared-context/index.js`（读面 `getOpportunity`/`listEvidenceByOpportunity`/`getEvidence` + 纯函数 `assessOpportunitySixElements`/`UNKNOWN_ITEM_STATES`）与 `../task-runner/proposal.js`（**F-03 只读** `listProposals`）｜`role.js` 引用 `./profile.js`（**F-13 读面**：`getAgentProfile`/`listAgentSkills`/`composeAgentVersionSnapshot`；**不新增写面**）｜`role.js` 的叙述文本回指 `../../agent-runtime/business-rules.md` 与 `../../agent-runtime/hva/agent.md`（本体，**不被 import**、只在 `test-f18` ② 组做逐条对齐断言）
+- **文件间引用（本目录内）**：`profile.js` 为底层写面，被 `../api/index.js` 与后续 F-18~F-22 消费；`discovery.js` 为 F-14 纯编排层（零写库），本目录内不被其它文件 import（由 `../api/index.js` 消费）；`verification.js` 为 F-15 编排层（**零自有写语句**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`opportunity.js` 为 F-16 编排层（**零自有写语句、零裸 SQL**），同样只由 `../api/index.js` 消费；`handoff.js` 为 F-17 衔接编排层（**零写库、零裸 SQL、绝不触发 M4**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`role.js` 为 F-18 装载与判定层（**零写库、零裸 SQL**，**唯一 import 为 `./profile.js` 读面**），同样只由 `../api/index.js` 消费、不被本目录其它文件 import；`test-f13.mjs`/`test-f14.mjs`/`test-f15.mjs`/`test-f16.mjs`/`test-f17.mjs`/`test-f18.mjs` 仅用作 CI 验证，不进运行期
 
 ## 种子基线（本模块相关，只读参照）
 

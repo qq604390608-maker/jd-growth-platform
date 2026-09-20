@@ -18,14 +18,14 @@
 | `agent_code` | `profile_id` | `agent_name` | `agent_stage` | `current_version` | `doc_revision` | agent.md 落位 | 状态 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `discovery-agent` | `AGP-DISC` | 机会发现 Agent | M3 | `v1.2` | `r9` | `agent-runtime/discovery/agent.md` | 建壳（本体待阶段4） |
-| `hva-agent` | `AGP-HVA` | HVA 分析 Agent | M4 | `v1.3` | `r12` | `agent-runtime/hva/agent.md` | 建壳（本体待阶段4） |
+| `hva-agent` | `AGP-HVA` | HVA 分析 Agent | M4 | `v1.3` | `r12` | `agent-runtime/hva/agent.md` | ✅ 本体已落地（F-18，2026-09-20；结束条件＝有依据的研究回答 / 说明无法完成判断的原因） |
 
 > ✅ **口径已订正（2026-09-19）**：原 `PRD-M3-机会发现Agent.md` §1.1（L65）`agent_code=AGP-DISC` 误用列名，已订正为 `profile_id=AGP-DISC`／`agent_code=discovery-agent`，并同步刷新 Q-07 已决状态（`PRD-M4` L65 同类一并订正，两文件均 bump v1.1，旧版见 `.trash/PRD-M3-v1.0.md`／`PRD-M4-v1.0.md`）。本表以 DDL/种子为唯一真源。
 
 ### 2.2 公共业务指令（business-rules.md，两 Agent 共用，无独立 MD 行）
 - 落位：`agent-runtime/business-rules.md`
 - 口径：`PRD-M3` §1.1.2 / `PRD-M4` §1.1.2（8 条公共业务指令，含「查询经工具执行程序、禁模型预期替代结果」「引用证据须带来源/条件/时点/适用范围」「不调生产写接口硬红线」）
-- 状态：建壳（本体待阶段4）
+- 状态：✅ 本体已落地（F-18，2026-09-20；8 条，服务端以 `server/agent-orchestrator/role.js` 的 `BUSINESS_RULE_IDS` 逐条对齐装载）
 
 ### 2.3 Skill 能力登记（MD-14 `skill_registry`，PK = `skill_no`）
 | `skill_no` | `skill_code` | `bound_agent_code` | `version` | 落位 | MD-14 状态 |
