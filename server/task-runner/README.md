@@ -30,11 +30,13 @@
 | `proposal.js` | **F-03 研究建议管理（人工节点）**：`MD-12` 建议登记（研究问题**必需**、两个可选列按 `varchar(300)` 口径拒超长）、**幂等键**（机会+问题+假设+限制 → SHA-256 摘要，`UK` 落地「同键不新建、不重复启动相同任务」）、**建议与机会版本绑定**（版本号从机会现读、入参不符即拒）、研究问题的**不明确提示**（只补问题、不重填材料，**不阻断**）、机会状态迁移「候选→已提交研究」并留 `PD-05`（改行经 F-10 单一写入面）、`markProposalTriggered` 触发登记守卫 | ✅ F-03 已建 2026-09-19（82 断言全绿） |
 | `hva.js` | **F-04 HVA 研究任务调度**：`createHvaResearchTask`（建议提交后建 `hva_research` 任务 → `LNK-04` 锚点 → 五步 → 按 `CFG-06` hva_research 模板落 `PD-06` 二阶段上下文 → 取 `CFG-03` 按 `hva-agent` 工具权限 → 幂等守卫同一建议不重复启动 → 发 Queue 消息恰两键 + `delegateToAgent` 守卫）；`resolveHvaToolPermissions`（按所用 Agent 授权）；**第二阶段启动时点＝建议提交**、**版本冲突以机会为准并提示**、**hva_followup 创建归 F-05**（调度内核可复用） | ✅ F-04 已建 2026-09-19（**45 断言全绿**） |
 | `followup.js` | **F-05 追问与版本管理**：`nextResearchNo` / `nextFollowupMessageId`（编号取号，库内最大 +1，确定性不撞号）；`recordFollowupMessage`（**PD-07 单一写入面**：追问对话逐条留痕，PM/Agent 双向、双外键由库级强制）；`createFollowupTask`（主入口：校验原研究存在且已关联启动任务 → 建 `hva_followup` 任务（`parent_task_id` 挂原任务）→ 建新 `MD-07` 研究壳（`parent_research_no` 指原研究、`start_task_id` 指新任务、七要素缺省从原研究承接）→ `LNK-04` 锚点 → `planTaskSteps` 五步 → `initTaskContext` 落 `PD-06`（含 `related_history`）→ 取 `CFG-03` hva-agent 权限 → 落 PD-07 追问消息 → 发 Queue 消息恰两键 + `delegateToAgent` 守卫）；版本口径：新任务/新研究默认沿用原研究 `goal_version_no`，可显式传新版本（原研究/原任务维持启动版本不变） | ✅ F-05 已建 2026-09-19（**57 断言全绿**） |
+| `recovery.js` | **F-06 任务记录与异常恢复**：复用 F-26 `task-state.js` 单一写入面（PD-01/PD-03），本文件**零裸 SQL、零外部调用、不写 MD-07/EXT-02**；`capRetryLimit`（run_policy.retry_limit 封顶 100、**超限显式报错而非静默截断**，TC-U-M1-002）；`recordTaskBlock`/`handleTaskFailure`（受阻矩阵：保留 `done_part`＋置 `blocked`＋写 `PD-03`）；`stopTask`（「达到运行限制或人工取消」→ 置 `stopped`、停止状态不自动重启、写 `PD-03(limit_or_cancel)`）；`resumeTask`（`blocked`→`running`，PD-03 为追加式历史缺口日志不改写） | ✅ F-06 已建 2026-09-19（**47 断言全绿**） |
 | `test-f01.mjs` | F-01 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子） | ✅ 已建（**88 断言全绿**） |
 | `test-f02.mjs` | F-02 用例执行器（注入 spy `enqueue`；断言频率解析四式与反例、平台上限、策略选取、消息形状、五步与上下文装配） | ✅ 已建（**86 断言全绿**） |
 | `test-f03.mjs` | F-03 用例执行器（断言幂等键确定性/空白不敏感/区分度与分隔符歧义反例、问题检查、版本绑定、幂等提交、状态迁移与 `PD-05` 留痕、`PD-05` 外键 L3 反例、触发登记守卫、读模型、写入面静态核验） | ✅ 已建（**82 断言全绿**） |
 | `test-f04.mjs` | F-04 用例执行器（自包含 fixture：机会 + 已提交建议；断言第二阶段启动点 / 五步逐字对齐原型 / LNK-04 锚点 / 二阶段上下文 PD-06 / CFG-03 工具权限 / 版本冲突以机会为准 / 重复启动报错 / 消息恰两键 / 零外部调用） | ✅ 已建（**45 断言全绿**） |
 | `test-f05.mjs` | F-05 用例执行器（自包含 fixture：父任务 `T-TEST-2001`（`hva_research`）+ 原研究 `R-TEST-001`（`start_task_id=T-TEST-2001`、`goal_version_no=3`）；不碰种子行；断言关联原研究建任务 / 继承版本 / 显式新版本 / 原研究不存在报错 / 原研究无启动任务报错 / PD-07 FK 反例 / PD-01 自引用父先落 / 编号推进 / 静态核验零外部调用） | ✅ 已建（**57 断言全绿**） |
+| `test-f06.mjs` | F-06 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；断言 retry_limit 封顶报错 / PD-03 FK 反例 / blocked＋done_part 保留 / resume / stopped 不自动重启 / done 不可改写 / 失败不否定 HVA 静态 / 零裸 SQL 静态） | ✅ 已建（**47 断言全绿**） |
 
 ## F-01 已通过用例（`test-f01.mjs`，88 断言）
 
@@ -95,6 +97,21 @@
 | **F（PD-01 自引用父先落，TC-D-M1-004）** | 子任务 `parent_task_id` 指向尚未落库的父行 → 库级 FK 失败；父行先落、子行后落 → 成功（追问任务挂原任务成立的前提） |
 | **G（编号推进）** | `nextResearchNo` 在种子 R-006/R-007 上返回 `R-008`（库内最大 +1）；`nextFollowupMessageId` 在种子 MSG-001~003 上返回 `MSG-004` |
 | **S（静态核验）** | `followup.js` **零外部调用**（无 `fetch(` / 无 URL）；**不直接写 PD-01/MD-07/LNK-04/PD-06**（仅 PD-07 写面 `recordFollowupMessage`）；含 PD-07 单一写入面；`test-f05.mjs` 零外部调用 |
+
+## F-06 已通过用例（`test-f06.mjs`，47 断言）
+
+| 用例 | 断言要点 |
+| ---- | ---- |
+| **①（retry_limit 封顶，TC-U-M1-002）** | `capRetryLimit(100/99/0)` 通过；`capRetryLimit(150/101)` 显式报错「超过平台硬上限 100」（**不静默截断**）；`-1`/`3.5`/`'x'` 非 ≥0 整数报错 |
+| **②（PD-03 FK 反例，TC-D-M1-005）** | `recordBlock(task_id='T-NOPE')` → 库级 FK 失败；`recordTaskBlock('T-NOPE')` → 前置守卫「任务不存在」早于 FK 拒 |
+| **③（受阻→blocked，TC-I-M1-004）** | `recordTaskBlock(call_failed)`：running→blocked；保留 `done_part`（原内容仍在＋新片段追加，只追加不覆盖）；`research`/`evidence`/`task_step` 行数均不变（**研究内容与运行状态分别记录、失败不否定 HVA**）；新增一行 `PD-03`；改后状态直读 PD-01 可查；受阻记录可按任务＋未解除回查 |
+| **④（handleTaskFailure）** | 便捷编排默认 `call_failed`、态＝blocked |
+| **⑤（resume，TC-I-M1-006）** | `resumeTask`：blocked→running；受阻记录（PD-03）为追加式历史缺口日志，恢复不改写它（仍留作审计） |
+| **⑥（stopped 不自动重启，TC-I-M1-004）** | `stopTask`：→stopped＋写 `ended_at`＋`is_auto_restart=0`＋`limit_or_cancel` 受阻记录＋保留 `done_part`；已停止任务 `resumeTask`/`recordTaskBlock`/`setTaskStatus→running` 均被守卫拒绝 |
+| **⑦（done 不可改写）** | 已完成任务 `recordTaskBlock`/`stopTask`/`resumeTask` 均被前置守卫拒 |
+| **⑧（done_part 幂等）** | 同一片段二次写入 → `done_part` 不重复追加 |
+| **⑨（失败不否定 HVA，静态）** | `recovery.js` 不 `import shared-context`、不引用任何研究/证据写函数、不含任何外部 HTTP 调用 |
+| **⑩（生产零写，静态）** | `recovery.js` 不含任何裸 SQL（全部写委托 `task-state.js`）、不发 Queue 消息、唯一 `import` 来自 `../tool-executor/task-state.js`（F-26 写入面） |
 
 ## 关键口径（本模块已定，含登记在案的取舍）
 
@@ -198,6 +215,7 @@
 | `GET /api/hva-research-tasks/{task_id}` | HVA 任务回查（任务态 + 步骤现状 + 工具权限） | 200 / 404 |
 | `POST /api/followup-tasks` | 在已有研究上提新问题→关联原研究建 `hva_followup` 任务（`parent_task_id` 挂原任务）+ 新 `MD-07` 研究（`parent_research_no` 指原研究、`start_task_id` 指新任务）+ 写 `PD-07` 追问消息 + 落 `PD-06` 上下文（含 `related_history`） | 201；原研究不存在 404；缺 `new_question` / 原研究未关联启动任务 400 |
 | `GET /api/followup-tasks/{task_id}` | 追问任务回查（派发面：任务态 + 步骤现状 + 工具权限） | 200 / 404；FK 缺失 409 |
+| `POST /api/task-recovery` | F-06 任务记录与异常恢复（复用 F-26 `task-state.js` 写入面）：`action=block`（保留 `done_part`＋置 `blocked`＋写 `PD-03`）/ `action=stop`（保留 `done_part`＋置 `stopped`、停止状态不自动重启＋写 `PD-03(limit_or_cancel)`）/ `action=resume`（`blocked`→`running`） | 201；任务不存在 404；`action` 非法 / 停止不自动重启 400；FK 缺失 409 |
 
 > 幂等命中回 **200 而非 409**：重复提交不是错误，是「同一份建议」的正常结局（`TC-I-M1-002` 要的是
 > 「不重复启动相同任务」，不是「报错」）。故用 `created` 字段区分，让调用方能分辨「新建了」与「命中了既有」。
@@ -263,6 +281,32 @@ A9）：Agent 只在任务内被调用（阶段4 介入真实 HVA Agent）。
 PD-01/MD-07/LNK-04/PD-06**（全部走 step-plan / shared-context 既有写面），仅新增 **PD-07 单一写入面**
 `recordFollowupMessage`。本目录的「不直写库」纪律（S2）未被破坏。
 
+### 8.3 任务记录与异常恢复（F-06）
+
+**① 复用 F-26 任务态写入面**（硬红线落地）：`recovery.js` **零裸 SQL、零外部调用、不写 `MD-07`/`EXT-02`**——
+全部 PD-01/PD-03 写入经 `../tool-executor/task-state.js`；`test-f06.mjs` ⑨/⑩ 静态断言：唯一 `import` 来自
+`task-state.js`、不含任何 `INSERT/UPDATE/DELETE`、不发 Queue 消息、不引用任何研究/证据写函数。
+
+**② `retry_limit` 封顶**（TC-U-M1-002）：`capRetryLimit` 对 `CFG-04 run_policy.retry_limit` 取**显式报错**
+（>100 → 「超过平台硬上限 100」，不静默截断），与 F-02 写入侧「`retry_limit>100` 一律 400」口径一致——
+配置根本不会以 >100 落库，此处为恢复编排层的防御性守卫。
+
+**③ 受阻处理矩阵映射**（BRD §4 F-06）：六类情况 → `dict:BLOCK_REASON`（target_unclear / no_data_returned /
+source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`recordTaskBlock`/`handleTaskFailure`
+执行「保留 `done_part`（已完成部分，只追加不覆盖）＋ 置 `blocked` ＋ 写 `PD-03`」，前置守卫（`assertTaskRunnable`）
+保证 stopped/done 不进执行。
+
+**④ 停止状态不自动重启**（BRD 受阻矩阵「达到运行限制或人工取消」）：`stopTask` 置 `stopped`（`ended_at` 落点时点、
+`is_auto_restart=0`、写 `PD-03(limit_or_cancel)`）；「停止状态不自动重启」由 `task-state` 守卫——
+`stopped` 任务不接受任何后续状态变更（`setTaskStatus` 与 `resumeTask` 双重拒绝）。
+
+**⑤ 恢复＝状态跃迁**（BRD 状态流「检查继续条件满足 → 恢复原任务」）：`resumeTask` 仅 `blocked` 任务可恢复，置 `running`；
+受阻记录（`PD-03`）为**追加式历史缺口日志**，恢复**不改写**它（缺口事实仍留作审计）。
+
+**⑥ 运行失败不作为否定 HVA 的依据**（BRD §7 第 4 条）：F-06 只动 PD-01（任务态）/PD-03（受阻留痕），**绝不触碰**
+`MD-07 research` 结论或 `EXT-02 evidence`——`test-f06.mjs` ③ 断言受阻处理后 `research`/`evidence`/`task_step`
+行数均不变；每个状态跃迁直读 PD-01 即可查（白盒）。
+
 ### 9. 人工节点：建议的版本绑定、幂等键与「只补问题」（F-03）
 
 **① 人工节点不可越权**（`PRD-M1` §4 / `BRD` §3.1）：M3→M4 之间**必须**由 PM 选机会、提研究问题，
@@ -319,11 +363,11 @@ PD-01/MD-07/LNK-04/PD-06**（全部走 step-plan / shared-context 既有写面�
   `../../docs/04-plan/dev-plan.md` 阶段 3 · M1｜`../../docs/02-prd/PRD-M1-平台任务程序.md`｜
   `../../docs/03-locks/schema.md`｜`../../docs/03-locks/tech-stack.md` §2.4 / §4.2｜
   `../../docs/05-test-cases/test-M1.md`｜`../../prototype/pages/tasks.html` / `../../prototype/assets/data.js`（钉死需求）
-- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 路由**）｜阶段4 `../agent-orchestrator`（消费任务与上下文）｜
+- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 / F-06 路由**）｜阶段4 `../agent-orchestrator`（消费任务与上下文）｜
   阶段5 `frontend/`（F-27 目标配置页经 `api` 取数）
   > 反向清单**只记既有事实**：本目录内 F-05~F-06 的引用关系在各自落地时补记（避免出现对未建文件的悬空引用）。
-- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js` 与 `./followup.js` 引用；
-  `./schedule.js`、`./proposal.js`、`./hva.js` 与 `./followup.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）
+- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 引用；
+  `./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）；`./recovery.js`（F-06）**只复用** `../tool-executor/task-state.js`（F-26 写入面），不引入其它写入面
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写）
