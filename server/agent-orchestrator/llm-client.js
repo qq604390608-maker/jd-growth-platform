@@ -8,7 +8,7 @@
  * 硬红线：① 零写库 ② 零外部凭证 ③ 不替代查询结果
  */
 
-const DEFAULT_MODEL = "@cf/deepseek/deepseek-v4-flash";
+const DEFAULT_MODEL = "@cf/deepseek-ai/deepseek-v4-flash-0731";
 const MAX_TOOL_ROUNDS = 10;
 
 // ================================================================== Mock 模式
@@ -185,9 +185,12 @@ export async function chatJSON(ai, systemPrompt, userMessage, options = {}) {
   try { return JSON.parse(content); } catch { throw new Error("llm-client.chatJSON: 非法 JSON: " + content.slice(0, 200)); }
 }
 
+// 2026-09-20 实机核对（/ai/models/search，证据：server/probes/model-selection/raw/2026-09-20-catalog.json）：
+// 四个 ID 原先全部与目录不符（@cf/deepseek/… 等为臆造形态），已按真实目录订正。
+// 注意 deepseek-v4-flash/pro、glm-5.3-flash、kimi-k2.6 均带 require_workers_paid=true（Workers Paid 计划才可调）。
 export const MODELS = Object.freeze({
-  FLASH: "@cf/deepseek/deepseek-v4-flash",
-  PRO: "@cf/deepseek/deepseek-v4-pro",
-  GLM_FLASH: "@cf/zhipu/glm-5.3-flash",
-  KIMI: "@cf/moonshot/kimi-k2.6",
+  FLASH: "@cf/deepseek-ai/deepseek-v4-flash-0731",
+  PRO: "@cf/deepseek-ai/deepseek-v4-pro-0813",
+  GLM_FLASH: "@cf/zai-org/glm-5.3-flash",
+  KIMI: "@cf/moonshotai/kimi-k2.6",
 });

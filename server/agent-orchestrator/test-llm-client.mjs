@@ -252,8 +252,8 @@ console.log("\n⑨ `MODELS` 常量池：冻结、形态合规（路由一律引�
   assert(keys.length >= 4, `⑨ 至少 4 个候选模型（实测 ${keys.length}）`);
   const vals = Object.values(MODELS);
   assert(vals.every((v) => typeof v === "string" && v.startsWith("@cf/")), "⑨ 所有模型 ID 均为 @cf/ 前缀形态");
-  assert(vals.includes("@cf/deepseek/deepseek-v4-flash"), "⑨ 含轻量档 flash");
-  assert(vals.includes("@cf/deepseek/deepseek-v4-pro"), "⑨ 含重推理档 pro");
+  assert(vals.includes("@cf/deepseek-ai/deepseek-v4-flash-0731"), "⑨ 含轻量档 flash（2026-09-20 实机核对的目录真实 ID）");
+  assert(vals.includes("@cf/deepseek-ai/deepseek-v4-pro-0813"), "⑨ 含重推理档 pro（2026-09-20 实机核对的目录真实 ID）");
 }
 
 // ==================================================== ⑩ 静态核验：零外部 HTTP / 零写库
