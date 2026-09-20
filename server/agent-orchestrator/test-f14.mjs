@@ -13,7 +13,11 @@ import {
   assembleDiscoveryPlan,
   summarizeCluesAsJourney,
   loadDiscoveryContext,
+  runDiscoveryWithLLM,
+  createDiscoveryToolExecutor,
+  DISCOVERY_TOOLS,
 } from "./discovery.js";
+import { MODELS } from "./llm-client.js";
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
@@ -205,6 +209,98 @@ console.log("\n⑥ loadDiscoveryContext · 真实 D1 取值非空（修复取值
   assert(Array.isArray(ctx.sources) && ctx.sources.length >= 1, `⑥ sources 非空（实测 ${ctx.sources.length} 条）`);
   assert(ctx.scope && ctx.scope.business_scope != null, `⑥ scope 含 business_scope（实测 ${ctx.scope && ctx.scope.business_scope}）`);
   // 修复前：goal/background/capabilities/sources 恒为空（ctx 无顶层键）；现从 sections 取值应非空
+}
+
+// ==================================================== ⑦ A-1 LLM 驱动路径（2026-09-20 收编）
+console.log("\n⑦ A-1 LLM 驱动路径 · `runDiscoveryWithLLM` / `DISCOVERY_TOOLS` / 工具执行器（mock binding，不触真实推理）");
+{
+  /** mock AI binding（只记录调用、返回预设 completion） */
+  const reply = (content) => ({ choices: [{ message: { role: "assistant", content }, finish_reason: "stop" }] });
+  const makeAI = (responses) => {
+    const calls = [];
+    let i = 0;
+    return {
+      calls,
+      async run(model, inputs) {
+        const r = responses[Math.min(i, responses.length - 1)];
+        calls.push({ model, inputs });
+        i += 1;
+        return typeof r === "function" ? r(model, inputs, i) : r;
+      },
+    };
+  };
+
+  // A-1 门禁：无 binding → 不进 LLM 路径
+  await assertThrows(() => runDiscoveryWithLLM(null, {}, "T-1022"), "⑦ ai 为空 → 抛错（A-1 未接入）", "ai binding 不能为空");
+
+  // 工具定义：function calling 契约合规
+  assert(Array.isArray(DISCOVERY_TOOLS) && DISCOVERY_TOOLS.length > 0, `⑦ DISCOVERY_TOOLS 非空（实测 ${DISCOVERY_TOOLS.length}）`);
+  assert(
+    DISCOVERY_TOOLS.every((t) => t && t.type === "function" && t.function && typeof t.function.name === "string"
+      && typeof t.function.description === "string" && t.function.parameters),
+    "⑦ 每个工具定义含 type=function + name / description / parameters"
+  );
+  const toolNames = DISCOVERY_TOOLS.map((t) => t.function.name);
+  assert(new Set(toolNames).size === toolNames.length, "⑦ 工具名不重复（function calling 要求唯一）");
+
+  // 工具执行器：未知工具在 import tool-executor **之前**短路（不触发真实查询、不落痕）
+  const exec = createDiscoveryToolExecutor({}, "T-1022", "agent", "discovery-agent");
+  const unknown = await exec("no_such_tool", {});
+  assert(unknown && typeof unknown.error === "string", "⑦ 未知工具名 → 返回 { error }（不抛、不静默成功）");
+  assert(String(unknown.error).includes("未知工具"), `⑦ 错误信息点名未知工具（实测 ${unknown.error}）`);
+
+  // 正常路径：真实 D1（种子发现任务 T-1022）+ mock LLM 一轮返回结构化 JSON
+  const d1From = (sqlite) => {
+    const makeStmt = (sql, params) => ({
+      bind: (...args) => makeStmt(sql, args),
+      run: () => {
+        const r = sqlite.prepare(sql).run(...params);
+        return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+      },
+      all: () => ({ results: sqlite.prepare(sql).all(...params) }),
+      first: (col) => {
+        const row = sqlite.prepare(sql).get(...params) ?? null;
+        return row === null ? null : col === undefined ? row : row[col];
+      },
+    });
+    return { prepare: (sql) => makeStmt(sql, []) };
+  };
+  const DDL = readFileSync(new URL("../../db/migrations/0001_init.sql", import.meta.url), "utf8");
+  const SEED = readFileSync(new URL("../../db/seed/0001_mock.sql", import.meta.url), "utf8").replace(/pragma\s+foreign_keys\s*=\s*on\s*;/gi, "");
+  const sqlite = new DatabaseSync(":memory:");
+  sqlite.exec(DDL);
+  sqlite.exec(SEED);
+  sqlite.exec("PRAGMA foreign_keys = ON;");
+  const db = d1From(sqlite);
+
+  const payload = {
+    clues: [{ attribution: "audience:新客", phenomenon: "首单后 7 日复购率偏低", evidence_refs: ["Q-1"] }],
+    opportunities: [],
+    gaps: ["缺少渠道分层数据"],
+    summary: "本轮仅发现 1 条线索，依据不足以形成机会",
+  };
+  const ai = makeAI([reply(JSON.stringify(payload))]);
+  const r = await runDiscoveryWithLLM(ai, db, "T-1022");
+
+  assert(r.content && Array.isArray(r.content.clues), "⑦ 解析出结构化结果（clues 为数组）");
+  assert(r.content.clues.length === 1, `⑦ 线索条数正确（实测 ${r.content.clues.length}）`);
+  assert(r.content.gaps.length === 1, "⑦ 缺口如实带回（依据不足→记缺口，不强行形成机会）");
+  assert(r.rounds === 1, `⑦ 模型一轮结束（实测 ${r.rounds}）`);
+  assert(r.stopped_by === "model_end", `⑦ stopped_by=model_end（实测 ${r.stopped_by}）`);
+  assert(r.tool_calls_executed.length === 0, "⑦ 未要求调用工具时不触发任何查询（**零外部调用**）");
+  assert(ai.calls[0].model === MODELS.FLASH, `⑦ 默认模型取自 MODELS.FLASH 常量、不硬编码（实测 ${ai.calls[0].model}）`);
+
+  const userMsg = ai.calls[0].inputs.messages.find((m) => m.role === "user").content;
+  assert(userMsg.includes("业务目标"), "⑦ 用户消息含「业务目标」段（注入清单已装配）");
+  assert(userMsg.includes("任务"), "⑦ 用户消息含任务指令段");
+  assert(Array.isArray(ai.calls[0].inputs.tools), "⑦ 工具定义随请求下发（function calling 契约）");
+
+  // LLM 返回非法 JSON → 兜底记缺口，不静默丢
+  const ai2 = makeAI([reply("这不是 JSON")]);
+  const r2 = await runDiscoveryWithLLM(ai2, db, "T-1022");
+  assert(r2.content._parse_error === true, "⑦ 非法 JSON → 显式标 _parse_error（不静默丢）");
+  assert(Array.isArray(r2.content.gaps) && r2.content.gaps.length >= 1, "⑦ 解析失败**记入 gaps**（显式可见，不吞掉）");
+  assert(typeof r2.content.summary === "string" && r2.content.summary.length > 0, "⑦ 兜底时保留原始文本供排查");
 }
 
 finish();
