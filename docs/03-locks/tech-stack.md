@@ -394,10 +394,14 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 
 ### 7.3 部署形态
 
-⬜ **待确认**（§8 TS-20）：五个 `server/` 模块是**打包成多个 Worker**（职责隔离、独立伸缩）还是**合并为一个 Worker**（减少跨 Worker 调用与部署复杂度）。
+✅ **已决并落地（§8 TS-20，2026-09-21 依用户裁决：2 个 Worker，采纳本节倾向）**：
 
-- 当前倾向：`api` 与 `task-runner`（含 Queue Consumer）**分**（入口性质不同）；`agent-orchestrator` 与 `tool-executor` 可**合**（调用链紧密，合并减少一次 Service Binding 往返）。
-- 该决定**不影响 `schema.md` 与模块职责边界**，可在实施时定，故不阻塞。
+| Worker | 配置 | 入口 | 绑定 | 职责 |
+| ---- | ---- | ---- | ---- | ---- |
+| `jd-growth-platform` | `wrangler.toml` | `server/api/index.js` | D1 + Workers AI | HTTP API 入口；`shared-context` / `tool-executor` / `agent-orchestrator` 随其合并（调用链紧密，省 Service Binding 往返） |
+| `jd-growth-platform-runner` | `wrangler.runner.toml`（`deploy -c`） | `server/task-runner/index.js` | D1（同库） | Cron 宽轮询（每分钟）到期判定建发现任务（`runDueDiscoveryCalls`，Q-17 近似口径）+ Queue Consumer 消费 `{task_id, step_no}`（`delegateToAgent` 契约占位）；真 Queues 绑定未接（门禁 external-deps §7），投递暂走 D1 痕迹式 `createLocalEnqueue` |
+
+模块名与职责边界不变（§2.2 宪法索引）；CI deploy 阶段两步部署两个 Worker。该决定不影响 `schema.md`。
 
 ---
 
@@ -417,7 +421,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | TS-17 | **是否给 `schema.md` `CFG-04` 增补 `retry_delay_sec` / `dead_letter_flag`**（§5.1） | PM | F-06 重试行为能否配置化。**✅ 已决（2026-09-21，依用户裁决）：维持代码固定**——不增补两列，重试间隔调整走发版；F-26 消费侧兜底已实现，schema 无变更 |
 | TS-18 | `mock/` 是否独立于 `prototype/` | PM | 目录归属。**✅ 已决（2026-09-21，依用户裁决）：留在 `prototype/`**——不另立目录；external-deps T-27 随之收口（归属 `prototype/mock/`，研发期设施） |
 | TS-19 | 是否建立独立的预览环境（独立 D1 + Queues） | PM + 技术方 | 验收流程。**✅ 已决（2026-09-21，依用户裁决）：本地 remote dev 即预览**——不建独立环境（`wrangler dev --remote` 已实测可连真实远程库）；业务方要看数据时另约通道 |
-| TS-20 | `server/` 五模块打包为几个 Worker（§7.3） | 技术方 | 部署形态（不阻塞设计）。**✅ 已决（2026-09-21，依用户裁决）：采纳 §7.3 倾向＝2 个 Worker**——`api`＋`task-runner` 分、`agent-orchestrator`＋`tool-executor` 合；实施在下一轮 PR |
+| TS-20 | `server/` 五模块打包为几个 Worker（§7.3） | 技术方 | 部署形态（不阻塞设计）。**✅ 已决并落地（2026-09-21，依用户裁决）：2 个 Worker**——`jd-growth-platform`（api＋三模块合并）与 `jd-growth-platform-runner`（task-runner 入口，`wrangler.runner.toml`）；runner 入口含 `runDueDiscoveryCalls` 到期轮询（Q-17 近似口径，`test-ts20.mjs` 15 断言进 CI）与 queue 消费占位；CI deploy 两步部署；真 Queues 绑定未接前投递走 D1 痕迹式 enqueue |
 | TS-21 | 平台限制数字的复核（本文件 §4 的数摘于 2026-09-18） | 技术方 | 实施前须重核一次 |
 | TS-22 | 外部系统凭证的获取与最小权限（承接 `external-deps.md` T-04） | 对接方 | F-23 F-24 真实接入 |
 

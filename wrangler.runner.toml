@@ -1,0 +1,28 @@
+# 文档卡（TS-20 双 Worker 拆分 · runner Worker 部署配置 · 2026-09-21）
+# 上游：docs/03-locks/tech-stack.md §7.3（TS-20 已决 2026-09-21，依用户裁决：2 个 Worker——api 与 task-runner 分，
+#       agent-orchestrator / tool-executor / shared-context 随 api 合）｜ AGENTS.md（宪法索引：server/ 五模块名不得改）
+# 职责：task-runner Worker（Cron 到期轮询 + Queue Consumer）的部署配置，与主配置 wrangler.toml（api Worker）并存：
+#       部署命令 `wrangler deploy -c wrangler.runner.toml`（ci.yml deploy 第二步）。
+# 硬红线：不写入任何 CLOUDFLARE_API_TOKEN / 外部系统凭证（CI Secrets 注入）；同库绑定（与 api Worker 共享唯一 D1），
+#       两 Worker 各自只经同一套单一写入面落库，无跨 Worker 直连。
+# 反向清单：main 指向 server/task-runner/index.js（入口薄壳）；被 ci.yml 与 server/README 引用；
+#   登记 docs/03-locks/tech-stack.md §7.3 / §8 TS-20 行。
+# Queues 说明：consumer/producer 绑定**暂不配置**——真 Queues 接入是独立前置（门禁见 external-deps §7），
+#   当前投递走 createLocalEnqueue（D1 痕迹式：pending→active）；接入后在此追加 [[queues.producers]] / [[queues.consumers]]，
+#   server/task-runner/index.js 的判定逻辑不动。
+
+name = "jd-growth-platform-runner"
+main = "server/task-runner/index.js"
+compatibility_date = "2026-09-19"
+
+# 同库绑定（与 api Worker 共享唯一 D1；ts20 到期轮询与建任务写 PD-01/PD-02/PD-06）
+[[d1_databases]]
+binding = "DB"
+database_name = "jd-growth-platform"
+database_id = "853be8d3-bca2-4683-ab7a-a61725516662"
+
+# Cron Triggers：**宽轮询每分钟一次**（tech-stack §4 最小粒度 1 分钟）。
+# CFG-04 的 run_frequency 是**数据不是配置**（四式：每日/每日多时刻/每 N 小时/每周），频率到点判定在程序侧
+# （server/task-runner/index.js runDueDiscoveryCalls，Q-17 近似口径：最小间隔），故此处只配一颗宽 cron。
+[triggers]
+crons = ["* * * * *"]

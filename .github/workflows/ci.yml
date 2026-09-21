@@ -68,6 +68,8 @@ jobs:
         run: node server/tool-executor/test-f26.mjs
       - name: 跑 TS-16 截断用例（应用层截断＋留痕标注：EXT-01/EXT-02 两个写入面端到端）
         run: node server/tool-executor/test-ts16.mjs
+      - name: 跑 TS-20 双 Worker 入口用例（runner 到期轮询判定矩阵 + queue 消费占位）
+        run: node server/task-runner/test-ts20.mjs
       - name: 跑 F-01 用例（M1 目标登记与口径管理，跑 MD-01/02 版本化与 is_applied 至多一行 1 + 历史快照逐字节只读 + CFG-05 规则驱动口径检查 → PD-04 待补项 + 别名归一与值域合法 + 补充并入六要素 bump 新版本 + goal_check 2 步任务 + 写入面静态验证）
         run: node server/task-runner/test-f01.mjs
       - name: 跑 F-02 用例（M1 机会发现任务调度，跑运行频率四式解析为 Cron + 最小粒度 1 分钟 + 250 条上限 + retry_limit/max_duration_min 写入侧从严 + 策略目标级优先回落平台级 + Queue 消息恰两键且 <1KB + 发现任务五步与 CFG-06 上下文现读 + Agent 只在任务内被调用 + PD-02 复合 UK）
@@ -151,3 +153,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 deploy
+      - name: 部署 runner Worker（TS-20 双 Worker：task-runner 入口，Cron 到期轮询 + Queue Consumer）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx -y wrangler@4.135.0 deploy -c wrangler.runner.toml
