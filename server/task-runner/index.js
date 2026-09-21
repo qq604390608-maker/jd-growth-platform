@@ -12,18 +12,23 @@
  *     按「距该目标最近一次 discovery 任务 ≥ 频率最小间隔」判定到期 → `createDiscoveryTask`。
  *     **判定口径（显式近似，登记 Q-17）**：以「最小间隔」近似「到点触发」——每日/每周策略的实际触发时刻
  *     可能相对名义时刻漂移（≤ 一个轮询周期）；精确到点挂真 Queues / per-policy cron 接入后修正。
- *   - `queue`：消费 `{ task_id, step_no }`（形状由 `assertStepMessage` 保证）→ `delegateToAgent`
- *     （阶段4 契约占位：真实步骤执行体未落地，消费即如实回报，不臆造执行结果）。
+ *   - `queue`：消费 `{ task_id, step_no }`（形状由 `assertStepMessage` 保证）→ **按 `task_type` 分派**：
+ *     `discovery` 走 `./executor.js`、`hva_research` 走 `./research.js`（F-33 接线 2026-09-21），
+ *     其余类型（`hva_followup` / `goal_check`）仍走 `delegateToAgent` 契约占位（消费即如实回报，不臆造执行结果）。
  * 硬红线：生产零写不含——本 Worker 的 scheduled **写的是自有 D1 的 PD-01/PD-02/PD-06**（与 API Worker 同库、
  *   同一套单一写入面），不触碰任何外部系统；凭证不落本文件（CI Secrets 注入）。
  * 边界：投递用 `createLocalEnqueue`（D1 痕迹式投递：pending→active），**真 Queues producer 绑定未接**
  *   （门禁见 external-deps §7）；接入后仅替换 enqueue 工厂，本文件判定逻辑不动。
- * 反向清单：被 `wrangler.runner.toml`（main）与 CI deploy 第二步引用；用例 `./test-ts20.mjs`；
+ *   自愈补扫（`./self-heal.js`，F-33）与到期轮询**未做异常隔离**——任一抛错会饿死本 tick 的执行体，
+ *   该隔离归 F-36（登记 `../../docs/04-plan/full-flow-wiring-plan.md` 期 2.3），此处不擅自扩范围。
+ * 反向清单：被 `wrangler.runner.toml`（main）与 CI deploy 第二步引用；用例 `./test-ts20.mjs`（另有 `./test-f33.mjs` 覆盖分派）；
  *   登记 `../README.md`（模块清单 task-runner 行）与 `./README.md`。
  */
 import { parseRunFrequency, resolveRunPolicy, createDiscoveryTask, createLocalEnqueue, delegateToAgent } from "./schedule.js";
 import { getTask } from "./step-plan.js";
-import { runStepMessage, runPendingDiscoveryWork } from "./executor.js";
+import { runStepMessage, runPendingWork } from "./executor.js";
+import { runSelfHealScan } from "./self-heal.js";
+import { WIRED_TASK_TYPES } from "./research.js";
 
 /** 每日 → 1440 分钟；每周 → 10080；每 N 小时 → N*60（取各频率的最小触发间隔）。 */
 export function freqIntervalMin(text) {
@@ -84,15 +89,19 @@ export default {
   /** Cron Triggers 到点入口（宽 cron 每分钟一次，到期判定在程序侧——CFG-04 频率是数据不是配置）。 */
   async scheduled(controller, env, ctx) {
     // ① 到期轮询：按 CFG-04 策略判定到期并创建 discovery 任务（步 1 由 createLocalEnqueue 置 active）；
-    // ② 顺带驱动执行体（阶段4 接线，2026-09-21）：消费 active 步骤跑真实编排——真 Queues 未接前，
+    // ② 自愈补扫（F-33 / 堵 P1-2）：把「running 但丢了 active 步」的任务补回 active（幂等；研究壳缺失者跳过并登记）；
+    // ③ 顺带驱动执行体（阶段4 接线）：按 task_type 消费 active 步骤跑真实编排——真 Queues 未接前，
     //    D1 痕迹式投递由本 cron 充当消费者（零新依赖）；接 Queues 后仅删本行，queue() 逻辑不动。
     await runDueDiscoveryCalls(env.DB);
-    return runPendingDiscoveryWork(env.DB);
+    const healed = await runSelfHealScan(env.DB);
+    const worked = await runPendingWork(env.DB);
+    return { ...worked, healed: healed.healed };
   },
   /**
    * Queue Consumer：消息形状两键（`assertStepMessage` 保证）。
-   * discovery 任务 → 真实步骤执行体（executor.js runStepMessage：执行 + 跃迁 + 推进）；
-   * 其余类型（hva_research/hva_followup/goal_check）仍走 `delegateToAgent` 契约占位（接线归后续 PR）。
+   * 已接线类型（`WIRED_TASK_TYPES`：discovery / hva_research）→ 真实步骤执行体
+   * （`executor.js` 的 `runStepMessage`：按类型分派 → 执行 + 跃迁 + 推进）；
+   * 其余类型（hva_followup / goal_check）仍走 `delegateToAgent` 契约占位（接线归后续 PR）。
    */
   async queue(batch, env, ctx) {
     const results = [];
@@ -104,7 +113,7 @@ export default {
       } catch (e) {
         task = null;
       }
-      const r = task && task.task_type === "discovery"
+      const r = task && WIRED_TASK_TYPES.includes(task.task_type)
         ? await runStepMessage(env.DB, { task_id: body.task_id, step_no: Number(body.step_no) })
         : await delegateToAgent(env.DB, body);
       results.push(r);

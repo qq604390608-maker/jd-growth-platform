@@ -9,23 +9,30 @@
 > ｜ `../../docs/03-locks/external-deps.md`（本模块**不直接调外部**，查询经 `../tool-executor`）
 > ｜ `../../docs/04-plan/dev-plan.md`（阶段 3 · M1：目标与口径版本化 / 两阶段任务调度 / 人工节点 / 追问与版本派生 / 任务记录与异常恢复）
 > ｜ `../../docs/05-test-cases/test-M1.md`（TC-U-M1-001/002｜TC-D-M1-001~008｜TC-I-M1-001~006）
+> ｜ **M4 接线（F-33）另加**：`../../docs/02-prd/PRD-M4-HVA分析Agent.md`｜`../../docs/05-test-cases/test-M4.md`（TC-A-M4-001/003/004/005｜TC-I-M4-002）｜`../../docs/04-plan/full-flow-wiring-plan.md`（**F-33~F-36 的编号与范围依据**）
 > ｜ `../../prototype/pages/tasks.html`（**`TYPE_STEPS` 钉死需求**）｜`../../prototype/assets/data.js`（**`gapRules`/`checkGaps` 钉死需求**）｜`../../prototype/pages/goal.html`｜`../../prototype/pages/propose.html`（**F-29 页：研究问题检查三条提示、幂等键四字段、「只补问题不重填材料」、拒空问题——钉死需求**）
 > ｜ `../../docs/07-decisions/ADR-001-业务背景不与目标版本联动.md`（目标版本只由六要素驱动）
 > ｜ `../../db/migrations/0001_init.sql`｜`../../db/seed/0001_mock.sql`
 >
-> 职责：M1 的**组织者 / 调度层**。目标与口径版本化（F-01）、两阶段任务调度（F-02 / F-04）、
-> 人工节点研究建议（F-03）、追问与版本派生（F-05）、任务记录与异常恢复（F-06）。
+> 职责：M1 的**组织者 / 调度层** + **阶段4 的两种执行体宿主**。目标与口径版本化（F-01）、两阶段任务调度（F-02 / F-04）、
+> 人工节点研究建议（F-03）、追问与版本派生（F-05）、任务记录与异常恢复（F-06）；阶段4 接线后另承载
+> **M3 发现执行体**（`./executor.js` `runDiscoveryStep`）与 **M4 研究执行体**（`./research.js` `runResearchStep`，F-33）。
 > **自身不做研究判断**，只做确定性的调度、存储与状态流转；查询一律经 `../tool-executor`。
 > 边界：本模块**不调外部接口**（无 `fetch`、无 URL——可由静态扫描验证）；`EXT-01` 的落痕由
 > `../tool-executor` 承担，本模块只**聚合**其记录；任务态跃迁、受阻留痕、已完成部分的写入面
 > **不在本目录**，在 `../tool-executor/task-state.js`（F-26 已落地，本目录 `import` 复用而非重写）。
+> **M4 执行体（F-33）同理零自有写入面**：`MD-09`/`MD-10` 归 F-20 `behavior-store.js`、`MD-07` 内容填充 / `MD-08` / `MD-11`
+> 归 F-21 `result-store.js`、`EXT-02` 归 F-09、`PD-02/03` 归 `./step-plan.js` 与 `task-state.js`——`./research.js` 只编排，
+> **零裸 SQL、零自有写语句**（可由静态扫描验证）。
 
 ## 文件清单
 
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
-| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ `runPendingDiscoveryWork` cron 驱动（扫描 active 步骤自驱动，**阶段4 接线**）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}`：**discovery 任务 → `executor.js` 的 `runStepMessage` 真实执行体；其余类型 → `delegateToAgent` 契约占位**） | ✅ 已建 2026-09-19（`test-ts20.mjs` oracle 已随阶段4 接线更新，进 CI） |
-| `executor.js` | **阶段4 发现任务执行体（接线本体）**：`runDiscoveryStep` 按五步执行真实编排（零 LLM）：① 载入目标与时间窗 ② 规划采集范围（F-14 `assembleDiscoveryPlan`）③ 采集入口与流量（**真实查询**经 `../tool-executor`：CDP/HJE/MKT/ACT 四源，失败按 **F-26** `handleQueryFailure` 处置、任务非 running 即停手）④ 识别与聚合线索（F-14 `summarizeCluesAsJourney`，或从 EXT-01 ok 记录确定性重算）⑤ 生成机会候选（F-16 `formOpportunityOrGap`：依据足够落 **MD-06**、不足记缺口）。`runStepMessage` 统一负责步骤跃迁（当前步落 done + 推进下一步 + 任务完成落 done）；`runPendingDiscoveryWork` 供 cron 扫描 active 步骤自驱动。证据落 **EXT-02**（证据号 `EV-<query_id>`，F-09 不自动取号） | ✅ 已建 2026-09-21（`test-stage4.mjs` 45 断言全绿；工具码映射订正同步 `../agent-orchestrator/discovery.js` 4 处） |
+| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ `scheduled` = 到期轮询 + `runSelfHealScan`（自愈补扫，F-33）+ `runPendingWork`（按 `WIRED_TASK_TYPES` 扫描 active 步骤自驱动）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}`：**已接线类型（discovery / hva_research）→ `executor.js` 的 `runStepMessage` 真实执行体；其余类型（`hva_followup` / `goal_check`）→ `delegateToAgent` 契约占位**） | ✅ 已建 2026-09-19（**2026-09-21 F-33 接线**：queue 路由改按 `WIRED_TASK_TYPES` 分派、cron 增自愈补扫；`test-ts20.mjs` 15 断言全绿） |
+| `executor.js` | **阶段4 执行体分派与驱动器**：`runStepMessage` **按 `task.task_type` 分派**——`hva_research` → `./research.js` 的 `runResearchStep`（M4 五步），`discovery` → `runDiscoveryStep`（M3 五步：① 载入目标与时间窗 ② 规划采集范围（F-14）③ 采集入口与流量（**真实查询**经 `../tool-executor`：CDP/HJE/MKT/ACT 四源，失败按 **F-26** `handleQueryFailure` 处置、任务非 running 即停手）④ 识别与聚合线索（F-14 / EXT-01 确定性重算）⑤ 生成机会候选（F-16：依据足够落 **MD-06**、不足记缺口））；`runStepMessage` 统一负责步骤跃迁（当前步落 done + 推进下一步 + 任务完成落 done）；`runPendingWork` 供 cron 按 **`WIRED_TASK_TYPES`** 选取自驱动（`runPendingDiscoveryWork` 保留为别名）。证据落 **EXT-02**（证据号 `EV-<query_id>`，F-09 不自动取号） | ✅ 已建 2026-09-21（`test-stage4.mjs` 45 断言全绿；**F-33 增按类型分派与 `runPendingWork` 全类型选取**；工具码映射订正同步 `../agent-orchestrator/discovery.js` 4 处） |
+| `research.js` | **F-33 M4 执行体（研究任务五步接线本体）**：`runResearchStep` 按 `hva_research` 五步执行（零自有写语句、零裸 SQL；步号/判据入参形态越界与非法**在 try 外直接抛错**——程序性错误不落 `PD-02`/`PD-03`）：① `loadStartAndPlan`（F-19 研究起点三分支，**只读**）② `collectEvidence`（F-20 `queryForBehaviorCheck` **经 M5** → F-15 `verifyFiveChecks` + `buildEvidenceDraft` + `recordVerificationEvidence` 落 EXT-02）③ `resolveAnalysisInput` ▸ F-20 `formCandidateBehavior`（**MD-09/MD-10 经 F-20 写入面**）④ F-20 `assembleBehaviorVerification` + F-18 `evaluateResearchClosure` ⑤ `assembleSevenElements` ▸ F-21 `saveResearchReport`（**MD-07 内容填充 / MD-08 / MD-11 经 F-21 写入面**）；`resolveAnalysisInput` **三档门禁**＝`provided` ▸ `readAnalysisFromAI`（`llm`）▸ **确定性 fallback**（`llm_gated=true`），门禁开闭同一套代码；`OUT_OF_SCOPE_DECLARATION` 须词表**派生自 F-18 `FORBIDDEN_PRODUCTION_PATTERNS`**；`WIRED_TASK_TYPES` / `RESEARCH_STEP_COUNT` 为**唯一真源**（后者派生自 `./step-plan.js` `TYPE_STEPS`）；结构性受阻（缺研究壳 / 目标快照版本缺失）→ 兜底记 `PD-03` + 任务 `blocked` 并保留已完成部分 | ✅ 已建 2026-09-21（`test-f33.mjs` **88 断言全绿**） |
+| `self-heal.js` | **F-33 自愈补扫**：`runSelfHealScan` 扫「`running` + 已接线类型 + 有 pending 步但无 active 步」的卡死任务（P1-2 同形），把最小 pending 步推进为 active（幂等）。**唯一写动作经 `./step-plan.js` `advanceStep`**（零裸 SQL、零删行）；`hva_research` 缺 `MD-07` 研究壳（LNK-04 output）者**不擅自代建**（建壳归 F-04），跳过并如实登记 `why` 原因 | ✅ 已建 2026-09-21（`test-f33.mjs` ⑨ 六断言全绿） |
 | `step-plan.js` | **本目录共用骨架件**：四类任务的步骤模板（`TYPE_STEPS`，逐字对齐原型）、`TASK_TYPE_STAGE`、**取号**（`nextTaskId`＝`PD-01`、`nextResearchNo`＝`MD-07`，各自唯一一份）与建行（`createTask`）、步骤计划与推进（`planTaskSteps` / `advanceStep` / `refreshProgress`）、`LNK-04 task_object` 关联（`linkTaskObject` / `listTaskObjects`）；再导出 `../tool-executor/task-state.js` 的任务态写入面 | ✅ 已建 2026-09-19（2026-09-21 `nextResearchNo` 由 `./followup.js` 下沉至此——F-04 建研究壳亦需取号，而 `hva.js` 引用 `followup.js` 会成环） |
 | `goal.js` | **F-01 研究目标登记与口径管理**：`MD-01` 身份 + `MD-02` 六要素**定版式版本化**（保存为新版本 / 应用配置 / 历史只读）、`MD-03` 材料登记与**逻辑删除**、`CFG-05` 规则驱动的**口径检查** → `PD-04` 待补项、待补项补充后**并入六要素并 bump 新版本**、`goal_check` 任务（2 步）创建与完成 | ✅ F-01 已建 2026-09-19（88 断言全绿） |
 | `schedule.js` | **F-02 机会发现任务调度**：`CFG-04` 运行策略登记（**写入侧从严**）与选取（目标级优先 → 回落平台级）、运行频率 → **Cron Triggers 表达式**解析与校验（四式 / 最小粒度 1 分钟 / 250 条上限）、`MD-13`+`MD-14` 能力版本快照、Queue 消息守卫与**可注入 `enqueue` 端口**、`createDiscoveryTask`（建任务 → `LNK-04` → 五步 → `CFG-06` 上下文 → 发消息）、`delegateToAgent` 调用守卫 | ✅ F-02 已建 2026-09-19（86 断言全绿） |
@@ -40,6 +47,7 @@
 | `test-f05.mjs` | F-05 用例执行器（自包含 fixture：父任务 `T-TEST-2001`（`hva_research`）+ 原研究 `R-TEST-001`（`start_task_id=T-TEST-2001`、`goal_version_no=3`）；不碰种子行；断言关联原研究建任务 / 继承版本 / 显式新版本 / 原研究不存在报错 / 原研究无启动任务报错 / PD-07 FK 反例 / PD-01 自引用父先落 / 编号推进 / 静态核验零外部调用） | ✅ 已建（**57 断言全绿**） |
 | `test-f06.mjs` | F-06 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；断言 retry_limit 封顶报错 / PD-03 FK 反例 / blocked＋done_part 保留 / resume / stopped 不自动重启 / done 不可改写 / 失败不否定 HVA 静态 / 零裸 SQL 静态） | ✅ 已建（**47 断言全绿**） |
 | `test-stage4.mjs` | 阶段4 接线用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；夹具前置：启用 TOL-01/04/09/11 + ACT `availability_status=ok`+`is_mcp_ready=1`）：① 静态零删行/改表 ② ok 全链路（5 步全 done → 任务 done → EXT-01/EXT-02/MD-06 逐层落库）③ 全失败路径（F-26 处置 → blocked）④ 幂等 ⑤ 结构受阻 ⑥ queue consumer 路由（discovery → 执行体、非 discovery → 占位） | ✅ 已建 2026-09-21（**45 断言全绿**） |
+| `test-f33.mjs` | **F-33 M4 执行体接线用例**（node:sqlite + D1 适配层；夹具＝F-04 真实任务链 `createHvaResearchTask`，查询经**注入 transport** 不 mock 业务语义）：① 静态（`research.js` 零裸 SQL 零删行、零 `SELECT`；`self-heal.js` 改行只经 `advanceStep`；`WIRED_TASK_TYPES` 真源）② 步 ① 单跑（F-19 三分支 + 停止条件）③ **全链路五步**（5 源真实查询 → EXT-01/EXT-02 → MD-09/MD-10 → MD-07 七要素 + MD-08/LNK-02 落库，任务 done）④ 按 `task_type` 分派（`hva_research` 走 M4 体；`hva_followup` 仍占位；`discovery` 拒入 M4 体；越界步号与非法判据入参**抛错不落库**）⑤ 幂等 ⑥ 结构受阻（快照版本缺失 → PD-03 + blocked）⑦ 注入判据档（`provided`）⑧ 门禁档（确定性 fallback + `llm_gated`）⑨ 自愈补扫（补回 active；**缺研究壳者不擅自代建**）⑩ 未接线类型不被选取 ⑪ 查询全失败（失败不当证据、不否定结论） | ✅ 已建 2026-09-21（**88 断言全绿**，进 CI） |
 
 ## F-01 已通过用例（`test-f01.mjs`，88 断言）
 
@@ -73,7 +81,7 @@
 | 触发登记守卫 | 首次登记成立；同一任务重复登记 → 幂等；**同一份建议换任务再登记 → 拒**（不重复启动相同任务） |
 | 写入面静态核验 | 建行只落 `research_proposal`；改行**只有 1 处**且落在 `research_proposal` + 带主键条件；**不含改 `opportunity` 的 SQL**（经 F-10 单一写入面）；无删行 / 改结构；零外部调用 |
 
-## F-04 已通过用例（`test-f04.mjs`，45 断言）
+## F-04 已通过用例（`test-f04.mjs`，64 断言）
 
 | 用例 | 断言要点 |
 | ---- | ---- |
@@ -87,6 +95,7 @@
 | Queue 消息恰两键 | dispatch 消息恰好 `{task_id, step_no}`；`Agent 只在任务内被调用` 守卫 |
 | 边界 | 建议不存在 → 报错（HVA 只由真实建议触发） |
 | 静态核验 | `hva.js` **不直接写库**（全委托 step-plan / proposal / shared-context 单一写入面）、零外部调用；`test-f04.mjs` 零外部调用 |
+| **MD-07 研究壳 A29~A44**（2026-09-21 补建建壳后新增 19 条） | 建行归属依据＝`schema.md` MD-07 字段表 `start_task_id`/`created_at` 两行「服务功能点」列含 F-04；`start_task_id`＝本任务、`created_at`＝建议提交时刻；`research_status` 取**字典 item_code**（含反例「不得写 item_name」）；① 由「已应用目标版本业务目标 + 建议问题」逐字派生；②④⑥ 与不覆盖范围为显式「尚未开展」初值（不预填结论）；幂等键＝`start_task_id`（重复调用不新建第二行）；**A44 如实固定现状**：建议级幂等守卫位置偏晚 → 重复调用留孤儿任务/孤儿研究壳（守卫前移后应改为 3，**红即信号**）。口径详见 §8.1 ⑦~⑩ |
 
 ## F-05 已通过用例（`test-f05.mjs`，57 断言）
 
@@ -115,6 +124,22 @@
 | **⑧（done_part 幂等）** | 同一片段二次写入 → `done_part` 不重复追加 |
 | **⑨（失败不否定 HVA，静态）** | `recovery.js` 不 `import shared-context`、不引用任何研究/证据写函数、不含任何外部 HTTP 调用 |
 | **⑩（生产零写，静态）** | `recovery.js` 不含任何裸 SQL（全部写委托 `task-state.js`）、不发 Queue 消息、唯一 `import` 来自 `../tool-executor/task-state.js`（F-26 写入面） |
+
+## F-33 已通过用例（`test-f33.mjs`，88 断言）
+
+| 用例 | 断言要点 |
+| ---- | ---- |
+| **① 静态** | `./research.js` 零裸 SQL、零 `DELETE`/`UPDATE`/`INSERT`、零 `SELECT`（读全走读面）；`./self-heal.js` 改行只经 `./step-plan.js` `advanceStep`；`WIRED_TASK_TYPES` 恰为 `discovery > hva_research`（分派真源唯一） |
+| **② 步 ① 单跑**（TC-A-M4-001） | 有候选行为假设 → 路径 `verify_hypothesis`（路径确定即停止，S-B1）；无假设 → 起点 `find_candidate`；计划＝路径首步 + 五查 = 6；比较条件三项与停止条件写进 `done_part`；**步 ① 零新查询**（前后 EXT-01 行数不变，实测 11/11） |
+| **③ 全链路五步**（TC-A-M4-003/004） | 5 源真实查询（transport 恰调 5 次）→ `EXT-01` 5 行 + `EXT-02` 5 行（四要素齐）→ `MD-09` 1 行 + `MD-10` 5 条 → `MD-07` 七要素 + `MD-08` 5 条 + `LNK-02` 5 条；任务 `5 / 5 步` → done；**`MD-07` 只改行不新建（建行归 F-11）**；全部发现获支持时改善方向 0 条（**合法产出不硬凑**）；不覆盖范围为**终版**（非初值）；**未获支持亦是完整结果** |
+| **④ 分派** | `runStepMessage` 对 `hva_research` 走 M4 体（回带 `path`）；`hva_followup` 仍走 `delegateToAgent` 占位；`discovery` 任务**拒入** M4 体；**越界步号 0 抛错** |
+| **⑤ 幂等** | 无 active 步时重复驱动 `executed=0`；发现/证据关联零新增；任务仍 `done` |
+| **⑥ 结构受阻** | 目标快照版本缺失 → 步 blocked + **`PD-03` 恰 1 行** + 任务 blocked（保留已完成部分） |
+| **⑦ 注入判据档** | `analysis_input` 采纳并标 `source='provided'`、`llm_gated=false`；**形态非法（字符串 / 数组）一律抛错**——`readAnalysisFromAI` 形态非法同样抛错（**不静默退回 fallback**）；且**程序性错误不落步态、不留 `PD-03`** |
+| **⑧ 门禁档**（TC-I-M4-003） | 无 `readAnalysisFromAI` → `deriveAnalysisFallback` 且 `llm_gated=true`；差异清单未取得即**留空**（不硬下「可比」）；候选项点由真实查询派生（`point_id`＝`query_id`）、**非 ok 的查询不入条目**；替代解释维度**取自 F-20 单一真源**（逐条断言 `product>activity>benefit`） |
+| **⑨ 自愈补扫** | 卡死任务（五步全 pending、无 active）被补回步 1 active；**缺研究壳的遗留任务不被擅自救活**且 `skipped` 如实说明原因；**补扫幂等**（已有 active 者不再重复补） |
+| **⑩ 选取范围** | `hva_followup` 不在 `WIRED_TASK_TYPES` 内 → 不被 cron 选取，其 active 步原样保留 |
+| **⑪ 失败路径**（TC-A-M4-005） | 查询全失败 → 失败留痕 `EXT-01`（非 ok ≥1 行）、**零证据落库**（失败不当证据）、任务 blocked、`PD-03` 留痕、`done_part` 不含结论性措辞（**失败不下 HVA 判断**） |
 
 ## 关键口径（本模块已定，含登记在案的取舍）
 
@@ -379,14 +404,26 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
 - **`createLocalEnqueue` 的投递痕迹落在 `PD-02` 的 `step_state`**（`pending→active`），不在新表——
   `task_step` 的步骤流转本身就是「这一步被投递出去了」的白盒证据（阶段3 的表清单里没有投递表，未擅自增表）。
 
-## 阶段4 接线（发现任务执行体，2026-09-21）
+## 阶段4 接线（执行体：M3 发现 + M4 研究，2026-09-21）
 
-- **接线点**：queue consumer（`index.js`）对 discovery 任务改调 `executor.js` 的 `runStepMessage`
-  （真实编排），非 discovery 任务维持 `delegateToAgent` 契约占位；`scheduled()` 顺带
-  `runPendingDiscoveryWork`（cron 每分钟扫描 active 步骤自驱动，**零新依赖**——真 Queues 接入后仅删该行）。
-- **执行体纪律**：步骤体只干活，跃迁统一由 `runStepMessage` 负责（实测教训：执行体返回 done 后忘了把
-  当前步落 done 会让驱动器死循环重跑步 1）；步骤 3 循环内每次查询前检查任务态，任务被 F-26 处置
+### 共同接线点
+
+- **分派真源**：`./research.js` 的 `WIRED_TASK_TYPES`（`discovery` / `hva_research`，唯一一份）。
+  queue consumer（`index.js`）、cron 选取（`executor.js` `runPendingWork`）、自愈补扫（`self-heal.js`）**都从它取**——
+  新增一类任务只需改这一处，四处不会互相走失。
+- **落地方式**：queue consumer 对已接线类型改调 `executor.js` 的 `runStepMessage`（真实编排），
+  未接线类型（`hva_followup` / `goal_check`）维持 `delegateToAgent` 契约占位；
+  `scheduled()` = `runDueDiscoveryCalls` + `runSelfHealScan` + `runPendingWork`
+  （cron 每分钟驱动，**零新依赖**——真 Queues 接入后仅删 `runPendingWork` 该行）。
+- **执行体纪律（M3/M4 共同）**：步骤体只干活，跃迁统一由 `runStepMessage` 负责（实测教训：执行体返回 done 后忘了把
+  当前步落 done 会让驱动器死循环重跑步 1）；步骤循环内每次查询前检查任务态，任务被 F-26 处置
   （blocked/stopped）即停手——**前置守卫，不留半截状态**。
+- **程序性错误 vs 任务受阻**（F-33 定）：**越界步号 / 判据入参形态非法 / 任务类型不符**一律在 `try` **之外**抛错，
+  不落 `PD-02`/`PD-03`；只有**结构性原因**（口径缺失、研究壳缺失、快照版本缺失、产出不合规）才记 `PD-03` +
+  任务 `blocked`。否则「调用方写错」会被说成「任务失败」，并留一条永远无法自动恢复的受阻记录。
+
+### M3 发现执行体（`./executor.js`）
+
 - **工具码以库内注册码为准**：CDP→`cdp.crowd.query`、HJE→`hje.traffic.entry`、MKT→`mkt.benefit.issue`、
   ACT→`act.activity.list`。F-14 旧映射 `mkt.feedback.query`/`act.campaign.touch` 在库内不存在，
   已在 `executor.js` 与 `../agent-orchestrator/discovery.js`（4 处）同步订正。
@@ -395,6 +432,32 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   静默判 false → 机会 0 个）。
 - **证据号**：F-09 不自动取号，执行体派生 `EV-<query_id>` 后调 `recordVerificationEvidence` 落 EXT-02。
 
+### M4 研究执行体（`./research.js`，F-33）
+
+- **五步与上游复用**：① F-19 `loadResearchStartContext`/`assembleResearchStart`（**只读**，三分支路径 + 停止条件）
+  ② F-20 `queryForBehaviorCheck`（**经 M5**）+ **F-15 `verifyFiveChecks`** ▸ `buildEvidenceDraft` ▸ `recordVerificationEvidence`
+  ③ F-20 `formCandidateBehavior` ④ F-20 `assembleBehaviorVerification` + F-18 `evaluateResearchClosure`
+  ⑤ F-21 `assembleSevenElements` ▸ `saveResearchReport`。**F-19/F-20/F-21 的语义一行未改**——本文件只做接线与编排，
+  它们的 oracle 仍归各自用例（`test-f19/f20/f21`）。
+- **步数派生**：`RESEARCH_STEP_COUNT` 由 `./step-plan.js` 的 `TYPE_STEPS.hva_research` **派生**，不写第二次「5」；
+  改步骤模板即自动跟上（越界守卫随之变化）。
+- **★ 两个上游必填列（实测踩坑，接线必补）**：`EXT-02 evidence.missing_note`（F-09 `REQUIRED_EVIDENCE`）与
+  `MD-08 research_finding.limit_note`（F-21 `createResearchFinding` 必填）——M4 体**必须在落库前给足**，
+  否则步 ②/⑤ 直接抛「缺必填字段」。做法：步 ② **先** `verifyFiveChecks`（缺口规则会填出 `missing_note`）**再** `buildEvidenceDraft`，
+  并在无缺口时显式兜底；步 ⑤ 每条发现（挂证据与不挂证据两种）**都显式带 `limit_note`**。
+- **A-1 门禁三档**：`resolveAnalysisInput` 顺序＝`opts.analysis_input`（`source='provided'`）▸
+  `opts.readAnalysisFromAI`（`source='llm'`）▸ **确定性 fallback**（`deriveAnalysisFallback`，`llm_gated=true`）。
+  **门禁开闭同一套代码**可跑通，`analysis_input` 是**可注入判据**：传入即采纳，不传则 fallback，
+  **形态非法一律抛错不静默忽略**（入口守卫）。
+  `readAnalysisFromAI` 形态非法同样抛错——**不静默退回 fallback**（静默回退会把「调用方写错」伪装成「门禁未开」）。
+- **runner 侧 AI 绑定**：`wrangler.runner.toml` 已补单表 `[ai]`（与 `wrangler.toml` 同款），**它不是跑起来的前提**——
+  本地零凭证仍走确定性 fallback，用例全绿。⚠️ Workers AI 绑定是**单一绑定**、写法就是单表 `[ai]`，
+  **不是** `[[ai]]`（2026-09-20 曾按 `[[d1_databases]]` 类推误改，已订正；详见 `wrangler.runner.toml` 内注）。
+- **自愈补扫（`./self-heal.js`）**：只补「有 pending 步但无 active 步」的卡死态，**不做**任何内容级修复；
+  `hva_research` 缺研究壳者**不擅自代建**（建壳归 F-04，本件不越权），跳过并登记 `why`。
+- **未接线范围（如实登记，不假装完成）**：`hva_followup`（F-05 建的任务）与 `goal_check` 仍走占位——
+  它们的五步执行体不在 F-33 范围内，`test-f33` ⑩ 反向锁死「不被选取」。
+
 ## 反向清单
 
 - **上游（我来自哪）**：`../README.md`（server 枝杈登记）｜`AGENTS.md`（`server/` 状态位）｜
@@ -402,15 +465,27 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   `../../docs/03-locks/schema.md`｜`../../docs/03-locks/tech-stack.md` §2.4 / §4.2｜
   `../../docs/05-test-cases/test-M1.md`｜`../../prototype/pages/tasks.html` / `../../prototype/assets/data.js`（钉死需求）
 - **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 / F-06 路由**）｜阶段4 `../agent-orchestrator/discovery.js`（**真实编排被 `./executor.js` 消费**；工具码映射已与库内注册码对齐）｜
-  阶段5 `frontend/`（F-27 目标配置页经 `api` 取数）
+  **阶段4 M4 接线（F-33，2026-09-21 增）**：`./research.js` 与 `./self-heal.js` **反向消费** `../agent-orchestrator/` 的
+  F-19 `research-start.js`、F-20 `behavior.js` / `behavior-store.js`、F-21 `result.js`、F-15 `verification.js`、
+  F-18 `role.js`（**只调用，不改其语义**）；`../agent-orchestrator` 侧已在 `../agent-orchestrator/README.md` 反向清单登记本项消费关系｜
+  阶段5 `frontend/`（F-27~F-32 六页经 `api` 取数）
   > 反向清单**只记既有事实**：本目录内 F-05~F-06 的引用关系在各自落地时补记（避免出现对未建文件的悬空引用）。
-- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 引用；
+- **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js`、`./recovery.js` 与 **`./research.js`（F-33，取 `TYPE_STEPS`/`advanceStep`/`listTaskSteps`/`recordBlock` 等）** 引用；
   `./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）；
   **`./hva.js`（F-04，2026-09-21 增）** 新引用 `./goal.js`（取目标版本业务目标，用于派生研究壳 ①）与 `../shared-context/index.js` 的 `createResearch` / `getResearch` / `listResearch`（MD-07 建行与回查，**本文件不写 SQL**）；
   **`./hva.js` 与 `./followup.js` 之间不互相 `import`**——`followup.js` → `hva.js`（复用 `resolveHvaToolPermissions` / `HVA_AGENT_PROFILE_ID`）已是既有方向，反向引用会成环；故 `nextResearchNo` 真源下沉 `./step-plan.js`、`followup.js` 再导出（调用面不变）；`./recovery.js`（F-06）**只复用** `../tool-executor/task-state.js`（F-26 写入面），不引入其它写入面；
-  `./executor.js`（阶段4 执行体）被 `./index.js` 引用（queue consumer + cron 驱动），其自身复用 `../agent-orchestrator/discovery.js`（F-14/F-15/F-16 编排函数）与 `../tool-executor`（查询与 F-26 处置）
+  `./executor.js`（阶段4 执行体）被 `./index.js` 引用（queue consumer + cron 驱动），其自身 **import `./research.js`（F-33 增）** 取 `runResearchStep` / `RESEARCH_TASK_TYPE` / `WIRED_TASK_TYPES`，并复用 `../agent-orchestrator/discovery.js`（F-14/F-15/F-16 编排函数）与 `../tool-executor`（查询与 F-26 处置）；
+  **F-33 新增的三条目录内引用（2026-09-21）**：`./index.js` → `./executor.js`（`runPendingWork`）与 `./self-heal.js`（`runSelfHealScan`）；
+  `./index.js` → `./research.js`（`WIRED_TASK_TYPES`，queue 路由）；`./self-heal.js` → `./step-plan.js`（`advanceStep`，**唯一写动作**）
+  与 `./research.js`（`WIRED_TASK_TYPES`）；`./research.js` **不 import** `./executor.js` / `./index.js`（驱动方向单向：入口 → 执行体 → 写入面，无环）
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写；**F-04 另复用其 F-11 的 `createResearch` /
-  `getResearch` / `listResearch`**——`MD-07` 研究壳建行只此一处，本目录不重写）
-- **登记**：`.github/workflows/ci.yml`（`validate` 步骤）｜`../../docs/03-locks/schema.md` §12（Q-13/Q-14）
+  `getResearch` / `listResearch`**——`MD-07` 研究壳建行只此一处，本目录不重写；**F-33 另复用其 `getResearch` / `getEvidence` 读面**）
+  ｜ **F-33（2026-09-21 增）跨模块只读/写入面复用清单**（`./research.js` 的 6 条 import，**全部复用不重写**）：
+  `../agent-orchestrator/research-start.js`（F-19 起点三分支）｜`../agent-orchestrator/behavior.js`（F-20 五查查询 / 候选落库 / 行为核验装配）｜
+  `../agent-orchestrator/behavior-store.js`（F-20 读面）｜`../agent-orchestrator/verification.js`（F-15 五查 + 证据草稿 + EXT-02 落库）｜
+  `../agent-orchestrator/result.js`（F-21 报告保存）｜`../agent-orchestrator/role.js`（F-18 结束条件 + 禁词表）｜`../tool-executor/index.js`（`listQueryRecords` 读面）。
+  另 `./research.js` 复用 `./goal.js` 的 `getGoalVersion`（目标快照版本）。
+  **本目录不新增任何表写入面**——M4 的每一张表都有既有的唯一写入面（见上文「边界」段）。
+- **登记**：`.github/workflows/ci.yml`（`validate` 步骤；**F-33 增 `node server/task-runner/test-f33.mjs` 一步**）｜`../../docs/03-locks/schema.md` §12（Q-13/Q-14）｜`../../docs/04-plan/full-flow-wiring-plan.md`（F-33~F-36 编号与范围依据）｜`../../docs/04-plan/dev-plan.md` 阶段4「接线进展」

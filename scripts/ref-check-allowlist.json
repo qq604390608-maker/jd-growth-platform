@@ -55,6 +55,14 @@
     "todo": "叙事引用，无需改路径；保留以消噪"
   },
   {
+    "kind": "dangling",
+    "file": "docs/04-plan/full-flow-wiring-plan.md",
+    "target": "scripts/e2e-local.mjs",
+    "reason": "本文件是**技术方案（计划）**，该行描述的是「期2 P2-1 本地端到端冒烟」**尚未建**的脚本（方案把它列为待建产物），非当前已存在路径",
+    "registered_at": "2026-09-21",
+    "todo": "期2 建成该脚本后删本条（建脚本的那一 F-xx 交付时一并清豁免）"
+  },
+  {
     "kind": "imprecise",
     "file": "docs/03-locks/external-deps.md",
     "target": "docs/BRD.md",

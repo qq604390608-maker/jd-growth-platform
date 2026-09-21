@@ -1,0 +1,216 @@
+# 全流程打通 · 技术方案（已裁决，2026-09-21）
+
+> 编制依据：三路源码审计（M3 链路 / M4 链路 / 运行时接线）+ 线上远程库实测（经本机入口 `http://127.0.0.1:8899`）
+> 性质：**待实施的工作方案**，不是已落地成果。落地按「一 F-xx 一 PR」逐点走，逐点在本文件登记结果。
+
+## 文档卡
+
+| 项 | 内容 |
+| ---- | ---- |
+| 上游约束 | `../AGENTS.md`（宪法：F-xx 编号体系｜白盒原则｜双向引用）｜`dev-plan.md`（阶段 4 · M3/M4 的交付物与验收要点）｜`../03-locks/schema.md`（PD-01/02/03、MD-07~11、CFG-04）｜`../03-locks/external-deps.md`（A-1 门禁、§7 未关项）｜`../03-locks/tech-stack.md`（§2.4 一步一消息、§4.2 Queues）｜`../01-brd/BRD.md` §5.3 硬红线｜`../05-test-cases/test-M4.md`（F-19~F-22 oracle） |
+| 被测 / 被改对象 | `server/task-runner/`（`executor.js` / `index.js`）｜`server/agent-orchestrator/`（F-19~F-21 既有能力，复用不动语义）｜`wrangler.runner.toml` |
+| 反向清单 | 登记 `./README.md`（04-plan 文件清单）；引用于 `dev-plan.md` 阶段 4「接线进展」；本文件为 F-33~F-36 的**编号与范围依据** |
+
+---
+
+## 一、结论先行
+
+**"全流程跑不通"只差一段代码：M4（HVA 研究）的步骤执行体从未接线。**
+
+其余八个环节都在，而且七要素的组装逻辑**早就写好了**，只是没有任何自动调用路径——只能靠 HTTP 手工 POST 触发。
+
+线上实证（2026-09-21 读回）：
+
+| 任务 | 类型 | 状态 | 进度 | 启动依据 |
+|---|---|---|---|---|
+| T-0011 | goal_check | done | 2 / 2 步 | 目标配置页「保存为新版本」 |
+| T-0021 | discovery | **done** | **5 / 5 步** | 演示数据集（人工构造） |
+| T-0027 | discovery | **done** | **5 / 5 步** | 目标配置页「应用配置」 |
+| T-0028 | discovery | **done** | **5 / 5 步** | 目标配置页「应用配置」 |
+| **T-0026** | **hva_research** | **running** | **0 / 5 步** | PM 13:36 提交研究建议 PROP-001 |
+| **T-0029** | **hva_research** | **running** | **0 / 5 步** | PM 14:16 提交研究建议 PROP-001 |
+
+`GET /api/research` → `{"items":[]}`：**库里一条研究结果都没有**。
+
+---
+
+## 二、全流程环节体检
+
+| 环节 | 前端 | 后端 | 状态 |
+|---|---|---|---|
+| 目标配置（六要素 / 版本 / 口径检查 / 应用） | F-27 | F-01 | ✅ |
+| 机会发现（M3 五步） | 触发按钮 | F-02 + `task-runner/executor.js` | 🟡 机械上跑通，但会产脏数据 |
+| 机会列表与详情 | F-28 | F-10 | ✅ |
+| 提研究建议 | F-29 | F-03 | ✅（PROP-001 已落） |
+| **HVA 研究（M4 五步）** | — | **不存在执行体** | ❌ **硬断点** |
+| 研究结果七要素 | F-30 | `agent-orchestrator/result.js` | ❌ 有组装逻辑，无自动调用路径 |
+| 追问 | F-31 | F-05 / F-22 | ❌ 依赖 M4 产出 |
+| 任务与状态 | F-32 | F-06 | ✅ |
+
+---
+
+## 三、断点清单（按严重度）
+
+### P0-1 · M4 执行体不存在 —— 唯一硬断点
+
+| 位置 | 现状 |
+|---|---|
+| `server/task-runner/executor.js:144-146` | `if (task.task_type !== "discovery") throw`——非发现类型**直接抛错** |
+| `server/task-runner/executor.js:326` | cron 选取条件硬写 `t.task_type = 'discovery'` |
+| `server/task-runner/index.js:107-109` | `hva_research` 落到 `delegateToAgent` **契约占位**（只校验后返回 `delegated:true`，不执行任何步骤） |
+| `server/agent-orchestrator/result.js:321` | `assembleResearchResult`（七要素组装）**纯计算、零写库**——已实现 |
+| `server/agent-orchestrator/result.js:484` | `saveResearchReport`（落 7 列）——已实现 |
+| `server/api/index.js:1069` | 唯一调用者，**HTTP POST 手工触发** |
+
+**后果**：研究任务建行 → 五步全 `pending` → cron 永远不选它 → `0 / 5 步` 永久。
+
+M4 五步名（`task-runner/step-plan.js`，逐字照抄原型 `prototype/pages/tasks.html` `TYPE_STEPS`）：
+① 载入机会与目标口径　② 调度工具采集证据　③ 交叉验证候选行为　④ 形成结论与适用范围　⑤ 产出研究结果与依据
+
+### P0-2 · M3 步骤无独占 → 并发重跑 → 产出翻倍
+
+- `executor.js`：**先执行步骤体，后落 `done`**
+- `executor.js` `runPendingDiscoveryWork` 的 `for(;;)`：每轮重新全表选 `active` 步；一个 tick 会**一路把整批任务跑到底**
+- 12 个任务同 1 分钟提交 = 60 步 > 1 分钟节拍 → 跨 tick 重叠 → 同一 `active` 步被并发执行 → 产出 ×N
+
+这是 93 条重复机会（标题去重后只有 4 个）的直接成因。
+
+### P0-3 · 取号竞态
+
+读后写取号（`opportunity-next-id` 类）无唯一约束兜底 → 并发撞主键 → 任务 `blocked`。
+
+### P1-1 · 到期轮询异常会饿死执行体
+
+`server/task-runner/index.js` 的 `runDueDiscoveryCalls` 排在 `runPendingDiscoveryWork` **之前且无 try/catch**。任一 goal 抛错（如无运行策略）→ 整个 `scheduled` reject → 本 tick 所有 `active` 步永不执行，且**每分钟重演**。
+
+### P1-2 · 建任务与置 `active` 非原子
+
+`schedule.js` 插 task → 落五步 `pending` → enqueue 才把步 1 置 `active`。中间异常 → 任务 `running` 但五步全 `pending` → 永远不被选中 → `0 / 5 步`。**与 T-0026 / T-0029 的现象同形**。
+
+### P1-3 · 同一份研究建议产生了 2 个研究任务
+
+- 事实：PROP-001 → T-0026（13:36）+ T-0029（14:16）；`triggered_task_id` 只记到 **T-0029**，T-0026 成孤儿。
+- 机制已定位（2026-09-21，随 F-04 用例 A44 暴露）：⑤ 建议级幂等守卫 `markProposalTriggered` **位置偏晚**（排在建任务 / LNK-04 / 建壳 / PD-06 之后）→ 重复调用**虽最终报错，却已留下孤儿任务 + 孤儿研究壳**。
+- 处置见下（第四节 · 自愈补扫）。
+
+### P1-4 · 无真 Queue
+
+`wrangler.toml` 与 `wrangler.runner.toml` **均无 producer / consumer 绑定**；`index.js` 的 `queue()` 是**死代码**；全靠 runner 的宽 cron `* * * * *` 宽扫兜底 → 时序脆弱、无重试、无 DLQ。
+
+### P2-1 · 本地无一键全链路
+
+无根 `package.json`；`node_modules` 只有 jsdom；**无 wrangler / miniflare 依赖**（走 `npx -y wrangler@4.135.0`）。改代码只能靠线上验证。
+
+### P2-2 · 数据真实性（外部条件，非本期阻塞）
+
+- 取数走 `baseline-v1.js` 的**契约基准 v1 冻结响应**——链路真、数值是占位。
+- 外部对接方缺（`external-deps.md` §7，含 demo 占位共 16 条未关）。
+- A-1（LLM）线上 `/api/health` = `ai: "bound"`，但**只在 api Worker**；runner Worker 的 `wrangler.runner.toml` **无 `[ai]`**。
+
+---
+
+## 四、四期技术方案（已裁决）
+
+### 裁决记录（2026-09-21）
+
+| 问题 | 选项 | **用户裁决** |
+|---|---|---|
+| 打通范围 | A 只期1 / **B 期1+期2** / C +期3 / D 全做 | **B（期 1 + 期 2）** |
+| M4 是否真调模型 | 1a 确定性 + fallback（推荐） / **1b 给 runner 加 `[ai]` 真调模型** | **1b** |
+| 步骤独占路线 | **2a 轻量配额**（零 schema 变更） / 2b 租约（需迁移） | **2a**，并**加固为「配额 + 去重 + 超时」** |
+| T-0026 / T-0029 处置 | 补扫救活两条 / 只救 T-0029 / 都不救 | **只救 T-0029**（T-0026 登记为 P1-3 证据） |
+| MD-07 建壳位置 | **先补 F-04 建壳** / 放到执行体里建 | **先补 F-04**（已随 `9b617a8` 落地） |
+| `followup.js` 值域偏差 | 本次顺手改 / **只登记不擅改** | **只登记不擅改** |
+| 编号与节奏 | **按 F-33 起登记并开工** | **是** |
+
+### 编号映射（F-33 起，全仓此前仅 F-01~F-32 在用）
+
+| 编号 | 工作项 | 对应本节 | 状态 |
+|---|---|---|---|
+| **F-33** | **M4 执行体接线**（期 1）：五步执行体 + 按 `task_type` 分派 + runner `[ai]` + 自愈补扫 | 4.1 | ✅ **已落地 2026-09-21**（`server/task-runner/research.js` + `self-heal.js` + `test-f33.mjs` 88 断言全绿；分派/选取/自愈同取 `WIRED_TASK_TYPES` 单一真源；待提交） |
+| **F-34** | 步骤配额 + 同 tick 去重 + 单步超时（期 2.1 加固版，零 schema 变更） | 4.2 | ⬜ 待开工 |
+| **F-35** | 取号原子化（`id_sequence` 表） | 4.2 | ⬜ 待开工 |
+| **F-36** | `runDueDiscoveryCalls` / `runPendingDiscoveryWork` 顺序与 try/catch 隔离 | 4.2 | ⬜ 待开工 |
+| （独立工作项） | F-03/F-04 幂等守卫前移（消除孤儿任务 + 孤儿研究壳；`test-f04` A44 已把现状固定为断言） | 4.3 | ⬜ 待开工 |
+| （独立工作项） | `followup.js` `research_status` 由 item_name 改回字典 item_code | 4.3 | ⬜ 已登记未擅改 |
+
+> 期 3（真 Queues）与期 4（本地一键 e2e）本次**不在范围内**，条款保留在下文，供后续单独开工。
+
+### 期 1 · 打通 M4 —— 必做（→ F-33）
+
+**核心思路：把"只认 discovery"的执行体改成"按 `task_type` 分派"，M4 五步照同构写法落地。**
+
+**1.1 新增执行体文件** `server/task-runner/research.js`（遵循"新增写面就单独成文件"惯例）
+导出 `runResearchStep(db, task_id, step_no, opts)`，五步映射：
+
+| 步 | 内容 | 复用既有能力 |
+|---|---|---|
+| ① | 载入机会与目标口径 | F-19 `loadResearchStartContext` + `assembleResearchStart`（只读、纯计算） |
+| ② | 调度工具采集证据 | F-20 `queryForBehaviorCheck` →（M5 `runQueryWithRecovery` 落 EXT-01）＋ F-15 `buildEvidenceDraft` / `recordVerificationEvidence`（落 EXT-02） |
+| ③ | 交叉验证候选行为 | F-20 `formCandidateBehavior`（落 MD-09 / MD-10） |
+| ④ | 形成结论与适用范围 | F-20 `assembleBehaviorVerification` + F-18 `evaluateResearchClosure`（零写） |
+| ⑤ | 产出研究结果与依据 | F-21 `assembleResearchResult`（纯计算）+ `saveResearchReport`（落 MD-07/08/11 + LNK-02） |
+
+**1.2 执行体两处小改**（`executor.js`）
+- 分派守卫：由"非 discovery 即抛"改为**按 `task_type` 路由**到 discovery / research 两份执行体
+- `runPendingDiscoveryWork` 的选取条件：由硬写 `task_type='discovery'` 改为"按已接线类型集合筛选"，行内按类型分派
+
+**1.3 跨模块依赖必须同改三处**（这是最容易漏的自检项）
+`task-runner` → `agent-orchestrator/result-store.js#updateResearchReport` 属**复用既有写面**（非新增跨模块写面）。但引入同目录外的新 import 会改变"文件间引用图"，故必须同改：
+- `server/task-runner/README.md` 的「文件间引用」段
+- `server/task-runner/README.md` 的模块级硬红线那句「本目录只写 X 表」
+- `server/agent-orchestrator/README.md` 的消费者清单
+
+**1.4 `[ai]`（1b）**：给 `wrangler.runner.toml` 加 `[ai]`（**单表，与 `wrangler.toml` 同形态**——Workers AI 是单一绑定，官方示例即 `[ai]`，与可多实例的 `[[d1_databases]]` 不同类）。语义判断仍遵「**可注入判据 + 确定性 fallback**」：传了就采纳（`source='provided'`）、有 `env.AI` 就真调（`source='llm'`）、都没有走确定性 fallback 并标 `llm_gated=true`——门禁开闭同一套代码可用，本地零密钥仍可回归。
+
+**1.5 顺带堵 P1-2**：cron 侧加**自愈补扫**——扫「`task_status='running'` 且无任何 `active` 步（但已有步骤计划）」的任务，把最小步号的 `pending` 步置 `active`。这条同时能救活已躺在库里的 T-0029（T-0026 先置 `blocked` 留痕，登记为 P1-3 证据，避免同源产出两份）。
+
+### 期 2 · 让 M3 不再产脏数据 —— 强烈建议同期
+
+**2.1 步骤独占（2a 加固版）**
+`runPendingDiscoveryWork` 加**每 tick 步数配额**（把批次摊到多个 tick，从根上消掉重叠窗口）＋**同 tick 去重**（同一 tick 内同一 `task_id` 只推进一次）＋**单步超时**（单步超过阈值即放弃本轮、不重复占用）。
+
+- `STEP_STATE` 值域只有 `pending / active / done / blocked`（`db/seed/0002_config.sql` DI-038~041），**没有 `running`** → 不能靠"置 running"做独占；零 schema 变更路线的边界如实登记。
+
+**2.2 取号原子化（P0-3）**
+新增 `id_sequence` 表（`namespace` PK / `next_val`），原子取号：`UPDATE id_sequence SET next_val = next_val + 1 WHERE namespace = ? RETURNING next_val`。`opportunity` / `evidence` / `query_record` 统一改走它。符合项目「**取号不写 `SELECT MAX`**」的既定纪律。
+
+**2.3 修 P1-1**
+`index.js` 两处各自 try/catch，且把 `runPendingDiscoveryWork` 提到前面（或至少让它的失败不被轮询异常吞掉）。
+
+### 期 3 · 接真 Queues —— 去掉时序脆弱（本次范围外）
+
+- 两个 toml 加 `[[queues.producers]]` + `[[queues.consumers]]`（`max_batch_size = 1`、`max_retries = 3`、`dead_letter_queue`）。
+- `schedule.js` 的 enqueue 端口从"落 D1 痕迹"换成 `env.TASK_QUEUE.send({ task_id, step_no })`。
+- `index.js` 的 `queue()` 死代码复活为真 consumer；**cron 降级为兜底补扫**。
+- **前置条件**：需在 Cloudflare 账号建 queue（本机无凭证 → Dashboard 建，或 CI 内用 `CLOUDFLARE_API_TOKEN` 跑 `wrangler queues create`）。
+
+### 期 4 · 本地一键 e2e —— 把"跑通"变成可回归证据（本次范围外）
+
+- 建根 `package.json`（devDeps：`wrangler`、`jsdom`）+ `scripts/e2e-local.mjs`：本地 D1 migrate + seed → 建目标 → 跑发现 → 提建议 → 跑研究 → **断言七要素齐备** → 退出码。
+
+### 明确不做 / 待外部条件
+
+- **数据真实性**：需外部对接方（16 条未关项）。接上后数值才从"契约基准 v1"变真。
+- **A-1 门禁登记（未擅改）**：`external-deps.md` §3 表 A-1 行仍写 `⬜ 未提供`，与 §7 **T-21 已决**内部不一致；按惯例登记，等确认后触发上游改版。
+
+---
+
+## 五、工作量与风险
+
+| 期 | 触碰的既有 oracle 风险 | 备注 |
+|---|---|---|
+| 期 1 | 全仓 grep 确认**无任何用例断言「非 discovery 即抛错」**；`test-ts20.mjs` / `test-stage4.mjs` 断言的是「goal_check 走占位」——goal_check 本次不接线，断言不受影响 | 仍须先跑 server 全量套件确认 |
+| 期 2 | `test-f23.mjs` 的生产零写断言——**只要新写面单独成文件就不受影响** | 2b 若走租约需同步 `schema.md`（本次不走） |
+| 期 3 | 无新 oracle 风险；但需先建 queue 资源 | |
+| 期 4 | 新增 `package.json` 会被 ref-check 关注（双向登记） | |
+
+**共同纪律**：一 F-xx 一 PR、双向登记（文档卡 + 反向清单 + 目录 README + `AGENTS.md` 状态位 + `ci.yml` 一步）、开工前读上游真源（子 PRD 验收要点 → `docs/05-test-cases/` 下对应用例的 oracle（test-M1..test-M5） → `docs/03-locks/*` → `AGENTS.md` 红线）。
+
+---
+
+## 六、附：本次审计的旁证
+
+- 清理前的 93 条重复机会全量快照：`~/.workbuddy/tools/backup-2026-09-21/`（可回滚）
+- 线上通道（本机浏览器打不开 `workers.dev` 的原因与绕行）：`~/.workbuddy/tools/jd-local-gateway.mjs` → `http://127.0.0.1:8899`
+- 原始工作稿（仓库外，本文件为其正式落库版）：`~/.workbuddy/tools/全流程打通技术方案.md`

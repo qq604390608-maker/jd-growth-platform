@@ -10,6 +10,9 @@
 # Queues 说明：consumer/producer 绑定**暂不配置**——真 Queues 接入是独立前置（门禁见 external-deps §7），
 #   当前投递走 createLocalEnqueue（D1 痕迹式：pending→active）；接入后在此追加 [[queues.producers]] / [[queues.consumers]]，
 #   server/task-runner/index.js 的判定逻辑不动。
+# AI 说明（2026-09-21 增补）：加 `[ai]`（单表）——供 M4 执行体的语义判断真调模型（期 1 · 1b）；
+#   **不是跑通前提**（缺绑定走确定性 fallback，见 server/task-runner/research.js 三档门禁），
+#   依据 docs/04-plan/full-flow-wiring-plan.md 期 1 · 1.4 与用户裁决。
 
 name = "jd-growth-platform-runner"
 main = "server/task-runner/index.js"
@@ -26,3 +29,13 @@ database_id = "853be8d3-bca2-4683-ab7a-a61725516662"
 # （server/task-runner/index.js runDueDiscoveryCalls，Q-17 近似口径：最小间隔），故此处只配一颗宽 cron。
 [triggers]
 crons = ["* * * * *"]
+
+# Workers AI 绑定（F-33 / 期 1 · 1b「M4 五步的语义判断真调模型」，2026-09-21）。
+# 语法与 wrangler.toml（api Worker）**同形——单表 `[ai]`**：Workers AI 是**单一绑定**，
+# 官方文档示例即 `[ai]`（workers-ai/configuration/bindings），与可多实例的 `[[d1_databases]]` / `[[kv_namespaces]]`
+# 不同类；2026-09-20 曾误改为 `[[ai]]`，查证官方文档后订正，此处沿用同一形态。
+# 用途与门禁：M4 执行体（server/task-runner/research.js）的语义判断走「可注入判据 ▸ env.AI 真调 ▸ 确定性 fallback」
+# 三档——**没有本绑定时仍可跑**（走 `deterministic_fallback` 并标 `llm_gated=true`），故本地零密钥回归不受影响；
+# 本地 dev 若带 CLOUDFLARE_API_TOKEN，AI binding 走 remote（官方文档明示本地亦计费）。
+[ai]
+binding = "AI"

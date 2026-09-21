@@ -84,6 +84,8 @@ jobs:
         run: node server/task-runner/test-f06.mjs
       - name: 跑阶段4 接线用例（M3 discovery 执行体，跑静态零删行/改表 + ok 全链路（5 步全 done → 任务 done → EXT-01/EXT-02/MD-06 逐层落库）+ 全失败路径（F-26 处置 → blocked，持续查询失败停手）+ 幂等 + 结构受阻 + queue consumer 路由（discovery → executor.js 执行体 / 非 discovery → 契约占位））
         run: node server/task-runner/test-stage4.mjs
+      - name: 跑 F-33 用例（阶段4 M4 研究执行体接线，跑静态零裸 SQL/零删行（research.js 零 SELECT、self-heal.js 改行只经 advanceStep）+ 步 ① 单跑（F-19 三分支与停止条件）+ 全链路五步（5 源真实查询 → EXT-01/EXT-02 → MD-09/MD-10 → MD-07 七要素 + MD-08/LNK-02 落库，任务 done）+ 按 task_type 分派（hva_research 走 M4 体、hva_followup 仍占位、discovery 拒入、越界步号与非法判据入参抛错不落库）+ 幂等 + 结构受阻（PD-03 + blocked）+ 注入判据档（provided）+ 门禁档（确定性 fallback + llm_gated）+ 自愈补扫（缺研究壳者不擅自代建）+ 未接线类型不被选取 + 失败不否定结论）
+        run: node server/task-runner/test-f33.mjs
       - name: 跑 F-13 用例（M3 角色指令配置·agent-orchestrator，跑 MD-13 agent_profile 读 + agent.md 版本推进（单行 UNIQUE、不新建行）+ MD-14 skill_registry 注册（PK/UK/FK 库级强制）+ 生效 Skills 列表 + 版本快照组装 + 静态核验零外部调用 / 唯一写入面 MD-13+MD-14）
         run: node server/agent-orchestrator/test-f13.mjs
       - name: 跑 F-14 用例（M3 围绕目标寻找线索·agent-orchestrator，跑意向分归一 min(raw/threshold,1) 封顶（TC-U-M3-001）+ S-A1 一阶段注入清单→确定性查证计划＋停止条件（TC-A-M3-001）+ S-A3 线索须有人群/旅程归属、拒裸变化（TC-A-M3-003）+ loadDiscoveryContext 复用 shared-context 读面零写 + 静态零外部调用 / 零裸 SQL）

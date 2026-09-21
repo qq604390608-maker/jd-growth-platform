@@ -20,16 +20,18 @@
  *   ③ 采集入口与流量（按计划逐源经 M5 真实查询并落 EXT-01——**查询失败/受限一律留痕**）
  *   ④ 识别与聚合线索（EXT-01 ok 记录回查 → 五项检查 → 证据四要素齐则落 EXT-02 → 旅程归属归纳）
  *   ⑤ 生成机会候选（F-16 逐线索判定：足够→MD-06 机会；不足→缺口记录；汇总进 done_part）
- * 边界：本文件**只处理 task_type='discovery'**；hva_research/hva_followup 的消费仍是
- *   `delegateToAgent` 占位（接线归后续 PR，登记 dev-plan）。步间状态不落新表——步骤 4/5 以
- *   EXT-01/EXT-02 已落库事实做**确定性重算**（编排无随机，重算结果一致），不改 schema。
- * 投递通道：真 Queues 未接，驱动方式＝runner cron 每分钟顺带执行 `runPendingDiscoveryWork`
- *   （扫描 step_state='active' 且任务 running 的 discovery 步骤）；`queue` consumer 接入后走同一
- *   执行体（`runDiscoveryStep`），判定逻辑不动。
+ * 边界：本文件是**按 `task_type` 分派的调度外壳**——`discovery` 走本文件的 `runDiscoveryStep`，
+ *   `hva_research` 走 `./research.js` 的 `runResearchStep`（F-33 接线，2026-09-21）；`hva_followup` 与
+ *   `goal_check` 的消费仍是 `delegateToAgent` 占位（接线归后续 PR，登记 dev-plan）。已接线类型清单的**唯一真源**
+ *   是 `./research.js` 的 `WIRED_TASK_TYPES`，本文件的选取条件与分派守卫都从它取，**不复制第二份**。
+ *   步间状态不落新表——步骤 4/5 以 EXT-01/EXT-02 已落库事实做**确定性重算**（编排无随机，重算结果一致），不改 schema。
+ * 投递通道：真 Queues 未接，驱动方式＝runner cron 每分钟顺带执行 `runPendingWork`
+ *   （扫描 step_state='active' 且任务 running 的**已接线类型**步骤；旧名 `runPendingDiscoveryWork` 保留为别名）；
+ *   `queue` consumer 接入后走同一执行体，判定逻辑不动。
  * 红线落实：查询失败/受限 → 真实原因进 done_part（**失败不否定结论**）；不编造事实、
- *   不以模型预期代替查询（本文件零 LLM 调用）；机会写入只经 F-10（formOpportunityOrGap 内部）。
+ *   不以模型预期代替查询；机会写入只经 F-10（formOpportunityOrGap 内部）。
  * 反向清单：被 `./index.js`（scheduled 顺带驱动 + queue consumer）引用；登记 `./README.md`；
- *   测试 `./test-stage4.mjs`。
+ *   测试 `./test-stage4.mjs`（外加 F-33 的 `./test-f33.mjs` 覆盖分派与 M4 五步）。
  */
 import { getTask } from "./step-plan.js";
 import { listTaskSteps, advanceStep, appendDonePart, recordBlock, setTaskStatus, BLOCK_REASON_CODE } from "./step-plan.js";
@@ -38,6 +40,7 @@ import { listQueryRecords } from "../tool-executor/index.js";
 import { loadDiscoveryContext, assembleDiscoveryPlan, summarizeCluesAsJourney } from "../agent-orchestrator/discovery.js";
 import { runMetricVerification, verifyFiveChecks, buildEvidenceDraft, recordVerificationEvidence } from "../agent-orchestrator/verification.js";
 import { formOpportunityOrGap, OPPORTUNITY_OUTCOMES } from "../agent-orchestrator/opportunity.js";
+import { runResearchStep, RESEARCH_TASK_TYPE, WIRED_TASK_TYPES } from "./research.js";
 
 /** 计划数据源 → 实际调度的工具码（**取自 CFG-02 tool_registry 实际注册码**，契约基准 v1；
  *  注意 F-14 `createDiscoveryToolExecutor` 的旧映射 mkt.feedback.query / act.campaign.touch
@@ -283,11 +286,22 @@ export async function runDiscoveryStep(db, task_id, step_no, opts = {}) {
 
 /**
  * 单条步骤消息的完整处理（执行 + 跃迁 + 推进）——cron 驱动与 queue consumer 共用：
+ * 先按 `task.task_type` **分派**到对应执行体（discovery → 本文件；hva_research → `./research.js`），
+ * 再统一做跃迁与推进（跃迁/推进逻辑只有这一份，两份执行体都只干活）。
  * 步骤体 outcome=done → 当前步落 done → 任务仍 running 时推进下一步（无下一步且全 done → 任务落 done）。
  * @returns {Promise<{outcome:string, step_no:number, finished:boolean}>}
  */
 export async function runStepMessage(db, { task_id, step_no }, opts = {}) {
-  const r = await runDiscoveryStep(db, task_id, step_no, opts);
+  const task = await getTask(db, task_id);
+  if (task && !WIRED_TASK_TYPES.includes(task.task_type)) {
+    throw new Error(
+      `runStepMessage 只处理已接线类型（${WIRED_TASK_TYPES.join(" / ")}），收到 ${task.task_type}——` +
+      "其余类型仍走 delegateToAgent 占位（接线另行登记）",
+    );
+  }
+  const r = task && task.task_type === RESEARCH_TASK_TYPE
+    ? await runResearchStep(db, task_id, step_no, opts)
+    : await runDiscoveryStep(db, task_id, step_no, opts);
   let finished = false;
   if (r.outcome === "done") {
     // 当前步落 done（跃迁由本层统一负责；步骤体只干活），随后推进下一步
@@ -313,19 +327,21 @@ export async function runStepMessage(db, { task_id, step_no }, opts = {}) {
 }
 
 /**
- * cron 驱动本体：扫描「running 的 discovery 任务中 step_state='active' 的步骤」逐个执行。
+ * cron 驱动本体：扫描「running 的**已接线类型**任务中 step_state='active' 的步骤」逐个执行。
+ * 已接线类型清单取自 `./research.js` 的 `WIRED_TASK_TYPES`（单一真源），行内按类型分派。
  * 幂等：只消费 active 步骤；重复调用在无 active 步骤时是 no-op。
  * @returns {Promise<{executed: Array<{task_id:string, step_no:number, outcome:string}>, finished:string[]}>}
  */
-export async function runPendingDiscoveryWork(db, opts = {}) {
+export async function runPendingWork(db, opts = {}) {
   const out = { executed: [], finished: [] };
+  const placeholders = WIRED_TASK_TYPES.map(() => "?").join(", ");
   for (;;) {
     const rows = (await db.prepare(
       `SELECT s.task_id AS task_id, MIN(s.step_no) AS step_no
          FROM task_step s JOIN task t ON t.task_id = s.task_id
-        WHERE s.step_state = 'active' AND t.task_status = 'running' AND t.task_type = 'discovery'
+        WHERE s.step_state = 'active' AND t.task_status = 'running' AND t.task_type IN (${placeholders})
         GROUP BY s.task_id ORDER BY s.task_id`,
-    ).all()).results || [];
+    ).bind(...WIRED_TASK_TYPES).all()).results || [];
     if (rows.length === 0) break;
     for (const { task_id, step_no } of rows) {
       const r = await runStepMessage(db, { task_id, step_no: Number(step_no) }, opts);
@@ -335,3 +351,6 @@ export async function runPendingDiscoveryWork(db, opts = {}) {
   }
   return out;
 }
+
+/** 旧名别名：既有调用面（`./index.js` / `test-stage4.mjs` / `test-ts20.mjs`）保持不变，行为＝已接线类型全量。 */
+export const runPendingDiscoveryWork = runPendingWork;
