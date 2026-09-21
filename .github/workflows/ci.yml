@@ -116,6 +116,10 @@ jobs:
         run: node frontend/test-f31.mjs
       - name: 跑 F-32 用例（M6 任务与状态页，jsdom 载真实页面 + 真实 Worker + 真实 D1（node:sqlite 载真实 DDL/种子），跑 TC-I-M6-006 三类事实分别可见（机会未被选中/任务未完成/研究未支持候选行为）＋任务运行状态/受阻原因（stopped→已停止、blocked+target_unclear→等待必要信息、其余 blocked→等待接口恢复）/已完成部分＋状态机口径（BRD F-06/M5 F-26）＋TC-C-M6-001 动态数据只经 server/api + TC-D-M6-001 前端不写库（SQL 语句形态静态扫描 + 运行期零写请求）+ TC-I-M6-007 前后端分离判断标准（直接调接口仍 200））
         run: node frontend/test-f32.mjs
+      - name: 校验配置种子包与 0001 无漂移（决策项2：0002 由 0001 复算比对）
+        run: node scripts/extract-config-seed.mjs --check
+      - name: 跑配置种子包载入探针（FK ON 下正向干净载入 + 反向「含目标级策略必违约」）
+        run: node scripts/probe-config-seed.mjs
       - name: 跑引用自检骨架（scripts/tests，夹具断言：三类能抓到 / 干净能放行 / 豁免与 strict 生效）
         run: node scripts/tests/test-ref-check.mjs
       - name: 跑引用自检（孤儿 / 悬空 / 重号 0 命中）
@@ -135,8 +139,13 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 d1 migrations apply jd-growth-platform --remote
+      - name: 灌生产配置种子（决策项2：仅配置数据无 mock；0002 为 0001 派生物，漂移在 validate 阶段 --check 拦截）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/seed/0002_config.sql -y
       - name: 部署 Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler@4.135.0 deploy
+        run: npx -y wrangler@4.135.0 deploy

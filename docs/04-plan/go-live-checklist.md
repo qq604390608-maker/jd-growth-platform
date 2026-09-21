@@ -2,7 +2,7 @@
 
 > 定位：回答「功能写完之后，还差什么才能真正上线」。
 > 一句话结论：**计划内 32 个功能点（F-01~F-32）与三项缺陷已全部写完并合入本地 `main`，卡在出关三道门禁的后两道——部署未触发、外部契约未关闭。**
-> 版本：v1.0（2026-09-20）
+> 版本：v1.1（2026-09-21，决策项2 裁决落地）
 
 ## 文档卡
 
@@ -45,7 +45,7 @@
 | 4 | 流水线 `deploy` 阶段（仅 push 到 main 时） | `d1 migrations apply jd-growth-platform --remote` → `wrangler deploy` | ✅ 已过 |
 | 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（防强推/防删除，按需加 PR 审核 + 状态检查）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） | ✅ 已确认（2026-09-21 用户网页操作） |
 
-**线上冒烟（2026-09-21）**：`*.workers.dev` 大陆直连不可达（运维事实，见 runbook §7）；经 `wrangler dev --remote`（边缘运行时 + 真实远程 D1，绕开被墙域名）实测——`/api/health` ✅（AI binding 已接）、`/api/db-ping` ✅、`/api/dicts/OPP_STATUS` 路由通但 **items 为空**。空属预期：远程库按「生产零写」只有 schema；但**配置类数据（字典值域/工具清单/角色指令）目前与全 mock 种子混在 `db/seed/0001_mock.sql`，无法整包上生产** → 新增待办「配置数据与 mock 种子拆分」，见 §6。另：根路径 `/` 无前端页面属预期——Worker 是 API-only，前端托管形态是未决项 **TS-20**。
+**线上冒烟（2026-09-21）**：`*.workers.dev` 大陆直连不可达（运维事实，见 runbook §7）；经 `wrangler dev --remote`（边缘运行时 + 真实远程 D1，绕开被墙域名）实测——`/api/health` ✅（AI binding 已接）、`/api/db-ping` ✅、`/api/dicts/OPP_STATUS` 路由通但 **items 为空**。空属预期：远程库按「生产零写」只有 schema；配置缺失问题已由**决策项2 落地**收口——`db/seed/0002_config.sql`（11 表 / 183 行配置）经 CI deploy 阶段自动灌入远程库，见 §4 决策项2。另：根路径 `/` 无前端页面属预期——Worker 是 API-only，前端托管形态是未决项 **TS-20**。
 
 **PR 标题约定**：须以 `F-xx` / `阶段N` / `chore` / `docs` / `ci` 开头，否则 `pr-title-check` 会失败（对应 dev-plan「每 F-xx 一 PR」纪律）。
 
@@ -119,7 +119,7 @@
 | # | 决策 | 谁拍板 | 影响 |
 | ---- | ---- | ---- | ---- |
 | 1 | ~~远程地址 + Cloudflare 凭证~~ → **已提供并实测打通**（2026-09-21） | ✅ 已决 | 门禁 B 已收口 |
-| 2 | **配置数据与 mock 种子拆分**（线上冒烟发现，2026-09-21）：字典值域 `dict_item` / 工具清单 `CFG` 族 / 角色指令 `MD-13/MD-14` 等**生产必需配置**目前与全 mock 业务数据混在 `db/seed/0001_mock.sql`（300 条 INSERT 整包），无法按「生产零写」纪律整包灌远程库——需拆出独立的 `0002_config.sql`（仅配置，无 mock 业务数据），并定「配置上生产」的执行时机与审批方式 | PM + 技术方 | 前端徽标文案从库读（缺口 7）在生产环境会静默回落静态兜底表；工具注册/角色指令在生产不可用，影响 F-13/F-24 上线 |
+| 2 | ~~**配置数据与 mock 种子拆分**~~ → **已裁决并落地（2026-09-21，方案A）**：新建 `db/seed/0002_config.sql`（11 表 / 183 行，由 `scripts/extract-config-seed.mjs` 从 0001 提取生成，0001 一字不动——30+ 用例 oracle 零影响）；`run_policy` 仅平台级（目标级策略挂 mock 目标，FK 实测拦截）；CI validate 加 `--check` 防漂移 + 载入探针，deploy 阶段 `d1 execute --remote --file` 自动灌配置 | ✅ 已决（PM + 技术方） | 字典/工具/角色指令生产可用；`/api/dicts/*` 不再空 |
 | 2 | ~~**TS-10** Workers AI 具体模型选型~~ → **已收口（2026-09-21，Free 池 qwen3-30b 默认）** | ✅ 已决（技术方） | F-20「敢说不足以判断」红线可达（实测 honesty 全 0 失败） |
 | 3 | T-01 / T-02 / T-05：真实 MCP 工具名、条件字段语法、返回结构 | 对接方 | F-24 / F-15 真实查询可复现 |
 | 4 | T-20 / T-25：§3、§4 分类框架是否成立 | PM | `external-deps.md` 结构本身 |

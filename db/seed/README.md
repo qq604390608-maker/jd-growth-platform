@@ -7,8 +7,17 @@
 
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
-| `0001_mock.sql` | 全 mock 种子数据（仅 INSERT，不含 DDL）。30 表有数据 / 6 表按裁决留空 | ✅ 已建（2026-09-19） |
+| `0001_mock.sql` | 全 mock 种子数据（仅 INSERT，不含 DDL）。30 表有数据 / 6 表按裁决留空。**本文件一个字不动**（30+ 用例 oracle 直接引用，决策项2 方案A） | ✅ 已建（2026-09-19） |
+| `0002_config.sql` | **生产配置种子**（决策项2，2026-09-21 已裁决）：仅配置数据（11 表 / 183 行），由脚本从 `0001_mock.sql` 提取生成——**派生物，禁止手改**。生产库仅灌本文件（`ci.yml` deploy 阶段 `d1 execute --remote --file`），mock 业务数据不上生产 | ✅ 已建（2026-09-21） |
 | `generate_mock.py` | 种子生成器：从 `prototype/assets/data.js` 与 `external-deps.md` §5 抽取真实源，按 DDL 外键拓扑排序输出 | ✅ 已建（可重跑复现） |
+| `../../scripts/extract-config-seed.mjs` | 0002 提取脚本：配置表整节 + `run_policy` 仅平台级（`goal_id IS NULL`）行级过滤；`--check` 复算比对防漂移（CI validate 阶段执行） | ✅ 已建（2026-09-21） |
+| `../../scripts/probe-config-seed.mjs` | 0002 载入探针：FK ON 下正向干净载入（行数逐一断言）+ 反向「含目标级策略 POL-Q3 必外键违约」（CI validate 阶段执行） | ✅ 已建（2026-09-21） |
+
+## 0002_config.sql 提取规则（决策项2 · 方案A）
+
+- **配置表整节提取（11 表 / 183 行）**：`dict_type`(26) / `dict_item`(84) / `source_registry`(5) / `tool_registry`(12) / `tool_permission`(24) / `gap_rule`(4) / `context_template`(20) / `agent_profile`(2) / `skill_registry`(2) / `touchpoint`(3) / `run_policy`(1)。
+- **行级过滤**：`run_policy` 仅提取 `goal_id IS NULL` 的**平台级**行——目标级策略（`POL-Q3`）挂在 mock 业务目标 `GOAL-2026Q3-01` 上，属业务数据，灌生产会触发外键违约（`goal_id REFERENCES research_goal(goal_id)`，探针 P2 已实测拦截）。
+- **防漂移**：0002 是 0001 的派生物，改配置须改 0001（或生成器）后重跑提取脚本；`node scripts/extract-config-seed.mjs --check` 比对不一致即 exit 1。
 
 ## 上游（我来自哪）
 

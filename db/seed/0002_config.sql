@@ -1,0 +1,219 @@
+-- ============================================================
+-- 0002_config.sql · 生产配置种子（仅配置，无 mock 业务数据）
+-- 数据来源：由 scripts/extract-config-seed.mjs 从 db/seed/0001_mock.sql 提取生成
+-- 【本文件为派生物，禁止手改】修改配置请改 0001（或经裁决直接改 0001 的配置节），
+--   然后重跑提取脚本；CI validate 阶段用 --check 防漂移。
+-- 决策项2（2026-09-21 已裁决，方案A）：0001_mock.sql 保持不动；
+--   生产库仅灌本文件（ci.yml deploy 阶段 d1 execute --remote --file）。
+-- 提取规则：配置表整节 + run_policy 仅平台级（goal_id IS NULL）；
+--   目标级策略（如 POL-Q3）挂在 mock 目标上，属业务数据，不进生产包。
+-- 外键：本包所有行无外键指向 mock 表，可在仅含 schema 的生产库独立载入（FK ON 实测）。
+-- ============================================================
+
+PRAGMA foreign_keys = ON;
+
+-- ---- dict_type (26 行) ----
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('GOAL_STATUS', '目标生命周期状态', 'MD-01 goal_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('GOAL_FIELD', '目标六要素字段', 'CFG-05 target_field / PD-04 target_field');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('MATERIAL_KIND', '目标材料类型', 'MD-03 material_kind');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('MATERIAL_FROM', '目标材料来源', 'MD-03 material_from');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('CONTEXT_KIND', '业务背景类型', 'MD-04 context_kind');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('OPP_STATUS', '机会状态', 'MD-06 opportunity_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('RESEARCH_STATUS', '研究状态', 'MD-07 research_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('FINDING_SUPPORT', '关键发现支持情况', 'MD-08 support_flag');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('BEHAVIOR_STATUS', '候选行为支持情况', 'MD-09 behavior_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('BEHAVIOR_POINT_TYPE', '候选行为条目立场', 'MD-10 point_type');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('TASK_TYPE', '任务类型', 'PD-01 task_type / CFG-06 task_type');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('TASK_STATUS', '任务运行状态', 'PD-01 task_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('STEP_STATE', '任务步骤状态', 'PD-02 step_state');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('BLOCK_REASON', '任务受阻原因', 'PD-03 block_reason_code');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('QUERY_STATUS', '查询执行结果', 'EXT-01 result_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('SOURCE_CODE', '来源系统编码', 'CFG-01/02 source_id / EXT-01/02 source_id');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('SOURCE_STATUS', '来源可用性', 'CFG-01 availability_status');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('CONTEXT_TYPE', '上下文注入信息类型', 'CFG-06/PD-06 context_type_code');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('OBJECT_TYPE', '研究对象类型', 'LNK-04/PD-06 object_type');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('TASK_LINK_ROLE', '任务关联角色', 'LNK-04 link_role');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('GRANTEE_TYPE', '权限授权对象类型', 'CFG-03 grantee_type');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('POLICY_SCOPE', '运行策略作用域', 'CFG-04 policy_scope');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('MESSAGE_ROLE', '追问发言方', 'PD-07 message_role');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('EVIDENCE_LINK_KIND', '机会-证据关联语义', 'LNK-01 link_kind');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('OPP_RELATION', '机会间关系语义', 'LNK-03 relation_kind');
+INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('AGENT_CODE', 'Agent 代码', 'MD-13 agent_code / MD-14 bound_agent_code');
+
+-- ---- source_registry (5 行) ----
+INSERT INTO source_registry (source_id, source_name, capability_can, capability_cannot, availability_status, is_mcp_ready, registered_at, updated_at) VALUES ('CDP', 'CDP 用户标签系统', '人群圈选、标签分布、人群规模', '完整用户行为序列（仅有标签与聚合结果）', 'ok', 1, '2026-07-01 00:00', '2026-09-18 00:00');
+INSERT INTO source_registry (source_id, source_name, capability_can, capability_cannot, availability_status, is_mcp_ready, registered_at, updated_at) VALUES ('HJE', '黄金眼', '线上流量、坑位曝光点击、路径转化', '用户级别明细，仅到渠道/坑位聚合', 'ok', 1, '2026-07-01 00:00', '2026-09-18 00:00');
+INSERT INTO source_registry (source_id, source_name, capability_can, capability_cannot, availability_status, is_mcp_ready, registered_at, updated_at) VALUES ('PIM', '商品中台', '超市商品主数据、品类归属、价格带', '商品实时库存与履约状态', 'ok', 1, '2026-07-01 00:00', '2026-09-18 00:00');
+INSERT INTO source_registry (source_id, source_name, capability_can, capability_cannot, availability_status, is_mcp_ready, registered_at, updated_at) VALUES ('MKT', '营销中台', '权益发放与核销记录', '权益对复购的增量效果（需另行测算）', 'ok', 1, '2026-07-01 00:00', '2026-09-18 00:00');
+INSERT INTO source_registry (source_id, source_name, capability_can, capability_cannot, availability_status, is_mcp_ready, registered_at, updated_at) VALUES ('ACT', '活动报名系统', '活动是否存在、活动时间与报名商品', '用户是否真正参与及受影响程度', 'degraded', 0, '2026-07-01 00:00', '2026-09-18 00:00');
+
+-- ---- gap_rule (4 行) ----
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-1', 'metric_definition', '退款|取消', '复购口径是否剔除退款 / 取消订单', '直接影响复购率分母与候选行为判定', 1);
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-2', 'metric_definition', '跨品类|首次下单|首单定义', '新客是否限定为「跨品类首单」，单品类首单是否计入', '决定人群圈选条件与可比基础', 1);
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-3', 'business_scope', 'APP|小程序|PC|渠道', '是否区分 APP / 小程序 / PC 渠道分别统计', '若不分渠道，行为差异可能被渠道结构掩盖', 1);
+INSERT INTO gap_rule (rule_id, target_field, match_pattern, gap_text, impact_note, is_active) VALUES ('GAP-4', 'focus_period', '\d{4}-\d{1,2}-\d{1,2}', '关注时段未写明具体起止日期', '取数窗口不确定，证据时点无法对齐', 1);
+
+-- ---- context_template (20 行) ----
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-001', 'goal_check', 'goal', 1, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-002', 'goal_check', 'background', 2, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-003', 'goal_check', 'source', 3, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-004', 'discovery', 'goal', 1, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-005', 'discovery', 'background', 2, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-006', 'discovery', 'source', 3, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-007', 'discovery', 'opp_summary', 4, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-008', 'hva_research', 'goal', 1, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-009', 'hva_research', 'background', 2, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-010', 'hva_research', 'source', 3, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-011', 'hva_research', 'selected_opp', 4, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-012', 'hva_research', 'product_question', 5, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-013', 'hva_research', 'existing_evidence', 6, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-014', 'hva_followup', 'goal', 1, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-015', 'hva_followup', 'background', 2, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-016', 'hva_followup', 'source', 3, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-017', 'hva_followup', 'selected_opp', 4, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-018', 'hva_followup', 'product_question', 5, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-019', 'hva_followup', 'existing_evidence', 6, 1);
+INSERT INTO context_template (template_id, task_type, context_type_code, order_no, is_required) VALUES ('CT-020', 'hva_followup', 'related_history', 7, 1);
+
+-- ---- agent_profile (2 行) ----
+INSERT INTO agent_profile (profile_id, agent_code, agent_name, agent_stage, current_version, doc_revision, is_active) VALUES ('AGP-DISC', 'discovery-agent', '机会发现 Agent', 'M3', 'v1.2', 'r9', 1);
+INSERT INTO agent_profile (profile_id, agent_code, agent_name, agent_stage, current_version, doc_revision, is_active) VALUES ('AGP-HVA', 'hva-agent', 'HVA 分析 Agent', 'M4', 'v1.3', 'r12', 1);
+
+-- ---- touchpoint (3 行) ----
+INSERT INTO touchpoint (touchpoint_id, touchpoint_name, channel, position_desc, is_active, created_at) VALUES ('TP-01', '首页推荐位', '京东超市频道', 'APP 首页信息流推荐位', 1, '2026-07-01 00:00');
+INSERT INTO touchpoint (touchpoint_id, touchpoint_name, channel, position_desc, is_active, created_at) VALUES ('TP-02', '搜索结果页', '京东超市频道', '搜索关键词结果页', 1, '2026-07-01 00:00');
+INSERT INTO touchpoint (touchpoint_id, touchpoint_name, channel, position_desc, is_active, created_at) VALUES ('TP-03', '京东超市频道', '京东超市频道', '频道落地页与品类楼层', 1, '2026-07-01 00:00');
+
+-- ---- dict_item (84 行) ----
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-001', 'GOAL_STATUS', 'active', '生效中', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-002', 'GOAL_STATUS', 'archived', '已归档', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-003', 'GOAL_FIELD', 'business_goal', '① 业务目标', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-004', 'GOAL_FIELD', 'metric_definition', '② 指标口径', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-005', 'GOAL_FIELD', 'business_scope', '③ 业务范围', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-006', 'GOAL_FIELD', 'focus_period', '④ 关注时段', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-007', 'GOAL_FIELD', 'known_constraints', '⑤ 已知约束', 5, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-008', 'GOAL_FIELD', 'provider', '⑥ 提供方', 6, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-009', 'MATERIAL_KIND', 'sheet', '表格', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-010', 'MATERIAL_KIND', 'mail', '邮件', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-011', 'MATERIAL_KIND', 'doc', '文档', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-012', 'MATERIAL_KIND', 'manual', '登记', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-013', 'MATERIAL_FROM', 'tenant', '业务方提供', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-014', 'MATERIAL_FROM', 'local', '本地选取', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-015', 'MATERIAL_FROM', 'manual', '手动登记', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-016', 'CONTEXT_KIND', 'knowledge', '业务知识', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-017', 'CONTEXT_KIND', 'constraint', '业务约束', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-018', 'CONTEXT_KIND', 'definition', '口径说明', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-019', 'OPP_STATUS', 'candidate', '候选', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-020', 'OPP_STATUS', 'deferred', '暂不研究', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-021', 'OPP_STATUS', 'submitted', '已提交研究', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-022', 'RESEARCH_STATUS', 'running', '研究中', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-023', 'RESEARCH_STATUS', 'done', '已完成', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-024', 'FINDING_SUPPORT', 'supported', '已支持', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-025', 'FINDING_SUPPORT', 'unsupported', '未支持', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-026', 'BEHAVIOR_STATUS', 'candidate_supported', '候选行为获得支持（仍属候选）', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-027', 'BEHAVIOR_STATUS', 'not_supported', '未找到足够依据支持', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-028', 'BEHAVIOR_POINT_TYPE', 'support', '支持的方面', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-029', 'BEHAVIOR_POINT_TYPE', 'unsupport', '不支持或存疑的方面', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-030', 'TASK_TYPE', 'goal_check', '口径检查', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-031', 'TASK_TYPE', 'discovery', '机会发现', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-032', 'TASK_TYPE', 'hva_research', 'HVA 研究', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-033', 'TASK_TYPE', 'hva_followup', 'HVA 研究·追问', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-034', 'TASK_STATUS', 'running', '运行中', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-035', 'TASK_STATUS', 'blocked', '受阻', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-036', 'TASK_STATUS', 'stopped', '已停止', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-037', 'TASK_STATUS', 'done', '已完成', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-038', 'STEP_STATE', 'pending', '待执行', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-039', 'STEP_STATE', 'active', '进行中', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-040', 'STEP_STATE', 'done', '已完成', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-041', 'STEP_STATE', 'blocked', '受阻', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-042', 'BLOCK_REASON', 'target_unclear', '目标或指标口径不清', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-043', 'BLOCK_REASON', 'no_data_returned', '接口未返回研究所需信息', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-044', 'BLOCK_REASON', 'source_unavailable', '来源未接入或权限不足', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-045', 'BLOCK_REASON', 'call_failed', '查询或服务调用失败', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-046', 'BLOCK_REASON', 'limit_or_cancel', '达到运行限制或人工取消', 5, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-047', 'BLOCK_REASON', 'insufficient_basis', '研究完成但没有足够依据', 6, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-048', 'QUERY_STATUS', 'ok', '成功', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-049', 'QUERY_STATUS', 'fail', '失败', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-050', 'QUERY_STATUS', 'running', '执行中', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-051', 'SOURCE_CODE', 'CDP', 'CDP 用户标签系统', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-052', 'SOURCE_CODE', 'HJE', '黄金眼', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-053', 'SOURCE_CODE', 'PIM', '商品中台', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-054', 'SOURCE_CODE', 'MKT', '营销中台', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-055', 'SOURCE_CODE', 'ACT', '活动报名系统', 5, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-056', 'SOURCE_STATUS', 'ok', '可用', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-057', 'SOURCE_STATUS', 'degraded', '降级', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-058', 'SOURCE_STATUS', 'unauthorized', '未接入', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-059', 'CONTEXT_TYPE', 'goal', '目标', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-060', 'CONTEXT_TYPE', 'background', '背景', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-061', 'CONTEXT_TYPE', 'source', '可用来源', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-062', 'CONTEXT_TYPE', 'opp_summary', '已有机会摘要', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-063', 'CONTEXT_TYPE', 'selected_opp', '所选机会', 5, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-064', 'CONTEXT_TYPE', 'product_question', '产品问题', 6, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-065', 'CONTEXT_TYPE', 'existing_evidence', '已有证据', 7, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-066', 'CONTEXT_TYPE', 'related_history', '相关历史', 8, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-067', 'OBJECT_TYPE', 'goal', '研究目标', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-068', 'OBJECT_TYPE', 'opportunity', '机会', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-069', 'OBJECT_TYPE', 'research', '研究', 3, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-070', 'OBJECT_TYPE', 'proposal', '研究建议', 4, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-071', 'TASK_LINK_ROLE', 'trigger', '启动对象', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-072', 'TASK_LINK_ROLE', 'output', '产出对象', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-073', 'GRANTEE_TYPE', 'agent', '按 Agent', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-074', 'GRANTEE_TYPE', 'task_type', '按任务类型', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-075', 'POLICY_SCOPE', 'platform', '平台级', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-076', 'POLICY_SCOPE', 'goal', '目标级', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-077', 'MESSAGE_ROLE', 'pm', '产品经理', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-078', 'MESSAGE_ROLE', 'agent', '智能体', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-079', 'EVIDENCE_LINK_KIND', 'initial_basis', '初步依据', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-080', 'EVIDENCE_LINK_KIND', 'related_update', '关联更新', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-081', 'OPP_RELATION', 'same_issue', '相同问题关联', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-082', 'OPP_RELATION', 'superseded', '被取代', 2, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-083', 'AGENT_CODE', 'discovery-agent', '机会发现 Agent', 1, 1);
+INSERT INTO dict_item (dict_item_id, dict_type_code, item_code, item_name, order_no, is_active) VALUES ('DI-084', 'AGENT_CODE', 'hva-agent', 'HVA 分析 Agent', 2, 1);
+
+-- ---- tool_registry (12 行) ----
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-01', 'cdp.crowd.query', '人群圈选与规模查询', 'CDP', '取某人群的规模、标签分布，用于确认「该人群是否值得研究」', '目标业务范围已明确（否则圈选条件无法确定）', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-02', 'cdp.tag.distribution', '标签分布查询', 'CDP', '取某标签在人群中的分布，用于人群差异的初步观察', '同上', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-03', 'cdp.behavior.agg', '行为聚合查询（非明细）', 'CDP', '取行为在人群中的占比等聚合值', '行为定义已与目标口径对齐', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-04', 'hje.traffic.entry', '入口维度流量查询', 'HJE', '按入口类型/时段/品类取流量与转化，用于入口差异观察', '入口与时段条件已定', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-05', 'hje.slot.exposure', '坑位曝光点击查询', 'HJE', '取坑位级曝光与点击，用于触点效果观察', '坑位已登记（MD-05）', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-06', 'hje.path.conversion', '路径转化查询', 'HJE', '取路径转化，用于旅程环节的流量观察', '旅程环节已定义', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-07', 'pim.category.query', '品类商品主数据查询', 'PIM', '取品类下的商品、规格、价格带结构', '品类范围已定', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-08', 'pim.spec.distribution', '规格标签占比查询', 'PIM', '取规格（家庭装/多件装等）在品类中的占比', '品类与规格标签已定', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-09', 'mkt.benefit.issue', '权益发放查询', 'MKT', '取券发放量与领取人群，用于排除权益干扰', '券类型与窗口已定', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-10', 'mkt.benefit.redeem', '权益核销查询', 'MKT', '取核销率，用于判断权益是否构成替代解释', '同上', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-11', 'act.activity.list', '已报名活动清单查询', 'ACT', '取活动时段内已报名活动，用于排除活动干扰', '活动时段与频道已定', 0);
+INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpose, call_condition, is_enabled) VALUES ('TOL-12', 'act.enroll.detail', '活动参与明细查询', 'ACT', '取用户是否真实参与活动', '—（经判定该工具不存在：ACT 仅有报名信息）', 0);
+
+-- ---- run_policy (1 行) ----
+INSERT INTO run_policy (policy_id, policy_scope, goal_id, run_frequency, max_duration_min, call_limit, retry_limit, is_active) VALUES ('POL-PLAT', 'platform', NULL, '每日 02:00', 120, 50, 3, 1);
+
+-- ---- skill_registry (2 行) ----
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A1', 'clue-scan', '线索扫描', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B1', 'hva-five-checks', 'HVA 五查', 'v1.1', 'hva-agent', 1);
+
+-- ---- tool_permission (24 行) ----
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-01', 'agent', 'discovery-agent', 'TOL-01', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-01', 'agent', 'hva-agent', 'TOL-01', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-02', 'agent', 'discovery-agent', 'TOL-02', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-02', 'agent', 'hva-agent', 'TOL-02', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-03', 'agent', 'discovery-agent', 'TOL-03', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-03', 'agent', 'hva-agent', 'TOL-03', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-04', 'agent', 'discovery-agent', 'TOL-04', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-04', 'agent', 'hva-agent', 'TOL-04', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-05', 'agent', 'discovery-agent', 'TOL-05', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-05', 'agent', 'hva-agent', 'TOL-05', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-06', 'agent', 'discovery-agent', 'TOL-06', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-06', 'agent', 'hva-agent', 'TOL-06', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-07', 'agent', 'discovery-agent', 'TOL-07', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-07', 'agent', 'hva-agent', 'TOL-07', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-08', 'agent', 'discovery-agent', 'TOL-08', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-08', 'agent', 'hva-agent', 'TOL-08', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-09', 'agent', 'discovery-agent', 'TOL-09', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-09', 'agent', 'hva-agent', 'TOL-09', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-10', 'agent', 'discovery-agent', 'TOL-10', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-10', 'agent', 'hva-agent', 'TOL-10', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-11', 'agent', 'discovery-agent', 'TOL-11', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-11', 'agent', 'hva-agent', 'TOL-11', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-12', 'agent', 'discovery-agent', 'TOL-12', 1, NULL, '2026-07-01 00:00', NULL);
+INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-H-12', 'agent', 'hva-agent', 'TOL-12', 1, NULL, '2026-07-01 00:00', NULL);
+

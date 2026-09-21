@@ -16,6 +16,8 @@
 | `ref-check.mjs` | 自检本体。**三类判定口径的唯一可执行定义写在其头部文档卡**，改动须同步本文件 | ✅ 已建 2026-09-19 |
 | `ref-check-allowlist.json` | 已知豁免登记（每条须带 `reason` / `registered_at` / `todo`），命中后单列「已登记豁免」，不计入失败 | ✅ 已建 2026-09-19（2 条） |
 | `tests/test-ref-check.mjs` | 自检骨架（夹具断言）：证明三类**能抓到**、干净仓库**能放行**、豁免与 `--strict` 生效、退出码正确 | ✅ 已建 2026-09-19（18 断言全绿；含 1 条悬空 / 1 个孤儿 / 1 处重号 / 1 条软偏差的正例夹具与 1 个零命中夹具） |
+| `extract-config-seed.mjs` | 生产配置种子提取（决策项2）：从 `db/seed/0001_mock.sql` 提取配置生成 `0002_config.sql`（`run_policy` 仅平台级）；`--check` 复算防漂移。登记细则见 `db/seed/README.md` | ✅ 已建 2026-09-21 |
+| `probe-config-seed.mjs` | 0002 载入探针（node:sqlite，D1 兼容口径）：FK ON 正向干净载入逐表断言 + 反向「含目标级策略 POL-Q3 必外键违约」 | ✅ 已建 2026-09-21 |
 
 ## 用法
 
