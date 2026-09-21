@@ -1,0 +1,43 @@
+# 文档卡（一次性运维 · 2026-09-21）
+# 上游：`db/ops/2026-09-21-demo-opportunities.sql`（本工作流唯一执行的 SQL）｜ `.github/workflows/ci.yml`（deploy 步的凭证注入写法：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 Secrets）
+# 职责：把 `db/ops/` 下的一次性运维 SQL 对**远程库**执行一次——用于「演示数据集重置」（清掉重复产出的发现痕迹 + 落入 4 条字段齐全的演示机会）。
+# 与 ci.yml 的分工：ci.yml 的 deploy **只重放配置种子**（db/seed/0002、0003），**不重放** db/ops/ 下任何文件；
+#   故本工作流是这些运维 SQL 的唯一入口，避免「每次部署都执行破坏性 SQL」。一次性执行完即可保留失效（重复触发幂等，结果一致）。
+# 硬红线：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 GitHub Secrets 注入，绝不写入本文件或仓库；
+#   本工作流不直连任何业务写接口，写动作只由 Cloudflare 平台侧凭据授权的 d1 execute 完成。
+# 反向清单：被 `db/ops/2026-09-21-demo-opportunities.sql` 头部引用；执行入口为下方两步（执行 + 回读校验）。
+
+name: OPS · 演示数据重置（一次性）
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/ops/**'
+      - '.github/workflows/ops-demo-reset.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ops-demo-reset
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 执行一次性运维 SQL（幂等：先按固定编号删、再插入）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/ops/2026-09-21-demo-opportunities.sql -y
+      - name: 回读校验（三类计数：机会 / 证据 / 查询记录）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote -y \
+            --command "SELECT (SELECT COUNT(*) FROM opportunity) AS opportunities, (SELECT COUNT(*) FROM evidence) AS evidences, (SELECT COUNT(*) FROM query_record) AS query_records"
