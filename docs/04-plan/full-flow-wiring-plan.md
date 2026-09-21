@@ -127,12 +127,14 @@ M4 五步名（`task-runner/step-plan.js`，逐字照抄原型 `prototype/pages/
 
 | 编号 | 工作项 | 对应本节 | 状态 |
 |---|---|---|---|
-| **F-33** | **M4 执行体接线**（期 1）：五步执行体 + 按 `task_type` 分派 + runner `[ai]` + 自愈补扫 | 4.1 | ✅ **已落地 2026-09-21**（`server/task-runner/research.js` + `self-heal.js` + `test-f33.mjs` 88 断言全绿；分派/选取/自愈同取 `WIRED_TASK_TYPES` 单一真源；待提交） |
+| **F-33** | **M4 执行体接线**（期 1）：五步执行体 + 按 `task_type` 分派 + runner `[ai]` + 自愈补扫 | 4.1 | ✅ **已上线 2026-09-21**（`209c85b`，CI `validate` + `deploy` 双绿；`research.js` + `self-heal.js` + `test-f33.mjs` 88 断言全绿；分派/选取/自愈同取 `WIRED_TASK_TYPES` 单一真源；线上验收见 §1.6） |
 | **F-34** | 步骤配额 + 同 tick 去重 + 单步超时（期 2.1 加固版，零 schema 变更） | 4.2 | ⬜ 待开工 |
 | **F-35** | 取号原子化（`id_sequence` 表） | 4.2 | ⬜ 待开工 |
 | **F-36** | `runDueDiscoveryCalls` / `runPendingDiscoveryWork` 顺序与 try/catch 隔离 | 4.2 | ⬜ 待开工 |
 | （独立工作项） | F-03/F-04 幂等守卫前移（消除孤儿任务 + 孤儿研究壳；`test-f04` A44 已把现状固定为断言） | 4.3 | ⬜ 待开工 |
 | （独立工作项） | `followup.js` `research_status` 由 item_name 改回字典 item_code | 4.3 | ⬜ 已登记未擅改 |
+| （独立工作项） | **执行体 catch 在 `blocked` 时落 `ended_at`**（`executor.js` / `research.js`），恢复后成「`running` + `ended_at` 非空」——与锁定列「任务结束时点；**进行中为空**」相悖（F-26 侧对 `blocked` 一律留空，仅 `stopped` 落值）。**干跑实证**（同库、同真实写入面）：F-26 口径 resume 后 `ended_at=null` ✅／执行体口径 resume 后 `ended_at='2026-09-21 16:00'` ❌。**线上同源可复现**：T-0026（catch 写）`ended_at=15:26` vs T-0029（F-26 写）`ended_at=null` | 4.3 | ⬜ 已登记未擅改 |
+| （独立工作项） | **F-19 查证计划是否应避开未启用来源**（或在计划里标注受限）——否则任一计划源未接入，M4 一动手必然被 F-26 受阻，「跑到报告落库」在外部接入不齐时不可达 | 4.3 | ⬜ 已登记待裁决 |
 
 > 期 3（真 Queues）与期 4（本地一键 e2e）本次**不在范围内**，条款保留在下文，供后续单独开工。
 
@@ -164,6 +166,22 @@ M4 五步名（`task-runner/step-plan.js`，逐字照抄原型 `prototype/pages/
 **1.4 `[ai]`（1b）**：给 `wrangler.runner.toml` 加 `[ai]`（**单表，与 `wrangler.toml` 同形态**——Workers AI 是单一绑定，官方示例即 `[ai]`，与可多实例的 `[[d1_databases]]` 不同类）。语义判断仍遵「**可注入判据 + 确定性 fallback**」：传了就采纳（`source='provided'`）、有 `env.AI` 就真调（`source='llm'`）、都没有走确定性 fallback 并标 `llm_gated=true`——门禁开闭同一套代码可用，本地零密钥仍可回归。
 
 **1.5 顺带堵 P1-2**：cron 侧加**自愈补扫**——扫「`task_status='running'` 且无任何 `active` 步（但已有步骤计划）」的任务，把最小步号的 `pending` 步置 `active`。这条同时能救活已躺在库里的 T-0029（T-0026 先置 `blocked` 留痕，登记为 P1-3 证据，避免同源产出两份）。
+
+**1.6 线上实测（期 1 验收 · 2026-09-21 15:26~15:29 UTC，即 `209c85b` 部署完成后 1~3 分钟内）**
+
+口径：读面回查（`GET /api/tasks/{id}` + `GET /api/task-blocks?task_id=` + `GET /api/query-records?task_id=`），不靠日志猜测。
+
+| 验收项 | 期 1 预期 | 线上实测 | 判定 |
+|---|---|---|---|
+| 自愈补扫救 T-0029 | 从「`running` + 五步全 `pending` → 永不被选中」脱出并真实执行 | `0 / 5` → **`2 / 5`**：步 ① 载入起点（路径 `verify_hypothesis`）→ 步 ② 真实查询 CDP `Q-00148 ok`、HJE `Q-00149 ok`，落 EXT-02 2 条 | ✅ 达成 |
+| T-0026 登记为 P1-3 证据 | 置 `blocked` 留痕（不救） | `blocked` + `BL-001 target_unclear`：「第 1 步受阻：任务 T-0026 的二阶段上下文未取到研究问题（PD-06 `product_question` 缺位）——口径不清，不擅自代拟问题」 | ✅ 达成（**由执行体自动产生**，无需运维 SQL） |
+| M4 体真跑（新建任务） | 新 `hva_research` 任务能走 M4 五步 | **T-0031**（15:27 由 F-04 建任务 + 建 MD-07 壳 `R-001`）→ 步 ①→② 实跑：EXT-01 3 条（CDP/HJE `ok`、PIM 受限）、EXT-02 2 条 | ✅ 达成 |
+| M4 跑到「报告落库」 | —— | 未达成：步 ② 到 PIM 即被 M5 F-26 判受限返回 → 任务 `blocked`（见下） | ⚠️ 外部启用面 |
+
+**唯一剩余阻塞＝外部启用面，不是代码**：M4 的查证计划含 **PIM**，而线上 `db/seed/0003_enable_remote_plan.sql` 只启用了 **TOL-01/04/09/11**（CDP 人群 / HJE 入口 / MKT 发放 / ACT 活动），`TOL-07 pim.category.query` 仍 `is_enabled=0`。故步 ② 到 PIM 即被 **M5 F-26** 按「受限返回」处置：写 `PD-03 source_unavailable`（`BL-002`，`blocked_at=15:27`，`resume_condition＝接入或权限问题解决`）＋ 任务置 `blocked`；执行体的**前置守卫**随即停手（剩余源暂停）——**与 `executor.js`（discovery）同款行为，非 M4 独有**。
+
+- 救这条走既有路径：先解决 PIM 接入/启用，再 `POST /api/task-recovery` `resume`（`blocked`→`running`），下一 tick 由 cron 接管续跑。
+- **待决（登记）**：F-19 的查证计划**是否应避开未启用来源**（或在计划里标注受限）——否则任一计划源未接入，M4 一动手必然受阻，「跑到报告落库」在外部接入不齐时不可达。
 
 ### 期 2 · 让 M3 不再产脏数据 —— 强烈建议同期
 
