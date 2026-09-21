@@ -67,3 +67,11 @@
 - **前置守卫的判定顺序会改变 HTTP 返回码**：`saveResearchReport` 把「研究存在」放在「七要素齐备」之后，故**残缺入参 + 不存在的编号**拿到的是 `incomplete(200)` 而非 `404`。写冒烟/探针时要按**守卫顺序**构造入参才能打到目标分支，别把「没打到 404」当成实现错。
 - git 身份：仓库级 `dev <dev@local>`（全局未配，新克隆需 `git config user.name/email` 才能提交）。
 - **访问线上 Worker 的通道（2026-09-21 实测）**：线上地址 `https://jd-growth-platform.dongzhuo.workers.dev`（前端同源挂根路径）。**本机浏览器直接开打不开**，机制已于 2026-09-21 查清：本机代理是 **GGDD.app（内置 mihomo）**（`/tmp/gg-dd.sock` 可读控制接口；`HTTP(S)_PROXY=127.0.0.1:60633`；开 TUN），规则尾部为 `… GeoIP,cn → DIRECT → Match(兜底) → GGDD`；因有 `GeoIP,cn`，mihomo 需**本地解析**域名，而 `*.workers.dev` 被解析成 **CN 段污染 IP `118.184.78.78`** → 被判「中国 IP」走直连 → 连到假 IP 被 TLS 重置。**可行姿势**：① 本机入口 `node ~/.workbuddy/tools/jd-local-gateway.mjs` → `http://127.0.0.1:8899`（托管 `frontend/` + 反代 `/api/*` 到真实 IP，最省事，用户已在用）；② 命令行取数：`curl --noproxy '*' --resolve <host>:443:<真实IP>`（真实 IP 用 DoH 查 `https://1.1.1.1/dns-query?name=<host>&type=A`，实测 `104.21.29.229 / 172.67.171.225`）；③ 想让**线上域名**本身可开，得在 GGDD 规则里加**排到 `GeoIP,cn` 之前**的 `DOMAIN-SUFFIX,workers.dev,<节点组>`（❌ 不是「加 DIRECT 规则」——直连正是坏的那条路）。注意：走代理时 `--resolve` 无效（代理自己做 DNS）；判断端口是否在听别用 `/dev/tcp`（沙箱误报）；`api.cloudflare.com` 与 npm registry 直连可达；`sudo` 被沙箱挡（改不了 `/etc/hosts`）；GGDD 的 `config.yaml` 是 XOR 加密的，**别去动**。
+- **远程 D1 写入只能经 CI**（2026-09-21 确认）：本机无 wrangler 登录态、`sudo` 被沙箱挡。做法＝一次性运维 SQL 放 `db/ops/` + 一个**按 `db/ops/**` 路径触发**的专用 workflow；`ci.yml` 的 deploy **只重放 `db/seed/`（0002/0003），不碰 `db/ops/`**。SQL 必须幂等（先按固定编号删、再插），危险删除带守卫（如 `task_id NOT IN (SELECT raised_by_task_id FROM goal_gap)`、`NOT IN (SELECT start_task_id FROM research …)`），执行前**先备份**到仓库外。跑前先用 `node:sqlite` 载真实 DDL/种子**逐句干跑**。
+- **`gh` 不在 PATH**（`which -a gh` 空）；查 CI 用 GitHub **公开 REST API**：`api.github.com/repos/qq604390608-maker/jd-growth-platform/actions/runs`，步骤级看 `.../runs/<id>/jobs`。仓库公开、免鉴权可读，不需要令牌。
+
+## 派生数据必须引用「已应用版本」的口径（2026-09-21）
+
+- 机会的 `initial_basis_note` / `query_condition` / 证据的 `query_condition`，凡声明「由目标配置逐字派生」的，只能取 **`goal_version.is_applied = 1` 的那一版**，不要取旧版本。
+- 实测踩坑：`GOAL-2026Q3-01` 的 **v2（`is_applied=0`，GAP-001 补充版）口径含「；单品首单不计入」，而 v3（`is_applied=1`）不含该句**。我先按 v2 写了 8 处查询条件 → 可追溯性不成立，第二次 OPS 才改回 v3 逐字。**教训：写任何派生串之前，先读 `current_version`（不是 `versions[]` 里的任意一版）。**
+- 校验手法（可复用）：把 SQL 里所有查询条件用正则抽出 → **去重** → 与「线上 `current_version` 四要素重新拼装的 JSON 串」做**全等**比对（别用「包含」），并断言旧写法残留 0。
