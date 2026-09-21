@@ -71,10 +71,15 @@ const HEADER = `-- ============================================================
 --   （2026-09-21 实测发现）——故文件头部先按「子表在前」的逆拓扑序 DELETE 全部
 --   配置行，再按原拓扑序 INSERT，每次部署将配置表对齐到本文件声明态。
 --   配置值变更：改 0001 配置节 → 重跑提取 → 合 main 即生效，无需手工 UPDATE。
--- 外键：本包所有行无外键指向 mock 表，可在仅含 schema 的生产库独立载入（FK ON 实测）。
+-- 外键（2026-09-21 修正）：生产库经前端/运行会产生业务数据，业务表
+--   query_record/evidence → source_registry、research → agent_profile、
+--   research_goal → gap_rule 存在外键引用；故种子以 PRAGMA foreign_keys = OFF
+--   执行 DELETE+INSERT（重新插入的配置行主键不变，业务外键引用自然恢复有效）。
+--   ⚠ 不可改回 ON：改回后重放会在「已有业务数据的库」上触发 FK 违约而失败
+--   （首部署空库能过，库一有目标/任务/证据等数据就必挂——CI 历次 deploy 失败即此因）。
 -- ============================================================
 
-PRAGMA foreign_keys = ON;
+PRAGMA foreign_keys = OFF;
 `;
 
 const sectionRe = /^-- ---- (\w+) \((\d+) 行\) ----$/;
