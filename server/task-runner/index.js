@@ -22,6 +22,8 @@
  *   登记 `../README.md`（模块清单 task-runner 行）与 `./README.md`。
  */
 import { parseRunFrequency, resolveRunPolicy, createDiscoveryTask, createLocalEnqueue, delegateToAgent } from "./schedule.js";
+import { getTask } from "./step-plan.js";
+import { runStepMessage, runPendingDiscoveryWork } from "./executor.js";
 
 /** 每日 → 1440 分钟；每周 → 10080；每 N 小时 → N*60（取各频率的最小触发间隔）。 */
 export function freqIntervalMin(text) {
@@ -78,16 +80,33 @@ function stamp(d) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** Cron Triggers 到点入口（宽 cron 每分钟一次，到期判定在程序侧——CFG-04 频率是数据不是配置）。 */
 export default {
+  /** Cron Triggers 到点入口（宽 cron 每分钟一次，到期判定在程序侧——CFG-04 频率是数据不是配置）。 */
   async scheduled(controller, env, ctx) {
-    return runDueDiscoveryCalls(env.DB);
+    // ① 到期轮询：按 CFG-04 策略判定到期并创建 discovery 任务（步 1 由 createLocalEnqueue 置 active）；
+    // ② 顺带驱动执行体（阶段4 接线，2026-09-21）：消费 active 步骤跑真实编排——真 Queues 未接前，
+    //    D1 痕迹式投递由本 cron 充当消费者（零新依赖）；接 Queues 后仅删本行，queue() 逻辑不动。
+    await runDueDiscoveryCalls(env.DB);
+    return runPendingDiscoveryWork(env.DB);
   },
-  /** Queue Consumer：消息形状两键（`assertStepMessage` 保证）；阶段4 接真实步骤执行体前为契约占位。 */
+  /**
+   * Queue Consumer：消息形状两键（`assertStepMessage` 保证）。
+   * discovery 任务 → 真实步骤执行体（executor.js runStepMessage：执行 + 跃迁 + 推进）；
+   * 其余类型（hva_research/hva_followup/goal_check）仍走 `delegateToAgent` 契约占位（接线归后续 PR）。
+   */
   async queue(batch, env, ctx) {
     const results = [];
     for (const message of batch.messages) {
-      const r = await delegateToAgent(env.DB, message.body);
+      const body = message.body || {};
+      let task = null;
+      try {
+        task = body.task_id ? await getTask(env.DB, body.task_id) : null;
+      } catch (e) {
+        task = null;
+      }
+      const r = task && task.task_type === "discovery"
+        ? await runStepMessage(env.DB, { task_id: body.task_id, step_no: Number(body.step_no) })
+        : await delegateToAgent(env.DB, body);
       results.push(r);
       message.ack();
     }

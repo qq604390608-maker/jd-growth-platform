@@ -24,7 +24,8 @@
 
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
-| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}` → `delegateToAgent` 契约占位，阶段4 接真实执行体） | ✅ 已建 2026-09-21（`test-ts20.mjs` 15 断言全绿，进 CI） |
+| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ `runPendingDiscoveryWork` cron 驱动（扫描 active 步骤自驱动，**阶段4 接线**）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}`：**discovery 任务 → `executor.js` 的 `runStepMessage` 真实执行体；其余类型 → `delegateToAgent` 契约占位**） | ✅ 已建 2026-09-19（`test-ts20.mjs` oracle 已随阶段4 接线更新，进 CI） |
+| `executor.js` | **阶段4 发现任务执行体（接线本体）**：`runDiscoveryStep` 按五步执行真实编排（零 LLM）：① 载入目标与时间窗 ② 规划采集范围（F-14 `assembleDiscoveryPlan`）③ 采集入口与流量（**真实查询**经 `../tool-executor`：CDP/HJE/MKT/ACT 四源，失败按 **F-26** `handleQueryFailure` 处置、任务非 running 即停手）④ 识别与聚合线索（F-14 `summarizeCluesAsJourney`，或从 EXT-01 ok 记录确定性重算）⑤ 生成机会候选（F-16 `formOpportunityOrGap`：依据足够落 **MD-06**、不足记缺口）。`runStepMessage` 统一负责步骤跃迁（当前步落 done + 推进下一步 + 任务完成落 done）；`runPendingDiscoveryWork` 供 cron 扫描 active 步骤自驱动。证据落 **EXT-02**（证据号 `EV-<query_id>`，F-09 不自动取号） | ✅ 已建 2026-09-21（`test-stage4.mjs` 45 断言全绿；工具码映射订正同步 `../agent-orchestrator/discovery.js` 4 处） |
 | `step-plan.js` | **本目录共用骨架件**：四类任务的步骤模板（`TYPE_STEPS`，逐字对齐原型）、`TASK_TYPE_STAGE`、任务取号（`nextTaskId`）与建行（`createTask`）、步骤计划与推进（`planTaskSteps` / `advanceStep` / `refreshProgress`）、`LNK-04 task_object` 关联（`linkTaskObject` / `listTaskObjects`）；再导出 `../tool-executor/task-state.js` 的任务态写入面 | ✅ 已建 2026-09-19 |
 | `goal.js` | **F-01 研究目标登记与口径管理**：`MD-01` 身份 + `MD-02` 六要素**定版式版本化**（保存为新版本 / 应用配置 / 历史只读）、`MD-03` 材料登记与**逻辑删除**、`CFG-05` 规则驱动的**口径检查** → `PD-04` 待补项、待补项补充后**并入六要素并 bump 新版本**、`goal_check` 任务（2 步）创建与完成 | ✅ F-01 已建 2026-09-19（88 断言全绿） |
 | `schedule.js` | **F-02 机会发现任务调度**：`CFG-04` 运行策略登记（**写入侧从严**）与选取（目标级优先 → 回落平台级）、运行频率 → **Cron Triggers 表达式**解析与校验（四式 / 最小粒度 1 分钟 / 250 条上限）、`MD-13`+`MD-14` 能力版本快照、Queue 消息守卫与**可注入 `enqueue` 端口**、`createDiscoveryTask`（建任务 → `LNK-04` → 五步 → `CFG-06` 上下文 → 发消息）、`delegateToAgent` 调用守卫 | ✅ F-02 已建 2026-09-19（86 断言全绿） |
@@ -38,6 +39,7 @@
 | `test-f04.mjs` | F-04 用例执行器（自包含 fixture：机会 + 已提交建议；断言第二阶段启动点 / 五步逐字对齐原型 / LNK-04 锚点 / 二阶段上下文 PD-06 / CFG-03 工具权限 / 版本冲突以机会为准 / 重复启动报错 / 消息恰两键 / 零外部调用） | ✅ 已建（**45 断言全绿**） |
 | `test-f05.mjs` | F-05 用例执行器（自包含 fixture：父任务 `T-TEST-2001`（`hva_research`）+ 原研究 `R-TEST-001`（`start_task_id=T-TEST-2001`、`goal_version_no=3`）；不碰种子行；断言关联原研究建任务 / 继承版本 / 显式新版本 / 原研究不存在报错 / 原研究无启动任务报错 / PD-07 FK 反例 / PD-01 自引用父先落 / 编号推进 / 静态核验零外部调用） | ✅ 已建（**57 断言全绿**） |
 | `test-f06.mjs` | F-06 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；断言 retry_limit 封顶报错 / PD-03 FK 反例 / blocked＋done_part 保留 / resume / stopped 不自动重启 / done 不可改写 / 失败不否定 HVA 静态 / 零裸 SQL 静态） | ✅ 已建（**47 断言全绿**） |
+| `test-stage4.mjs` | 阶段4 接线用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；夹具前置：启用 TOL-01/04/09/11 + ACT `availability_status=ok`+`is_mcp_ready=1`）：① 静态零删行/改表 ② ok 全链路（5 步全 done → 任务 done → EXT-01/EXT-02/MD-06 逐层落库）③ 全失败路径（F-26 处置 → blocked）④ 幂等 ⑤ 结构受阻 ⑥ queue consumer 路由（discovery → 执行体、非 discovery → 占位） | ✅ 已建 2026-09-21（**45 断言全绿**） |
 
 ## F-01 已通过用例（`test-f01.mjs`，88 断言）
 
@@ -358,17 +360,34 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
 - **`createLocalEnqueue` 的投递痕迹落在 `PD-02` 的 `step_state`**（`pending→active`），不在新表——
   `task_step` 的步骤流转本身就是「这一步被投递出去了」的白盒证据（阶段3 的表清单里没有投递表，未擅自增表）。
 
+## 阶段4 接线（发现任务执行体，2026-09-21）
+
+- **接线点**：queue consumer（`index.js`）对 discovery 任务改调 `executor.js` 的 `runStepMessage`
+  （真实编排），非 discovery 任务维持 `delegateToAgent` 契约占位；`scheduled()` 顺带
+  `runPendingDiscoveryWork`（cron 每分钟扫描 active 步骤自驱动，**零新依赖**——真 Queues 接入后仅删该行）。
+- **执行体纪律**：步骤体只干活，跃迁统一由 `runStepMessage` 负责（实测教训：执行体返回 done 后忘了把
+  当前步落 done 会让驱动器死循环重跑步 1）；步骤 3 循环内每次查询前检查任务态，任务被 F-26 处置
+  （blocked/stopped）即停手——**前置守卫，不留半截状态**。
+- **工具码以库内注册码为准**：CDP→`cdp.crowd.query`、HJE→`hje.traffic.entry`、MKT→`mkt.benefit.issue`、
+  ACT→`act.activity.list`。F-14 旧映射 `mkt.feedback.query`/`act.campaign.touch` 在库内不存在，
+  已在 `executor.js` 与 `../agent-orchestrator/discovery.js`（4 处）同步订正。
+- **确定性重算**：步骤 4/5 从 EXT-01 已落库 ok 记录做确定性重算（编排无随机、不改 schema）；
+  重算包装加 `verified: true` 顶层键（`hasEnoughBasis` 的 real_return 读此键，漏加会把「依据足够」
+  静默判 false → 机会 0 个）。
+- **证据号**：F-09 不自动取号，执行体派生 `EV-<query_id>` 后调 `recordVerificationEvidence` 落 EXT-02。
+
 ## 反向清单
 
 - **上游（我来自哪）**：`../README.md`（server 枝杈登记）｜`AGENTS.md`（`server/` 状态位）｜
   `../../docs/04-plan/dev-plan.md` 阶段 3 · M1｜`../../docs/02-prd/PRD-M1-平台任务程序.md`｜
   `../../docs/03-locks/schema.md`｜`../../docs/03-locks/tech-stack.md` §2.4 / §4.2｜
   `../../docs/05-test-cases/test-M1.md`｜`../../prototype/pages/tasks.html` / `../../prototype/assets/data.js`（钉死需求）
-- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 / F-06 路由**）｜阶段4 `../agent-orchestrator`（消费任务与上下文）｜
+- **下游（我被谁引用）**：`../api/index.js`（**F-01 / F-02 / F-03 / F-04 / F-05 / F-06 路由**）｜阶段4 `../agent-orchestrator/discovery.js`（**真实编排被 `./executor.js` 消费**；工具码映射已与库内注册码对齐）｜
   阶段5 `frontend/`（F-27 目标配置页经 `api` 取数）
   > 反向清单**只记既有事实**：本目录内 F-05~F-06 的引用关系在各自落地时补记（避免出现对未建文件的悬空引用）。
 - **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 引用；
-  `./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）；`./recovery.js`（F-06）**只复用** `../tool-executor/task-state.js`（F-26 写入面），不引入其它写入面
+  `./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）；`./recovery.js`（F-06）**只复用** `../tool-executor/task-state.js`（F-26 写入面），不引入其它写入面；
+  `./executor.js`（阶段4 执行体）被 `./index.js` 引用（queue consumer + cron 驱动），其自身复用 `../agent-orchestrator/discovery.js`（F-14/F-15/F-16 编排函数）与 `../tool-executor`（查询与 F-26 处置）
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写）

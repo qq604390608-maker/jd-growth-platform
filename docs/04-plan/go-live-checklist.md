@@ -49,6 +49,17 @@
 
 **PR 标题约定**：须以 `F-xx` / `阶段N` / `chore` / `docs` / `ci` 开头，否则 `pr-title-check` 会失败（对应 dev-plan「每 F-xx 一 PR」纪律）。
 
+**阶段4 接线后的远程库运维待办（2026-09-21 登记，均以 D1 数据更新方式执行、不改 DDL）**
+
+| # | 待办 | 原因 | 执行方式 |
+| ---- | ---- | ---- | ---- |
+| 1 | 远程库启用计划工具 `TOL-01`/`TOL-04`/`TOL-09`/`TOL-11`（`tool_registry.is_enabled=1`，含 `is_mcp_ready` 口径核对） | 阶段4 执行体真实查询依赖这 4 个来源；远程库 0002 配置未启用则发现任务步骤 3 全部受限 | `wrangler d1 execute jd-growth-platform --remote --command "UPDATE tool_registry SET is_enabled=1 WHERE tool_code IN ('cdp.crowd.query','hje.traffic.entry','mkt.benefit.issue','act.activity.list')" --yes` |
+| 2 | ACT 活动报名来源恢复可用（`availability_status` → `ok`、`is_mcp_ready=1`） | 种子里 ACT 为 `degraded`/`is_mcp_ready=0`，契约基准 v1 下应可查询；不恢复则 ACT 源查询被判受限 | 同上，`UPDATE tool_registry SET availability_status='ok', is_mcp_ready=1 WHERE ...`；属**数据更新**（恢复登记），已登记 go-live |
+| 3 | 验证方式：远程对 `GOAL-2026Q3-01` 重跑一次发现任务，确认五步全 done、EXT-01/EXT-02/MD-06 逐层落库、机会 > 0 | 与本机 `test-stage4.mjs` ok 路径同判据；runner cron 每分钟自驱动（真 Queues 未接前靠 `runPendingDiscoveryWork`） | `wrangler d1 execute --remote` 查 `task_step` / `opportunity` 行数核对 |
+
+> 以上均属「生产零写」红线的**配置数据侧**操作（写 `tool_registry` 配置行，不写研究/证据结论行）；
+> 研究链路数据（EXT-01/EXT-02/MD-06）只由 runner 执行体在真实运行中落库，人工不代写。
+
 ## 3. 门禁 C · 外部契约 —— ✅ **已收口（2026-09-21，ADR-004 自拟契约基准 v1）**
 
 > 完整定义见 `external-deps.md` §7；本节只做**出关视角的进度汇总**，不重复定义内容。

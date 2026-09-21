@@ -116,11 +116,11 @@ console.log("\n② runDueDiscoveryCalls · 到期判定矩阵（种子：2 activ
     "archived 目标不出现在 due/skipped（轮询范围仅 active）");
 }
 
-// ==================================================== ③ queue handler：契约占位 + ack
-console.log("\n③ queue handler · {task_id, step_no} → delegateToAgent 占位 + ack");
+// ==================================================== ③ queue handler：discovery 走执行体（阶段4 接线），其余类型走占位
+console.log("\n③ queue handler · discovery 消息 → runStepMessage（执行+跃迁）；其余类型 → 占位 + ack");
 {
   const t = freshDb();
-  await planTaskSteps(t.db, "T-1022", "discovery"); // 种子 task_step 为空：先落 5 步，delegateToAgent 守卫要求步骤真实存在
+  await planTaskSteps(t.db, "T-1022", "discovery"); // 种子 task_step 为空：先落 5 步
   const acked = [];
   const batch = {
     messages: [
@@ -129,11 +129,23 @@ console.log("\n③ queue handler · {task_id, step_no} → delegateToAgent 占�
     ],
   };
   const results = await runner.queue(batch, { DB: t.db }, {});
-  assert(results.length === 2 && results.every((r) => r.delegated === true), "逐条消费 → delegateToAgent 契约占位（delegated=true）");
-  assert(results[0].task_id === "T-1022" && results[0].step_no === 1, "消费结果回带 task_id/step_no");
+  assert(results.length === 2 && results.every((r) => r.outcome === "done"),
+    "discovery 消息 → 真实执行体（outcome=done；阶段4 接线后不再是占位）");
+  const qrBefore = t.sqlite.prepare("SELECT COUNT(*) AS c FROM query_record WHERE task_id='T-1022'").get().c;
+  const st = (no) => t.sqlite.prepare("SELECT step_state FROM task_step WHERE task_id='T-1022' AND step_no=?").get(no).step_state;
+  assert(st(1) === "done" && st(2) === "done", `步 1/2 落 done（实测 ${st(1)}/${st(2)}）`);
   assert(acked.length === 2, `消费后逐条 ack（实测 ack ${acked.length} 条）`);
-  const cnt = t.sqlite.prepare("SELECT COUNT(*) AS c FROM task").get().c;
-  assert(cnt === Number(t.sqlite.prepare("SELECT COUNT(*) AS c FROM task").get().c), "queue 消费零写库（占位不臆造执行结果）");
+  // 步 1/2 只做装载与规划：不发起查询、不产证据/机会（写入面收敛在 task/task_step/task 的 done_part 与进度串）
+  const qrAfter = t.sqlite.prepare("SELECT COUNT(*) AS c FROM query_record WHERE task_id='T-1022'").get().c;
+  assert(qrAfter === qrBefore, `步 1/2 零新查询（前后 ${qrBefore}/${qrAfter}；种子自带的历史查询行不算）`);
+  const gc = t.sqlite.prepare("SELECT task_id FROM task WHERE task_type = 'goal_check' LIMIT 1").get();
+  if (gc) {
+    const r2 = await runner.queue(
+      { messages: [{ body: { task_id: gc.task_id, step_no: 1 }, ack: () => {} }] },
+      { DB: t.db }, {},
+    );
+    assert(r2[0].delegated === true && !r2[0].outcome, "非 discovery 消息 → delegateToAgent 契约占位（不误入发现执行体）");
+  }
 }
 
 // ==================================================== 汇总

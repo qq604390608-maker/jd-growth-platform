@@ -65,13 +65,13 @@ const DEFAULT_CHECK_SEQUENCE = [
   {
     check_item: "用户反馈与活动信息",
     data_source: "MKT",
-    tool: "mkt.feedback.query",
+    tool: "mkt.benefit.issue",
     reason: "补充用户主观反馈，验证现象是否被真实感知",
   },
   {
     check_item: "新业务信息与触达",
     data_source: "ACT",
-    tool: "act.campaign.touch",
+    tool: "act.activity.list",
     reason: "确认近期业务动作是否构成现象的外部触发，避免误归因",
   },
 ];
@@ -360,8 +360,8 @@ export function createDiscoveryToolExecutor(db, task_id, grantee_type, grantee_r
     hje_traffic_entry: "hje.traffic.entry",
     hje_slot_exposure: "hje.slot.exposure",
     hje_path_conversion: "hje.path.conversion",
-    mkt_feedback_query: "mkt.feedback.query",
-    act_campaign_touch: "act.campaign.touch",
+    mkt_feedback_query: "mkt.benefit.issue",
+    act_campaign_touch: "act.activity.list",
   };
 
   return async (toolName, args) => {
