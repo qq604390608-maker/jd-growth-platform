@@ -8,7 +8,7 @@
 | 上游（我来自哪） | `../03-locks/tech-stack.md` §8（TS 行全文与状态真源）；`../03-locks/schema.md`（CFG-04 / §5.1） |
 | 下游（谁回指我） | `../04-plan/README.md`（文件清单）；tech-stack §8 头部指针 |
 | 硬红线 | ① **不代拍板**——裁决值只能由「谁提供」列的人给出，本文只列选项与事实；② 备选项里的「事实依据」全部来自实测/官方文档，**不引入新口径** |
-| 版本 | v1.0（2026-09-21） |
+| 版本 | v1.1（2026-09-21，八条拍板类全部裁决并回填，见文末裁决记录） |
 
 ---
 
@@ -107,6 +107,21 @@
 | 编号 | 事项 | 去向 |
 | ---- | ---- | ---- |
 | TS-22 | 外部系统凭证的获取与最小权限 | 已并入 `external-intake-questions.md`（承接 T-04，A 组），裁决随 T-04 回填 |
+
+## 四、裁决记录（2026-09-21，用户逐条确认）
+
+| 编号 | 裁决值 | 回填去向 |
+| ---- | ---- | ---- |
+| TS-12 | **前端排序**（`localeCompare` 中文排序；字典取值列由 `order_no` 天然有序不受影响；不改 schema） | tech-stack §8 TS-12 ✅ |
+| TS-13 | **维持现状**（纯静态 HTML＋共享 JS） | tech-stack §8 TS-13 ✅ |
+| TS-15 | **长期同源** | tech-stack §8 TS-15 ✅ |
+| TS-16 | **应用层截断＋留痕标注**（不引入对象存储/分段；落地下一轮 PR） | tech-stack §8 TS-16 ✅ |
+| TS-17 | **维持代码固定**（不增补两列，间隔调整走发版） | tech-stack §8 TS-17 ✅ |
+| TS-18 | **留在 `prototype/`** | tech-stack §8 TS-18 ✅；external-deps T-27 随之收口 |
+| TS-19 | **本地 remote dev 即预览**（不建独立环境） | tech-stack §8 TS-19 ✅ |
+| TS-20 | **采纳 §7.3 倾向＝2 个 Worker**（实施下一轮 PR） | tech-stack §8 TS-20 ✅ |
+| T-24 尾巴 | 六个 code 名：S-A2=`basic-verify`、S-A3=`journey-insight`、S-A4=`opportunity-form`、S-B2=`crowd-compare`、S-B3=`behavior-check`、S-B4=`result-assembly`（MD-14 回填下一轮 PR） | external-deps T-24 ✅ |
+| T-20 / T-25 | §3 / §4 分类框架**成立** | external-deps T-20 ✅ / T-25 ✅ |
 
 ---
 

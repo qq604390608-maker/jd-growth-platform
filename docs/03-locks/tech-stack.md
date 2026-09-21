@@ -409,15 +409,15 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | ---- | ---- | ---- | ---- |
 | TS-10 | **Workers AI 具体模型选型**：F-20 五查需强推理且须「敢说不足以判断」，须实机验证 | 技术方 + PM | ✅ **已于 2026-09-21 收口（Free 池）**：当前账号为 Workers Free 计划，原候选池（deepseek-v4 / glm-5.3-flash / kimi-k2.6 均 `require_workers_paid=true`）调不通；改以 Free 可用且已实测的模型收口，默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（实测 23/0 满分，honesty 全 0 失败）。客户端封装 `server/agent-orchestrator/llm-client.js`（58 断言全绿）+ `wrangler.toml` 的 `[ai]` binding + `MODELS` 常量池（MAIN/HEAVY/LIGHT 三档 Free ID 已钉死）；实测证据 `server/probes/model-selection/raw/` + README §3。红线（敢说不足/不编造）可达。若需更高 SLA 可升 Workers Paid 后补跑原候选（探针 `REAL_MODELS` 池） |
 | TS-11 | `varchar(n)` 长度约束在 D1 的兜底策略（应用层校验 or `CHECK` 约束） | 技术方 | ✅ **已决（2026-09-20，依用户裁决）：应用层校验**。事实面已由实测完成（2026-09-18，`db/probes/type/`：长度**一律不强制**；`CHECK` 可用、按**字符**计、**不拦 NULL**），**并于 2026-09-21 补齐 `--remote` 复测**（真实 D1 `type-probe` 库：147/148 步行为一致、授权层同规则，唯一差异 boolean 绑定判归 REST 传输层——详见该 README §5b）；分类清单见该 README §5（编号锚点 94 / 长文本 39 / 其余短字段 47）。**连带结论**：采应用层校验 → **库级 `CHECK` 不写进 `0001`**，首版迁移不受影响；代价是**绕过写入面的路径拦不住**，故须在**各写入面分别落实**并由用例逐点锁死（不依赖统一中间件） |
-| TS-12 | 哪些列需要中文排序 → 是否增设拼音/排序键列 | PM + 前端 | F-27/F-28 列表排序。**部分实测已完成**：默认 **BINARY ≠ 拼音序**（已证实）、D1 **无拼音排序规则**（`COLLATE PINYIN` 报错）——**两份探针（`db/probes/collation/` 与 `db/probes/type/`）均已于 2026-09-21 补齐 `--remote` 复测**：collation 6 组逐字节一致、type 147/148 步一致（各自 README §7/§5b），**事实面对线上成立** → 仅剩**策略面**待 PM 逐列确认「哪些列要排拼音」 |
-| TS-13 | 前端是否需要轻量组件复用手段（如 Web Components） | 前端 | `frontend/` 开发方式 |
+| TS-12 | 哪些列需要中文排序 → 是否增设拼音/排序键列 | PM + 前端 | F-27/F-28 列表排序。**部分实测已完成**：默认 **BINARY ≠ 拼音序**（已证实）、D1 **无拼音排序规则**（`COLLATE PINYIN` 报错）——**两份探针（`db/probes/collation/` 与 `db/probes/type/`）均已于 2026-09-21 补齐 `--remote` 复测**：collation 6 组逐字节一致、type 147/148 步一致（各自 README §7/§5b），**事实面对线上成立** → 仅剩**策略面**待 PM 逐列确认「哪些列要排拼音」**→ ✅ 已决（2026-09-21，依用户裁决）：前端排序**——前端用 `localeCompare` 中文排序，字典取值列已由 `dict_item.order_no` 天然有序不受影响；不改 schema、不加排序键列 |
+| TS-13 | 前端是否需要轻量组件复用手段（如 Web Components） | 前端 | `frontend/` 开发方式。**✅ 已决（2026-09-21，依用户裁决）：维持现状**——纯静态 HTML＋共享 JS，重复渲染靠公共函数收敛（jsdom 回归 693 断言在护）；页面继续增多时再评估 |
 | TS-14 | **D1 中 `PRAGMA foreign_keys` 是否默认生效**（`schema.md` §11 承诺了真实外键，须实测） | 技术方 | `schema.md` §11 的可兑现性。**✅ 本地+远程双实测**：`--local` 2026-09-18（`db/probes/fk/`）——**默认强制外键**、`OFF` 无法关闭、临时放行只能 `defer_foreign_keys`；`--remote` 2026-09-21 补测——默认强制与 `OFF` 无效**同本地**，且**更严**：`defer_foreign_keys` 在批次内不放行、SQL 显式 `BEGIN` 被平台禁（code 7500）→ **远程迁移/种子必须靠语句排序满足引用完整性**（详见 `db/probes/fk/README.md` §5b）。§11 可直接落 |
-| TS-15 | 前端与 API 是否长期保持同源（若拆域名需补 CORS 与鉴权） | PM | 部署形态 |
-| TS-16 | 长文本（`result_summary` / 注入快照）的截断或分段策略（受 2 MB/行 限制） | 技术方 | F-09 F-12 F-24 |
-| TS-17 | **是否给 `schema.md` `CFG-04` 增补 `retry_delay_sec` / `dead_letter_flag`**（§5.1） | PM | F-06 重试行为能否配置化 |
-| TS-18 | `mock/` 是否独立于 `prototype/` | PM | 目录归属 |
-| TS-19 | 是否建立独立的预览环境（独立 D1 + Queues） | PM + 技术方 | 验收流程 |
-| TS-20 | `server/` 五模块打包为几个 Worker（§7.3） | 技术方 | 部署形态（不阻塞设计） |
+| TS-15 | 前端与 API 是否长期保持同源（若拆域名需补 CORS 与鉴权） | PM | 部署形态。**✅ 已决（2026-09-21，依用户裁决）：长期同源**——拆域名须另立 CORS＋鉴权设计，届时再评估 |
+| TS-16 | 长文本（`result_summary` / 注入快照）的截断或分段策略（受 2 MB/行 限制） | 技术方 | F-09 F-12 F-24。**✅ 已决（2026-09-21，依用户裁决）：应用层截断＋留痕标注**——与 TS-11「应用层校验」同一取向，超限截断并标注真实原因，不引入对象存储/分段多行；落地在下一轮 PR |
+| TS-17 | **是否给 `schema.md` `CFG-04` 增补 `retry_delay_sec` / `dead_letter_flag`**（§5.1） | PM | F-06 重试行为能否配置化。**✅ 已决（2026-09-21，依用户裁决）：维持代码固定**——不增补两列，重试间隔调整走发版；F-26 消费侧兜底已实现，schema 无变更 |
+| TS-18 | `mock/` 是否独立于 `prototype/` | PM | 目录归属。**✅ 已决（2026-09-21，依用户裁决）：留在 `prototype/`**——不另立目录；external-deps T-27 随之收口（归属 `prototype/mock/`，研发期设施） |
+| TS-19 | 是否建立独立的预览环境（独立 D1 + Queues） | PM + 技术方 | 验收流程。**✅ 已决（2026-09-21，依用户裁决）：本地 remote dev 即预览**——不建独立环境（`wrangler dev --remote` 已实测可连真实远程库）；业务方要看数据时另约通道 |
+| TS-20 | `server/` 五模块打包为几个 Worker（§7.3） | 技术方 | 部署形态（不阻塞设计）。**✅ 已决（2026-09-21，依用户裁决）：采纳 §7.3 倾向＝2 个 Worker**——`api`＋`task-runner` 分、`agent-orchestrator`＋`tool-executor` 合；实施在下一轮 PR |
 | TS-21 | 平台限制数字的复核（本文件 §4 的数摘于 2026-09-18） | 技术方 | 实施前须重核一次 |
 | TS-22 | 外部系统凭证的获取与最小权限（承接 `external-deps.md` T-04） | 对接方 | F-23 F-24 真实接入 |
 
