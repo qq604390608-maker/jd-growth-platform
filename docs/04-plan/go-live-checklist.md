@@ -29,7 +29,7 @@
 
 > 补充：本次出关前还修掉一处**由修复动作本身引入的回归**（详见 §5 已发现的坑），现 `test-f01` 由「87 通过 / 1 失败」转为 **88 全通过**。
 
-## 2. 门禁 B · 部署上线 —— 🟢 **已打通（2026-09-21）**，仅剩分支保护一项人工
+## 2. 门禁 B · 部署上线 —— ✅ **已收口（2026-09-21，全部实测确认）**
 
 **2026-09-21 实测状态**：远程仓库已建（`github.com/qq604390608-maker/jd-growth-platform`，SSH 接入）；main 已 push；CI **三阶段全绿**（run 35555363487）；`deploy` 真实完成——远程库迁移已应用（38 表、无 pending）、Worker `jd-growth-platform` 已上线。首跑曾暴露 `ci.yml` 的 `--yes` 非法参数缺陷，已修（`6511d1e`/`89a6404`）。
 
@@ -43,7 +43,9 @@
 | 2 | `git push -u origin main` | 触发 `.github/workflows/ci.yml` |
 | 3 | 流水线 `validate` 阶段 | `wrangler d1 migrations apply jd-growth-platform --local`（真实执行、FK 强制）＋ `node --check server/api/index.js` ＋ mock 自检 ＋ **F-01~F-32 全部用例** ＋ 引用自检 | ✅ 已过 |
 | 4 | 流水线 `deploy` 阶段（仅 push 到 main 时） | `d1 migrations apply jd-growth-platform --remote` → `wrangler deploy` | ✅ 已过 |
-| 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（防强推/防删除，按需加 PR 审核 + 状态检查）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） | ⬜ **待确认** |
+| 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（防强推/防删除，按需加 PR 审核 + 状态检查）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） | ✅ 已确认（2026-09-21 用户网页操作） |
+
+**线上冒烟（2026-09-21）**：`*.workers.dev` 大陆直连不可达（运维事实，见 runbook §7）；经 `wrangler dev --remote`（边缘运行时 + 真实远程 D1，绕开被墙域名）实测——`/api/health` ✅（AI binding 已接）、`/api/db-ping` ✅、`/api/dicts/OPP_STATUS` 路由通但 **items 为空**。空属预期：远程库按「生产零写」只有 schema；但**配置类数据（字典值域/工具清单/角色指令）目前与全 mock 种子混在 `db/seed/0001_mock.sql`，无法整包上生产** → 新增待办「配置数据与 mock 种子拆分」，见 §6。另：根路径 `/` 无前端页面属预期——Worker 是 API-only，前端托管形态是未决项 **TS-20**。
 
 **PR 标题约定**：须以 `F-xx` / `阶段N` / `chore` / `docs` / `ci` 开头，否则 `pr-title-check` 会失败（对应 dev-plan「每 F-xx 一 PR」纪律）。
 
@@ -116,7 +118,8 @@
 
 | # | 决策 | 谁拍板 | 影响 |
 | ---- | ---- | ---- | ---- |
-| 1 | 远程地址 + Cloudflare 凭证（`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`） | 你 | 门禁 B 能否开启 |
+| 1 | ~~远程地址 + Cloudflare 凭证~~ → **已提供并实测打通**（2026-09-21） | ✅ 已决 | 门禁 B 已收口 |
+| 2 | **配置数据与 mock 种子拆分**（线上冒烟发现，2026-09-21）：字典值域 `dict_item` / 工具清单 `CFG` 族 / 角色指令 `MD-13/MD-14` 等**生产必需配置**目前与全 mock 业务数据混在 `db/seed/0001_mock.sql`（300 条 INSERT 整包），无法按「生产零写」纪律整包灌远程库——需拆出独立的 `0002_config.sql`（仅配置，无 mock 业务数据），并定「配置上生产」的执行时机与审批方式 | PM + 技术方 | 前端徽标文案从库读（缺口 7）在生产环境会静默回落静态兜底表；工具注册/角色指令在生产不可用，影响 F-13/F-24 上线 |
 | 2 | ~~**TS-10** Workers AI 具体模型选型~~ → **已收口（2026-09-21，Free 池 qwen3-30b 默认）** | ✅ 已决（技术方） | F-20「敢说不足以判断」红线可达（实测 honesty 全 0 失败） |
 | 3 | T-01 / T-02 / T-05：真实 MCP 工具名、条件字段语法、返回结构 | 对接方 | F-24 / F-15 真实查询可复现 |
 | 4 | T-20 / T-25：§3、§4 分类框架是否成立 | PM | `external-deps.md` 结构本身 |
