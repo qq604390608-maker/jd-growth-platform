@@ -589,4 +589,45 @@ console.log("⑩ 前后端分离：删掉 frontend/ 后 server/api 与 db 仍独
   assert(!frontendFiles().some((f) => /\.json$/.test(f)), "前端不携带任何数据快照文件（无 mock 数据副本）");
 }
 
+/* ============================================================ ⑪ 空库引导（2026-09-21 实测回归）
+ * 用户实测踩坑：空系统（零目标）下初始停在「已有目标」分支且 curId 为空，
+ * 编辑后点保存打出 POST /api/goals//versions → 服务端「saveGoalVersion：goal_id 必填」。
+ * 修复：pageInit 空库自动进入「新建目标」态（isNew=true）＋ 保存/编辑前置守卫 ＋ 下拉占位项。
+ * 本节用**无种子的纯 DDL 空库**复现该场景并验证走新建路径。 */
+console.log("⑪ 空库引导：自动进入新建目标态，保存走 registerGoal（旧缺陷路径不复现）");
+{
+  // 空库＝纯 DDL + **仅字典行**（业务服务端校验依赖 dict 值域，字典属平台配置非业务数据；
+  // 目标/任务/查询等业务行一律不灌，等效「零目标的全新系统」）。
+  const empty = new DatabaseSync(":memory:");
+  empty.exec(readFileSync(DDL_PATH, "utf8"));
+  empty.exec(readFileSync(SEED_PATH, "utf8").split("\n").filter((l) => /^INSERT INTO dict_(type|item) /.test(l)).join("\n"));
+  const edb = d1From(empty);
+  const ecalls = [];
+  const edom = loadPage("pages/goal.html", { fetcher: makeFetcher(edb, ecalls) });
+  const ready = await waitFor(() => /新建目标/.test(text(edom, "#select-note")));
+  assert(ready, "空库自动进入「新建目标」态（pageInit 空库兜底，无需手动选「＋ 新增六要素」）");
+  assert(countRows(empty, "research_goal") === 0, "前置：空库零目标（纯 DDL，未载种子）");
+
+  const eopts = [...edom.window.document.getElementById("goal-select").options];
+  assert(eopts.length === 1 && eopts[0].value === "__new__",
+    `下拉仅「＋ 新增六要素」一项（实测 ${eopts.length} 项${eopts[0] ? "，value=" + eopts[0].value : ""}）`);
+
+  // 点「编辑」不被守卫拦截（isNew 已为 true），填写后保存应走新建路径
+  click(edom, "btn-edit");
+  const doc = edom.window.document;
+  const bg = doc.querySelector('[data-field="business_goal"]');
+  assert(!!bg && bg.style.display !== "none", "编辑态六要素输入框可见");
+  bg.value = "提升冷冻品类 90 天复购率";
+  doc.getElementById("change-note").value = "首次登记";
+  click(edom, "btn-save");
+  const saved = await waitFor(() => /已登记目标/.test(text(edom, "#action-note")));
+  assert(saved, `空库直接保存成功：走新建路径并提示「已登记目标」（实测提示：${text(edom, "#action-note").slice(0, 60)}…）`);
+  assert(countRows(empty, "research_goal") === 1 && countRows(empty, "research_goal_version") === 1,
+    `落库：目标 1 行 + 版本 v1 一行（实测 ${countRows(empty, "research_goal")}/${countRows(empty, "research_goal_version")}）`);
+  assert(!ecalls.some((c) => c.path === "/api/goals//versions"),
+    `零调用 POST /api/goals//versions（旧缺陷路径不复现；实测 goal 相关写调用：${
+      ecalls.filter((c) => c.method === "POST" && c.path.startsWith("/api/goals")).map((c) => c.path).join(",") || "仅 /api/goals"
+    }）`);
+}
+
 finish();

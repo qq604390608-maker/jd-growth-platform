@@ -129,6 +129,9 @@ window.pageInit = async function (U) {
         g.goal_seq + " · " + U.esc(name || "（未填写业务目标）") +
         "（" + U.esc(g.goal_id) + " · " + U.esc(ver) + "）</option>";
     }).join("");
+    // 尚未选中任何目标时先给占位项：否则浏览器默认显示第一项，造成「看着已选中、实际 curId 为空」的错位
+    // （实测该状态下保存会触发服务端「saveGoalVersion：goal_id 必填」）。
+    if (!isNew && !curId) html = '<option value="" selected>— 请选择目标 —</option>' + html;
     html += '<option value="__new__"' + (isNew ? " selected" : "") + ">＋ 新增六要素</option>";
     document.getElementById("goal-select").innerHTML = html;
     document.getElementById("select-note").innerHTML =
@@ -378,6 +381,13 @@ window.pageInit = async function (U) {
 
   /* ---------- 保存（新建登记 / 保存为新版本） ---------- */
   async function save() {
+    // 前置守卫：未选中目标（curId 为空）时不能走「已有目标保存新版本」分支——
+    // goal_id 只在两条路产生：顶部选已有目标自动带出，或选「＋ 新增六要素」保存后自动生成。
+    if (!isNew && !curId) {
+      note("err", "尚未选择目标：请在顶部下拉选择一套已有目标；若要新建，请选「＋ 新增六要素」填写后保存（goal_id 由系统自动生成）。");
+      document.getElementById("goal-select").focus();
+      return;
+    }
     var f = readForm();
     var changeNote = (document.getElementById("change-note").value || "").trim();
     var impactNote = (document.getElementById("impact-note").value || "").trim();
@@ -497,6 +507,11 @@ window.pageInit = async function (U) {
 
   /* ---------- 事件绑定 ---------- */
   document.getElementById("btn-edit").addEventListener("click", function () {
+    if (!editing && !isNew && !curId) {
+      note("err", "尚未选择目标：请先在顶部下拉选择一套目标再编辑；若要新建，请选「＋ 新增六要素」。");
+      document.getElementById("goal-select").focus();
+      return;
+    }
     setEditing(!editing);
   });
   document.getElementById("btn-save").addEventListener("click", save);
@@ -508,6 +523,10 @@ window.pageInit = async function (U) {
 
   /* ---------- 初始化 ---------- */
   curId = U.currentGoalId();
+  // 空库兜底：还没有任何目标时自动进入「新建目标」态——此场景唯一有意义的动作就是新建；
+  // 否则初始停在「已有目标」分支且 curId 为空，编辑/保存会打出 POST /api/goals//versions，
+  // 服务端报「saveGoalVersion：goal_id 必填」（2026-09-21 实测踩坑，goal_id 只由新建/选择自动产生）。
+  if (!curId && U.allGoals().length === 0) isNew = true;
   renderAll();
 };
 </script>
