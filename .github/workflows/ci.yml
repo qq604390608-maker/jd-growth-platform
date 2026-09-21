@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: '22'
       - name: 校验 D1 迁移可在本地应用（真实执行，FK 强制）
-        run: npx wrangler@4.135.0 d1 migrations apply jd-growth-platform --local --yes
+        run: npx -y wrangler@4.135.0 d1 migrations apply jd-growth-platform --local
       - name: 静态检查 Worker 入口
         run: node --check server/api/index.js
       - name: 跑 mock server 自检（demo 值不进断言）
