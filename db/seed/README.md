@@ -8,17 +8,17 @@
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
 | `0001_mock.sql` | 全 mock 种子数据（仅 INSERT，不含 DDL）。30 表有数据 / 6 表按裁决留空。**本文件一个字不动**（30+ 用例 oracle 直接引用，决策项2 方案A） | ✅ 已建（2026-09-19） |
-| `0002_config.sql` | **生产配置种子**（决策项2，2026-09-21 已裁决）：仅配置数据（11 表 / 183 行），由脚本从 `0001_mock.sql` 提取生成——**派生物，禁止手改**。生产库仅灌本文件（`ci.yml` deploy 阶段 `d1 execute --remote --file`），mock 业务数据不上生产 | ✅ 已建（2026-09-21） |
+| `0002_config.sql` | **生产配置种子**（决策项2，2026-09-21 已裁决）：仅配置数据（11 表 / 189 行），由脚本从 `0001_mock.sql` 提取生成——**派生物，禁止手改**。生产库仅灌本文件（`ci.yml` deploy 阶段 `d1 execute --remote --file`，UPSERT 重放），mock 业务数据不上生产 | ✅ 已建（2026-09-21） |
 | `generate_mock.py` | 种子生成器：从 `prototype/assets/data.js` 与 `external-deps.md` §5 抽取真实源，按 DDL 外键拓扑排序输出 | ✅ 已建（可重跑复现） |
 | `../../scripts/extract-config-seed.mjs` | 0002 提取脚本：配置表整节 + `run_policy` 仅平台级（`goal_id IS NULL`）行级过滤；`--check` 复算比对防漂移（CI validate 阶段执行） | ✅ 已建（2026-09-21） |
 | `../../scripts/probe-config-seed.mjs` | 0002 载入探针：FK ON 下正向干净载入（行数逐一断言）+ 反向「含目标级策略 POL-Q3 必外键违约」（CI validate 阶段执行） | ✅ 已建（2026-09-21） |
 
 ## 0002_config.sql 提取规则（决策项2 · 方案A）
 
-- **配置表整节提取（11 表 / 183 行）**：`dict_type`(26) / `dict_item`(84) / `source_registry`(5) / `tool_registry`(12) / `tool_permission`(24) / `gap_rule`(4) / `context_template`(20) / `agent_profile`(2) / `skill_registry`(2) / `touchpoint`(3) / `run_policy`(1)。
+- **配置表整节提取（11 表 / 189 行）**：`dict_type`(26) / `dict_item`(84) / `source_registry`(5) / `tool_registry`(12) / `tool_permission`(24) / `gap_rule`(4) / `context_template`(20) / `agent_profile`(2) / `skill_registry`(8) / `touchpoint`(3) / `run_policy`(1)。
 - **行级过滤**：`run_policy` 仅提取 `goal_id IS NULL` 的**平台级**行——目标级策略（`POL-Q3`）挂在 mock 业务目标 `GOAL-2026Q3-01` 上，属业务数据，灌生产会触发外键违约（`goal_id REFERENCES research_goal(goal_id)`，探针 P2 已实测拦截）。
 - **防漂移**：0002 是 0001 的派生物，改配置须改 0001（或生成器）后重跑提取脚本；`node scripts/extract-config-seed.mjs --check` 比对不一致即 exit 1。
-- **幂等调和**（2026-09-21 补，实测教训）：deploy 每次 push main 都重放本文件，纯 INSERT 第二次必撞主键——文件头部先逆拓扑序（子表在前）DELETE 全部配置行再拓扑序 INSERT，每次部署把配置对齐到声明态；探针 P3 实测同库重放行数不变。配置值变更流程：改 0001 → 重跑提取 → 合 main 即生效。
+- **幂等重放（UPSERT）**（2026-09-21 定调，随 CI 实测修正）：deploy 每次 push main 都重放本文件，纯 INSERT 第二次必撞主键，故每行改写为 `INSERT ... ON CONFLICT(<PK>) DO UPDATE SET ...`。**不得用「先 DELETE 再 INSERT」**——业务表 `query_record`/`evidence` → `source_registry`、`research` → `agent_profile`、`research_goal` → `gap_rule` 均外键引用配置父表，DELETE 配置行在 FK ON 下必违约（首部署空库能过，库一有目标/任务/证据就必挂——CI 历次 deploy 失败即此因）；且 `wrangler d1 execute --file` 把整文件包在事务内，**事务内改 `PRAGMA foreign_keys` 是 no-op**，无法在文件内绕开。UPSERT 主键冲突只更新非主键列、不删行，业务外键引用保持有效，同库重放行数不变（探针 P3 实测）。配置值变更流程：改 0001 → 重跑提取 → 合 main 即生效。
 
 ## 上游（我来自哪）
 
@@ -32,10 +32,9 @@
 
 ## 种子范围与留空表
 
-- **已种（30 表）**：5 来源、12 工具、24 权限（每工具 × 两 Agent）、2 策略、4 口径规则、19 上下文模板、26 字典类型 / 84 字典项、3 目标、2 Agent、6 目标版本、5 材料、3 背景、3 触点、7 任务、8 机会、2 研究、6 发现、2 候选行为、10 行为点、4 改善方向、4 状态日志、3 追问、全部关联表（LNK-01~04）、11 查询、7 证据。
-- **留空（6 表，按裁决 / 原型无数据）**：
-  - `MD-14.skill_registry` — **Q-07 已决（2026-09-19）**，按映射补 2 行（S-A1=clue-scan/discovery-agent、S-B1=hva-five-checks/hva-agent），见 `0001_mock.sql`；
-  - `MD-12.research_proposal` / `PD-02.task_step` / `PD-04.goal_gap` / `PD-06.context_injection` / `EXT-03.external_validation` — 运行时 / 原型无数据 → 0 行。
+- **已种（30 表）**：5 来源、12 工具、24 权限（每工具 × 两 Agent）、2 策略、4 口径规则、20 上下文模板、26 字典类型 / 84 字典项、8 技能注册（`S-A1`~`S-A4` bound `discovery-agent` / `S-B1`~`S-B4` bound `hva-agent`；Q-07 已决 + T-24 六 code 名回填 2026-09-21）、3 目标、2 Agent、6 目标版本、5 材料、3 背景、3 触点、7 任务、8 机会、2 研究、6 发现、2 候选行为、10 行为点、4 改善方向、4 状态日志、3 追问、全部关联表（LNK-01~04）、11 查询、7 证据。
+- **留空（5 表，运行时 / 原型无数据 → 0 行）**：
+  - `MD-12.research_proposal` / `PD-02.task_step` / `PD-04.goal_gap` / `PD-06.context_injection` / `EXT-03.external_validation` — 运行时由执行体落行，种子不预置。
 
 ## 外键顺序保证
 

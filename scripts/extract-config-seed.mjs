@@ -67,18 +67,16 @@ const HEADER = `-- ============================================================
 --   生产库仅灌本文件（ci.yml deploy 阶段 d1 execute --remote --file）。
 -- 提取规则：配置表整节 + run_policy 仅平台级（goal_id IS NULL）；
 --   目标级策略（如 POL-Q3）挂在 mock 目标上，属业务数据，不进生产包。
--- 幂等重放语义：deploy 每次 push main 都会重放本文件。本文件用 UPSERT（ON CONFLICT DO
---   UPDATE）而非 DELETE+INSERT——避免「已有业务数据的库」重放时 DELETE 配置父表触发 FK
---   违约（首部署空库能过，库一有目标/任务/证据就必挂，CI 历次 deploy 失败即此因）。
---   UPSERT 主键冲突只更新非主键列、不删行，业务外键引用保持有效，FK ON 下合法；
---   配置值变更随重部署生效。PRAGMA foreign_keys = ON 声明态用于 validate 探针门禁。
--- 重放语义（2026-09-21 定调，2026-09-21 修正）：本文件用 UPSERT（ON CONFLICT DO UPDATE）
---   而非 DELETE+INSERT 重放配置表——业务表 query_record/evidence → source_registry、
---   research → agent_profile、research_goal → gap_rule 存在外键引用，DELETE 配置父表会
---   触发 FK 违约（首部署空库能过，库一有目标/任务/证据等数据就必挂——CI 历次 deploy 失败即此因）。
---   UPSERT 主键冲突时只更新非主键列、不删除行，业务外键引用保持有效，FK ON 下完全合法，
---   且配置值变更也能随重部署生效。本文件声明态保持 PRAGMA foreign_keys = ON，
---   用于 CI validate 探针的正向干净载入 + 反向「含目标级策略 POL-Q3 必外键违约」门禁。
+-- 幂等重放语义（2026-09-21 定调，随 CI 实测修正）：deploy 每次 push main 都重放本文件，
+--   纯 INSERT 第二次撞主键，故每行改写为 UPSERT（INSERT ... ON CONFLICT(<PK>) DO UPDATE SET）。
+--   **不得用 DELETE+INSERT 清后再灌**：业务表 query_record/evidence → source_registry、
+--   research → agent_profile、research_goal → gap_rule 均外键引用配置父表，DELETE 配置行会
+--   触发 FK 违约（首部署空库能过，库一有目标/任务/证据就必挂——CI 历次 deploy 失败即此因）；
+--   且 wrangler d1 execute --file 把整文件包在事务内，事务内改 PRAGMA foreign_keys 是 no-op，
+--   无法在文件内绕开。UPSERT 主键冲突只更新非主键列、不删行，业务外键引用保持有效，
+--   FK ON 下合法，配置值变更随重部署生效；同库重放行数不变（validate 探针 P3 实测）。
+--   本文件保持声明态 PRAGMA foreign_keys = ON，用于 validate 探针正向干净载入 +
+--   反向「含目标级策略 POL-Q3 必外键违约」门禁。
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
