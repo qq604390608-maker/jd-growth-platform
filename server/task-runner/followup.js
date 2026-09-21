@@ -175,7 +175,9 @@ export async function createFollowupTask(db, {
     e4_population_diff: build("e4_population_diff", original.e4_population_diff),
     e6_limits: build("e6_limits", original.e6_limits),
     out_of_scope_note: build("out_of_scope_note", original.out_of_scope_note),
-    research_status: "研究中",
+    // 值域真源在库：`dict:RESEARCH_STATUS` 的 **item_code**（F-40 修正：原写 item_name「研究中」，
+    // 库级 `varchar(16)` 无 CHECK 拦不住，但与 F-04 `hva.js` 建壳口径不一致、且字典按 code 检索查不到）
+    research_status: "running",
     goal_id: original.goal_id,
     goal_version_no: effective_version_no,
     behavior_hypothesis: research_fields && research_fields.behavior_hypothesis != null ? research_fields.behavior_hypothesis : original.behavior_hypothesis,

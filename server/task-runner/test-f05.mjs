@@ -201,6 +201,20 @@ const FOLLOWUP_STEPS = [
   assert(r.dispatch.message.step_no === 1, "A31 dispatch 消息 step_no = 1");
   assert(Object.keys(r.dispatch.message).length === 2, "A32 消息恰好 {task_id, step_no} 两键");
   assert(r.delegated && r.delegated.delegated === true, "A33 delegateToAgent 守卫返回 delegated=true（Agent 只在任务内被调用）");
+
+  // F-40：新研究壳的 research_status 取字典 **item_code**（不是 item_name「研究中」）——与 F-04 `hva.js` 同口径
+  const statusCodes = sqlite
+    .prepare("SELECT item_code FROM dict_item WHERE dict_type_code = 'RESEARCH_STATUS'")
+    .all()
+    .map((x) => x.item_code);
+  assert(
+    statusCodes.includes(r.research.research_status),
+    `A34 research_status 落在 dict:RESEARCH_STATUS 值域内（实测 ${JSON.stringify(r.research.research_status)}，值域 ${statusCodes.join("/")}）`,
+  );
+  assert(
+    r.research.research_status !== "研究中",
+    "A35 反例：不得写 item_name「研究中」（值域真源是 item_code；库级无 CHECK 拦不住，故由断言守住）",
+  );
 }
 
 // ---- 场景B：版本变更——传入新版本号，新任务用新版本、原研究不变 ----

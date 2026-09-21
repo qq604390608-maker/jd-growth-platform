@@ -311,9 +311,11 @@ product_question / existing_evidence）——直接复用 `shared-context` 的 `
 **判据与原来一致**（仍报「已触发任务」，不引入第二套口径），`test-f04` **A44 由「现状 4 行」翻转为「期望 3 行」**
 并新增 A45（孤儿任务 0）/ A46（`triggered_task_id` 指回**首次**那条）；`test-f03` 新增 ⑩ 段 8 条断言（放行 / 零写 / 报错 / 报错路径零建行 / 守卫本体无写语句）。
 
-**⑩ 登记（待裁决）**：`followup.js` 建追问研究壳时把 `research_status` 写成 item_name「研究中」，而字典
-`RESEARCH_STATUS` 的 item_code 是 `running`（`varchar(16)` 无 CHECK，**库级拦不住**）。本次**未擅改 F-05**；
-F-04 侧按正确口径写 item_code，并用 `test-f04` 的 A37/A38 正反两侧锁死。
+**⑩ ~~登记（待裁决）~~ → ✅ 已修（F-40，2026-09-22）**：`followup.js` 建追问研究壳时原把 `research_status` 写成
+item_name「研究中」，而字典 `RESEARCH_STATUS` 的 item_code 是 `running`（`varchar(16)` 无 CHECK，**库级拦不住**，
+故只能由断言守）。已改为 item_code `running`，与 F-04 `hva.js` 建壳**同口径**；`test-f05` 新增 **A34/A35**
+正反两侧锁死（值域**取自库**的 `dict_item` + 反例「不得写 item_name」），与 `test-f04` 的 A37/A38 对称。
+零 schema 变更、一行改动。
 
 ### 8.2 追问与版本管理（F-05）
 
