@@ -56,6 +56,7 @@ import {
   serializeCondition,
   mapResponseToResult,
 } from "./mcp-client.js";
+import { baselineV1Transport } from "./baseline-v1.js";
 import {
   BLOCK_REASON_CODE,
   TaskStateError,
@@ -306,7 +307,11 @@ export async function describeTools(db, { source_id, is_enabled, grantee_type, g
  * `fail_reason` / `retry_count` / `restricted_flag`），但 **`persisted: false`——落痕是 F-25 的事**，
  * 本函数不写库；`four_elements` 承载证据四要素（条件 / 来源 / 时点 / 限制）。
  *
- * `transport` 可注入（测试用）；不注入时用 `createHttpTransport`（HTTP POST，只读，默认打本机 mock server）。
+ * `transport` 可注入（测试用）；不注入时按以下优先级选传输层：
+ *   ① 配了 `MOCK_ENDPOINT` → `createHttpTransport`（HTTP POST，只读，打该端点，本地 dev 跑 mock server 用）；
+ *   ② 未配 `MOCK_ENDPOINT` → `baselineV1Transport`（进程内返回 external-deps 冻结的契约基准 v1「正常」响应，
+ *      替代 `createHttpTransport` 在 Cloudflare 边缘**不可达**的本地默认 `http://127.0.0.1:8788/query`——
+ *      否则生产环境每次工具调用都连接失败 → F-26 把任务处置为 blocked → 机会为 0）。
  */
 export async function executeQuery(db, {
   tool_id,
@@ -345,7 +350,13 @@ export async function executeQuery(db, {
     };
   }
 
-  const call = transport || createHttpTransport({ timeout_ms });
+  // baselineV1Transport 本身即 transport 函数（接收 { tool_code, query_condition } 返回 Promise），
+  // 勿加 `()` 调用——否则得到的是它返回的 Promise 而非可调用函数。
+  const call =
+    transport ||
+    (process.env.MOCK_ENDPOINT
+      ? createHttpTransport({ endpoint: process.env.MOCK_ENDPOINT, timeout_ms })
+      : baselineV1Transport);
   let payload;
   try {
     payload = await call({

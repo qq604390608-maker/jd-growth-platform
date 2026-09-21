@@ -32,6 +32,7 @@ import {
   DEFAULT_TIMEOUT_MS,
 } from "./mcp-client.js";
 import { SCENARIOS, defaultOk } from "../../prototype/mock/scenarios.js";
+import { baselineV1Transport, baselineV1Respond, sourceOf } from "./baseline-v1.js";
 
 const DDL_PATH = new URL("../../db/migrations/0001_init.sql", import.meta.url);
 const SEED_PATH = new URL("../../db/seed/0001_mock.sql", import.meta.url);
@@ -373,6 +374,42 @@ console.log("\n⑩ describeTools：生成的工具描述锚定 CFG-02，权限�
   const okStatus = mapResponseToResult({ result_status: "ok", returned_rows: 1, result_summary: "s", data: { a: 1 } },
     { query_condition: "{}", queried_at: "2026-09-19 00:00:00", permission_limits: [] });
   assert(okStatus.four_elements.limits.length === 0, "干净返回体不产生多余限制（无误报）");
+}
+
+// ==================================================== ⑪ 生产默认 transport = baseline-v1（无 MOCK_ENDPOINT 时）
+console.log("\n⑪ 生产默认 transport：未配 MOCK_ENDPOINT 时回退 baseline-v1，替代边缘不可达的本地 mock");
+{
+  // baseline-v1 响应器：按 source 返回契约基准 v1 的「正常」ok 响应，数值冻结、可进断言
+  for (const [tool, src, summary] of [
+    ["cdp.crowd.query", "CDP", "人群聚合（契约基准 v1）"],
+    ["hje.traffic.entry", "HJE", "入口流量聚合（契约基准 v1）"],
+    ["pim.category.query", "PIM", "品类商品主数据（契约基准 v1）"],
+    ["mkt.benefit.issue", "MKT", "权益发放聚合（契约基准 v1）"],
+    ["act.activity.list", "ACT", "已报名活动清单（契约基准 v1）"],
+    ["unknown.thing", "CDP", "人群聚合（契约基准 v1）"],
+  ]) {
+    const p = baselineV1Respond(tool);
+    assert(p.result_status === "ok" && p.status === "ok", `baseline-v1(${tool})：ok 响应`);
+    assert(sourceOf(tool) === src, `sourceOf(${tool}) → ${src}`);
+    assert(p.result_summary === summary && typeof p.data === "object", `baseline-v1(${tool})：冻结摘要与 data（${summary}）`);
+    assert(p.fail_reason === null && p.restricted_flag === 0, `baseline-v1(${tool})：非受限、无失败原因`);
+  }
+
+  // 关键门禁：executeQuery 未注入 transport、且未配置 MOCK_ENDPOINT 时，必须走 baseline-v1（不能回退到边缘不可达的本地 mock）
+  const saved = process.env.MOCK_ENDPOINT;
+  delete process.env.MOCK_ENDPOINT;
+  try {
+    const { db } = freshDb();
+    await allow(db, "TOL-01", "CDP");
+    const got = await executeQuery(db, {
+      tool_id: "TOL-01", ...G, task_id: "T-1022", query_condition: { biz: "超市" }, at: "2026-09-19 10:00:00",
+    });
+    assert(got.result_status === "ok", "无 MOCK_ENDPOINT + 无注入 transport → executeQuery 走 baseline-v1 返回 ok");
+    assert(got.transport_called === true && got.source_id === "CDP", "baseline-v1 作为 transport 被实际调用，信封带 source_id");
+    assert(got.result_summary === "人群聚合（契约基准 v1）", "返回体为冻结的契约基准 v1 数据（不生成、不编造）");
+  } finally {
+    if (saved !== undefined) process.env.MOCK_ENDPOINT = saved;
+  }
 }
 
 finish();
