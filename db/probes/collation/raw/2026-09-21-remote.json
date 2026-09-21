@@ -1,0 +1,265 @@
+{
+  "ok": true,
+  "path": "/all",
+  "groups": {
+    "order": {
+      "ok": true,
+      "path": "/order",
+      "note": "数组顺序即 SQL 返回顺序，原样转录",
+      "默认 ORDER BY item_name": [
+        "APP / 小程序 / PC",
+        "CDP 用户标签系统",
+        "HVA 研究 · 追问",
+        "glm-5.3 备选",
+        "候选行为获得支持（仍属候选）",
+        "已停止",
+        "智能体",
+        "运行中",
+        "首页推荐位 / 搜索结果页",
+        "黄金眼"
+      ],
+      "ORDER BY item_name DESC": [
+        "黄金眼",
+        "首页推荐位 / 搜索结果页",
+        "运行中",
+        "智能体",
+        "已停止",
+        "候选行为获得支持（仍属候选）",
+        "glm-5.3 备选",
+        "HVA 研究 · 追问",
+        "CDP 用户标签系统",
+        "APP / 小程序 / PC"
+      ],
+      "ORDER BY item_name COLLATE BINARY": [
+        "APP / 小程序 / PC",
+        "CDP 用户标签系统",
+        "HVA 研究 · 追问",
+        "glm-5.3 备选",
+        "候选行为获得支持（仍属候选）",
+        "已停止",
+        "智能体",
+        "运行中",
+        "首页推荐位 / 搜索结果页",
+        "黄金眼"
+      ],
+      "ORDER BY item_name COLLATE NOCASE": [
+        "APP / 小程序 / PC",
+        "CDP 用户标签系统",
+        "glm-5.3 备选",
+        "HVA 研究 · 追问",
+        "候选行为获得支持（仍属候选）",
+        "已停止",
+        "智能体",
+        "运行中",
+        "首页推荐位 / 搜索结果页",
+        "黄金眼"
+      ],
+      "ORDER BY order_no（对照：人为展示序）": [
+        "运行中",
+        "已停止",
+        "智能体",
+        "黄金眼",
+        "CDP 用户标签系统",
+        "HVA 研究 · 追问",
+        "glm-5.3 备选",
+        "候选行为获得支持（仍属候选）",
+        "APP / 小程序 / PC",
+        "首页推荐位 / 搜索结果页"
+      ]
+    },
+    "like": {
+      "ok": true,
+      "path": "/like",
+      "note": "命中集合按 order_no 稳定排序后返回",
+      "LIKE '%中%'": [
+        "运行中"
+      ],
+      "LIKE '%研究%'": [
+        "HVA 研究 · 追问"
+      ],
+      "LIKE '%cdp%'（小写，验证 ASCII 大小写）": [
+        "CDP 用户标签系统"
+      ],
+      "LIKE '%CDP%'（原样大写）": [
+        "CDP 用户标签系统"
+      ],
+      "LIKE '运_中'（_ 单字符通配）": [
+        "运行中"
+      ],
+      "LIKE '%/%'（含斜杠）": [
+        "APP / 小程序 / PC",
+        "首页推荐位 / 搜索结果页"
+      ],
+      "LIKE '%（%'（含中文左括号）": [
+        "候选行为获得支持（仍属候选）"
+      ],
+      "LIKE '运行中'（精确）": [
+        "运行中"
+      ],
+      "LIKE '运行中 '（多一个尾空格）": []
+    },
+    "glob": {
+      "ok": true,
+      "path": "/glob",
+      "note": "GLOB 区分大小写；* 多字符，? 单字符；命中集合按 order_no 稳定排序",
+      "GLOB '*中*'": [
+        "运行中"
+      ],
+      "GLOB '*cdp*'（小写）": [],
+      "GLOB '*CDP*'（原样大写）": [
+        "CDP 用户标签系统"
+      ],
+      "GLOB '运?中'（? 单字符通配）": [
+        "运行中"
+      ],
+      "GLOB '*/*'（含斜杠）": [
+        "APP / 小程序 / PC",
+        "首页推荐位 / 搜索结果页"
+      ],
+      "GLOB '*（*'（含中文左括号）": [
+        "候选行为获得支持（仍属候选）"
+      ]
+    },
+    "in": {
+      "ok": true,
+      "path": "/in",
+      "note": "IN 为精确匹配；命中集合按 order_no 稳定排序",
+      "IN ('运行中','黄金眼','不存在')": [
+        "运行中",
+        "黄金眼"
+      ],
+      "IN ('运行中 ')（尾空格）": [],
+      "IN ('cdp 用户标签系统')（小写）": [],
+      "IN ('CDP 用户标签系统')（原样）": [
+        "CDP 用户标签系统"
+      ],
+      "IN ('已停止','智能体','HVA 研究 · 追问')": [
+        "已停止",
+        "智能体",
+        "HVA 研究 · 追问"
+      ]
+    },
+    "bytes": {
+      "ok": true,
+      "path": "/bytes",
+      "rows": [
+        {
+          "item_code": "TASK_STATUS.RUNNING",
+          "item_name": "运行中",
+          "order_no": 1,
+          "utf8_hex": "E8BF90E8A18CE4B8AD"
+        },
+        {
+          "item_code": "TASK_STATUS.STOPPED",
+          "item_name": "已停止",
+          "order_no": 2,
+          "utf8_hex": "E5B7B2E5819CE6ADA2"
+        },
+        {
+          "item_code": "MESSAGE_ROLE.AGENT",
+          "item_name": "智能体",
+          "order_no": 3,
+          "utf8_hex": "E699BAE883BDE4BD93"
+        },
+        {
+          "item_code": "SOURCE.HJE",
+          "item_name": "黄金眼",
+          "order_no": 4,
+          "utf8_hex": "E9BB84E98791E79CBC"
+        },
+        {
+          "item_code": "SOURCE.CDP",
+          "item_name": "CDP 用户标签系统",
+          "order_no": 5,
+          "utf8_hex": "43445020E794A8E688B7E6A087E7ADBEE7B3BBE7BB9F"
+        },
+        {
+          "item_code": "TASK_TYPE.HVA_FOLLOWUP",
+          "item_name": "HVA 研究 · 追问",
+          "order_no": 6,
+          "utf8_hex": "48564120E7A094E7A9B620C2B720E8BFBDE997AE"
+        },
+        {
+          "item_code": "MODEL.GLM",
+          "item_name": "glm-5.3 备选",
+          "order_no": 7,
+          "utf8_hex": "676C6D2D352E3320E5A487E98089"
+        },
+        {
+          "item_code": "BEHAVIOR_STATUS.SUPPORTED",
+          "item_name": "候选行为获得支持（仍属候选）",
+          "order_no": 8,
+          "utf8_hex": "E58099E98089E8A18CE4B8BAE88EB7E5BE97E694AFE68C81EFBC88E4BB8DE5B19EE58099E98089EFBC89"
+        },
+        {
+          "item_code": "DEVICE.SCOPE",
+          "item_name": "APP / 小程序 / PC",
+          "order_no": 9,
+          "utf8_hex": "415050202F20E5B08FE7A88BE5BA8F202F205043"
+        },
+        {
+          "item_code": "TOUCHPOINT.SCOPE",
+          "item_name": "首页推荐位 / 搜索结果页",
+          "order_no": 10,
+          "utf8_hex": "E9A696E9A1B5E68EA8E88D90E4BD8D202F20E6909CE7B4A2E7BB93E69E9CE9A1B5"
+        }
+      ]
+    },
+    "byorder": {
+      "ok": true,
+      "path": "/byorder",
+      "rows": [
+        {
+          "item_code": "TASK_STATUS.RUNNING",
+          "item_name": "运行中",
+          "order_no": 1
+        },
+        {
+          "item_code": "TASK_STATUS.STOPPED",
+          "item_name": "已停止",
+          "order_no": 2
+        },
+        {
+          "item_code": "MESSAGE_ROLE.AGENT",
+          "item_name": "智能体",
+          "order_no": 3
+        },
+        {
+          "item_code": "SOURCE.HJE",
+          "item_name": "黄金眼",
+          "order_no": 4
+        },
+        {
+          "item_code": "SOURCE.CDP",
+          "item_name": "CDP 用户标签系统",
+          "order_no": 5
+        },
+        {
+          "item_code": "TASK_TYPE.HVA_FOLLOWUP",
+          "item_name": "HVA 研究 · 追问",
+          "order_no": 6
+        },
+        {
+          "item_code": "MODEL.GLM",
+          "item_name": "glm-5.3 备选",
+          "order_no": 7
+        },
+        {
+          "item_code": "BEHAVIOR_STATUS.SUPPORTED",
+          "item_name": "候选行为获得支持（仍属候选）",
+          "order_no": 8
+        },
+        {
+          "item_code": "DEVICE.SCOPE",
+          "item_name": "APP / 小程序 / PC",
+          "order_no": 9
+        },
+        {
+          "item_code": "TOUCHPOINT.SCOPE",
+          "item_name": "首页推荐位 / 搜索结果页",
+          "order_no": 10
+        }
+      ]
+    }
+  }
+}
