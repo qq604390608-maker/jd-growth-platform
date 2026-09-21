@@ -40,4 +40,4 @@ agent-runtime/
 
 ## 反向清单
 - 本目录被下列文件引用（预计）：`server/agent-orchestrator/`（阶段4 加载）｜ `docs/04-plan/dev-plan.md`（阶段0 L69 / 阶段4 L126）｜ `docs/02-prd/PRD-M3-机会发现Agent.md` §1.1（L21/L65/L122）｜ `docs/02-prd/PRD-M4-HVA分析Agent.md` §1.1（L19/L121）｜ `docs/05-test-cases/test-M3.md` / `test-M4.md`（F-13~F-22 oracle）。
-- 本目录状态位登记于 `AGENTS.md` 索引表（L17，已由「待建」翻为「✅ 工程骨架已建 2026-09-19」）。
+- 本目录状态位登记于 `AGENTS.md` 索引表 `agent-runtime/` 行（已由「待建」翻为 🟡 部分；**v4 起状态列改为「状态 + 差额 + 指向真源」**，差额＝`discovery/agent.md` 与 `S-A1~S-A4`／`S-B1~S-B4` 仍为建壳，逐点明细见本 README）。
