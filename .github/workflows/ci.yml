@@ -145,13 +145,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 d1 migrations apply jd-growth-platform --remote
-      - name: 生成 0002 的 FK-OFF 部署副本（避开业务数据外键冲突；D1 连接内 PRAGMA 有效，跨连接无效故需文件内 OFF）
-        run: node scripts/deploy-seed-off.mjs
-      - name: 灌生产配置种子（决策项2：仅配置数据无 mock；0002 为 0001 派生物，漂移在 validate 阶段 --check 拦截；经 FK-OFF 副本重放避开已有业务数据的外键冲突）
+      - name: 灌生产配置种子（决策项2：仅配置数据无 mock；0002 为 0001 派生物，漂移在 validate 阶段 --check 拦截；用 UPSERT 重放，不 DELETE 父表，规避已有业务数据的外键冲突）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/seed/.tmp_0002_deploy.sql -y
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/seed/0002_config.sql -y
       - name: 出关运维待办（go-live §2）：启用 4 个计划工具 + ACT 恢复（幂等 UPDATE，db/seed/0003_enable_remote_plan.sql——不改 0001/0002 种子，种子含 mock 反例口径由测试 oracle 钉死）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

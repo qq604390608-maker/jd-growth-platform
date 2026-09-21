@@ -67,26 +67,56 @@ const HEADER = `-- ============================================================
 --   生产库仅灌本文件（ci.yml deploy 阶段 d1 execute --remote --file）。
 -- 提取规则：配置表整节 + run_policy 仅平台级（goal_id IS NULL）；
 --   目标级策略（如 POL-Q3）挂在 mock 目标上，属业务数据，不进生产包。
--- 幂等调和语义：deploy 每次 push main 都会重放本文件，纯 INSERT 第二次必撞主键
---   （2026-09-21 实测发现）——故文件头部先按「子表在前」的逆拓扑序 DELETE 全部
---   配置行，再按原拓扑序 INSERT，每次部署将配置表对齐到本文件声明态。
---   配置值变更：改 0001 配置节 → 重跑提取 → 合 main 即生效，无需手工 UPDATE。
--- 外键（2026-09-21 定调，2026-09-21 修正）：本文件声明态为 PRAGMA foreign_keys = ON，
---   用于 CI validate 探针的正向干净载入 + 反向「含目标级策略 POL-Q3 必外键违约」门禁
---   （探针自行设 ON 后 exec 本文件，验证行级过滤必要）。
---   但 deploy 步向「已有业务数据的生产库」重放本文件时，业务表
---   query_record/evidence → source_registry、research → agent_profile、
---   research_goal → gap_rule 存在外键引用，FK ON 下 DELETE 配置父表必违约
---   （首部署空库能过，库一有目标/任务/证据等数据就必挂——CI 历次 deploy 失败即此因）。
---   故 ci.yml deploy 步经 scripts/deploy-seed-off.mjs 生成本文件的「FK OFF 临时副本」
---   （D1 连接内 PRAGMA 有效、跨连接无效，故必须文件内 OFF 副本）再重放，
---   重新插入的配置行主键不变，业务外键引用自然恢复有效；本文件本体保持 ON 不变。
+-- 幂等重放语义：deploy 每次 push main 都会重放本文件。本文件用 UPSERT（ON CONFLICT DO
+--   UPDATE）而非 DELETE+INSERT——避免「已有业务数据的库」重放时 DELETE 配置父表触发 FK
+--   违约（首部署空库能过，库一有目标/任务/证据就必挂，CI 历次 deploy 失败即此因）。
+--   UPSERT 主键冲突只更新非主键列、不删行，业务外键引用保持有效，FK ON 下合法；
+--   配置值变更随重部署生效。PRAGMA foreign_keys = ON 声明态用于 validate 探针门禁。
+-- 重放语义（2026-09-21 定调，2026-09-21 修正）：本文件用 UPSERT（ON CONFLICT DO UPDATE）
+--   而非 DELETE+INSERT 重放配置表——业务表 query_record/evidence → source_registry、
+--   research → agent_profile、research_goal → gap_rule 存在外键引用，DELETE 配置父表会
+--   触发 FK 违约（首部署空库能过，库一有目标/任务/证据等数据就必挂——CI 历次 deploy 失败即此因）。
+--   UPSERT 主键冲突时只更新非主键列、不删除行，业务外键引用保持有效，FK ON 下完全合法，
+--   且配置值变更也能随重部署生效。本文件声明态保持 PRAGMA foreign_keys = ON，
+--   用于 CI validate 探针的正向干净载入 + 反向「含目标级策略 POL-Q3 必外键违约」门禁。
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
 `;
 
+// 各配置表的主键列（单行 TEXT PK；用于把 INSERT 改写为 UPSERT 的 ON CONFLICT 目标）
+const PK_MAP = {
+  dict_type: 'dict_type_code',
+  dict_item: 'dict_item_id',
+  source_registry: 'source_id',
+  tool_registry: 'tool_id',
+  tool_permission: 'permission_id',
+  run_policy: 'policy_id',
+  gap_rule: 'rule_id',
+  context_template: 'template_id',
+  agent_profile: 'profile_id',
+  skill_registry: 'skill_no',
+  touchpoint: 'touchpoint_id',
+};
+
 const sectionRe = /^-- ---- (\w+) \((\d+) 行\) ----$/;
+
+// 把一行 `INSERT INTO t (cols) VALUES (vals);` 改写为 UPSERT
+// （ON CONFLICT(pk) DO UPDATE SET 非主键列=excluded.列），避免重放时 DELETE 父表触发 FK 违约
+function toUpsert(line) {
+  const m = line.match(/^INSERT INTO (\w+)\s*\(([^)]*)\)\s*VALUES\s*([^;]+);\s*$/);
+  if (!m) throw new Error(`无法解析 INSERT 语句（请确认 0001 单行 INSERT）：${line.slice(0, 60)}`);
+  const [, table, colsRaw, valsRaw] = m;
+  const pk = PK_MAP[table];
+  if (!pk) throw new Error(`表 ${table} 未在 PK_MAP 配置主键`);
+  const cols = colsRaw.split(',').map((c) => c.trim());
+  const updateCols = cols.filter((c) => c !== pk);
+  if (updateCols.length === 0) {
+    return `INSERT INTO ${table} (${colsRaw}) VALUES ${valsRaw} ON CONFLICT(${pk}) DO NOTHING;`;
+  }
+  const setExpr = updateCols.map((c) => `${c}=excluded.${c}`).join(', ');
+  return `INSERT INTO ${table} (${colsRaw}) VALUES ${valsRaw} ON CONFLICT(${pk}) DO UPDATE SET ${setExpr};`;
+}
 
 function parseSections(sql) {
   const sections = [];
@@ -120,15 +150,15 @@ function buildConfigSql(srcSql) {
   if (missing.length) throw new Error(`0001 中缺少配置表分节：${missing.join(', ')}`);
 
   const out = [HEADER];
-  // 幂等调和：先逆拓扑序（子表在前）DELETE，避免父表先删触发 FK 拦截
-  out.push('-- ---- 幂等调和 · 逆拓扑序清空配置表（子表在前） ----');
-  for (const { table } of [...keptSections].reverse()) out.push(`DELETE FROM ${table};`);
+  // 幂等重放：UPSERT（不 DELETE 父表，规避业务数据外键冲突；FK ON 下合法，配置变更随重部署生效）
+  out.push('-- ---- 幂等重放 · UPSERT（ON CONFLICT DO UPDATE，不 DELETE 父表） ----');
   out.push('');
-  // 再按 0001 原拓扑序 INSERT（父表先于子表）
+  // 按 0001 原拓扑序 UPSERT（父表先于子表）
   const manifest = [];
   for (const { table, lines, declared } of keptSections) {
     out.push(`-- ---- ${table} (${lines.length} 行) ----`);
-    out.push(...lines, '');
+    for (const line of lines) out.push(toUpsert(line));
+    out.push('');
     manifest.push({ table, declared, kept: lines.length });
   }
   return { sql: out.join('\n') + '\n', manifest };
