@@ -29,12 +29,11 @@
 
 > 补充：本次出关前还修掉一处**由修复动作本身引入的回归**（详见 §5 已发现的坑），现 `test-f01` 由「87 通过 / 1 失败」转为 **88 全通过**。
 
-## 2. 门禁 B · 部署上线 —— ⬜ 阻塞
+## 2. 门禁 B · 部署上线 —— 🟢 **已打通（2026-09-21）**，仅剩分支保护一项人工
 
-**阻塞原因（两项，均需你提供）**
+**2026-09-21 实测状态**：远程仓库已建（`github.com/qq604390608-maker/jd-growth-platform`，SSH 接入）；main 已 push；CI **三阶段全绿**（run 35555363487）；`deploy` 真实完成——远程库迁移已应用（38 表、无 pending）、Worker `jd-growth-platform` 已上线。首跑曾暴露 `ci.yml` 的 `--yes` 非法参数缺陷，已修（`6511d1e`/`89a6404`）。
 
-1. 仓库**无远程、无 upstream**——`git remote -v` 为空，本地 `main` 纯本地，无法通过 `git push` 触发流水线。
-2. 流水线需 Cloudflare 凭证：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`，且**凭证仅经 GitHub Secrets 注入**，绝不写入仓库（宪法硬红线，见 `ci.yml` 头注）。
+**仅剩**：上表步骤 5 的 `main` 分支保护须在 GitHub 网页确认开启。
 
 **操作步骤（按顺序）**
 
@@ -42,9 +41,9 @@
 | ---- | ---- | ---- |
 | 1 | `git remote add origin <远程地址>` | 需你提供远程地址 |
 | 2 | `git push -u origin main` | 触发 `.github/workflows/ci.yml` |
-| 3 | 流水线 `validate` 阶段 | `wrangler d1 migrations apply jd-growth-platform --local --yes`（真实执行、FK 强制）＋ `node --check server/api/index.js` ＋ mock 自检 ＋ **F-01~F-32 全部用例** ＋ 引用自检 |
-| 4 | 流水线 `deploy` 阶段（仅 push 到 main 时） | `d1 migrations apply jd-growth-platform --remote --yes` → `wrangler deploy` |
-| 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（需 PR 审核 + 状态检查通过）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） |
+| 3 | 流水线 `validate` 阶段 | `wrangler d1 migrations apply jd-growth-platform --local`（真实执行、FK 强制）＋ `node --check server/api/index.js` ＋ mock 自检 ＋ **F-01~F-32 全部用例** ＋ 引用自检 | ✅ 已过 |
+| 4 | 流水线 `deploy` 阶段（仅 push 到 main 时） | `d1 migrations apply jd-growth-platform --remote` → `wrangler deploy` | ✅ 已过 |
+| 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（防强推/防删除，按需加 PR 审核 + 状态检查）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） | ⬜ **待确认** |
 
 **PR 标题约定**：须以 `F-xx` / `阶段N` / `chore` / `docs` / `ci` 开头，否则 `pr-title-check` 会失败（对应 dev-plan「每 F-xx 一 PR」纪律）。
 
