@@ -150,13 +150,11 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/seed/0002_config.sql -y
-      - name: 出关运维待办（go-live §2）：启用 4 个计划工具 + ACT 恢复（幂等 UPDATE，不改 0001/0002 种子——种子含 mock 反例口径，由测试 oracle 钉死）
+      - name: 出关运维待办（go-live §2）：启用 4 个计划工具 + ACT 恢复（幂等 UPDATE，db/seed/0003_enable_remote_plan.sql——不改 0001/0002 种子，种子含 mock 反例口径由测试 oracle 钉死）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --command "UPDATE source_registry SET availability_status='ok', is_mcp_ready=1, updated_at=datetime('now') WHERE source_id='ACT'" -y
-          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --command "UPDATE tool_registry SET is_enabled=1 WHERE tool_code IN ('cdp.crowd.query','hje.traffic.entry','mkt.benefit.issue','act.activity.list')" -y
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/seed/0003_enable_remote_plan.sql -y
       - name: 部署 Worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
