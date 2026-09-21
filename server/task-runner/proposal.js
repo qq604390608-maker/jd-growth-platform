@@ -335,6 +335,36 @@ export async function markProposalTriggered(db, { proposal_id, task_id } = {}) {
   return { triggered: true, already: false, proposal_id: pid, task_id: tid };
 }
 
+/**
+ * **F-39 幂等守卫前移**：与 `markProposalTriggered` 同判据的**只读预检**，供 F-04 在**建任何行之前**调用。
+ *
+ * 为什么需要单独一个：
+ *   `markProposalTriggered` 的入参 `task_id` **必须是已存在的任务**（`MD-12.triggered_task_id` 是外键），
+ *   所以它只能排在「建任务之后」。而「建任务 / LNK-04 / 建研究壳 / PD-06」这四步一旦做了，重复调用
+ *   即使最终报错也**留下了孤儿任务 + 孤儿研究壳**（`triggered_task_id` 只指回最后一次那条）——
+ *   线上 `PROP-001 → T-0026 + T-0029` 双任务即同形机制（登记 `./README.md` §8.1 ⑨）。
+ *   本函数只判「建议是否已被触发过」、不需要 `task_id`，因此可以**排在最前**。
+ *
+ * 语义（与 `markProposalTriggered` 一致，不引入第二套口径）：
+ *   - 建议不存在 → 报错（真源不可虚构）；
+ *   - 已触发（无论触发的是哪个任务）→ **报错**（同一份建议不得重复启动任务）；
+ *   - 未触发 → 返回 `{ clear: true }`，调用方继续。
+ *
+ * 硬红线：**零写**（只 `SELECT`），本函数不落任何行。
+ */
+export async function ensureProposalNotTriggered(db, proposal_id) {
+  const pid = norm(proposal_id);
+  if (!pid) throw new Error("ensureProposalNotTriggered：proposal_id 必填");
+  const proposal = await getProposal(db, pid);
+  if (!proposal) throw new Error(`研究建议不存在：${pid}`);
+  if (proposal.triggered_task_id) {
+    throw new Error(
+      `建议 ${pid} 已触发任务 ${proposal.triggered_task_id}，不得重复启动相同任务（同一份建议只启动一次 HVA 研究）`,
+    );
+  }
+  return { clear: true, proposal_id: pid, triggered_task_id: null };
+}
+
 // ---------------------------------------------------------------- 读模型
 
 /** 建议一页读取（F-29 / F-04 消费）：建议行 + 机会现状 + 机会状态变更链 + 是否已触发任务。 */

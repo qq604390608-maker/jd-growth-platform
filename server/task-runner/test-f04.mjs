@@ -225,16 +225,26 @@ const HVA_RESEARCH_STEPS = [
     "A43 研究壳幂等键（start_task_id）有效：同一任务恰好 1 行研究壳",
   );
   /**
-   * A44 **现状登记（不是期望行为）**——如实固定「幂等守卫位置偏晚」的后果：
-   * 守卫 ⑤ `markProposalTriggered` 排在**建任务 / LNK-04 / 建研究壳 / PD-06 之后**，故重复调用虽最终报错，
-   * 却已留下**孤儿任务 + 孤儿研究壳**（`triggered_task_id` 只指回最后一次的那条）。
-   * 这正是线上 `PROP-001 → T-0026 + T-0029` 双任务的同形机制（登记 `README.md` §8.1 ⑨，本次**不擅改**
-   * F-03/F-04 的守卫顺序）。**修复（守卫前移）后本断言应改为总数 3**——红即信号。
+   * A44 **F-39 守卫前移后的期望行为**（原为「现状登记：孤儿 1 行 → 总数 4」）：
+   * `createHvaResearchTask` 开头先走 F-03 `ensureProposalNotTriggered` **只读预检**，故被拦下的重复调用
+   * **一行都没建**——既无孤儿任务、也无孤儿研究壳（原线上 `PROP-001 → T-0026 + T-0029` 的同形机制已消除）。
    */
   const researchTotal = sqlite.prepare("SELECT COUNT(*) c FROM research").get().c;
   assert(
-    researchTotal === 4,
-    `A44 现状登记：种子 2 行 + 正常 1 行 + 被拦下的重复调用留下的孤儿 1 行 = 4（实测 ${researchTotal}；守卫前移后应为 3）`,
+    researchTotal === 3,
+    `A44 守卫前移后：种子 2 行 + 正常 1 行 = 3（实测 ${researchTotal}；重复调用被前置守卫拦下，不留孤儿研究壳）`,
+  );
+  const linkedTasks = sqlite
+    .prepare("SELECT COUNT(*) c FROM task_object WHERE object_type = 'proposal' AND object_id = 'PROP-TEST-A'")
+    .get().c;
+  assert(
+    linkedTasks === 1,
+    `A45 守卫前移后：以本建议为 trigger 锚点的任务恰好 1 条（实测 ${linkedTasks}；重复调用被前置守卫拦下，不留孤儿任务）`,
+  );
+  const propAfter = sqlite.prepare("SELECT triggered_task_id FROM research_proposal WHERE proposal_id = ?").get("PROP-TEST-A");
+  assert(
+    propAfter.triggered_task_id === r.task.task_id,
+    `A46 triggered_task_id 指回**首次**那条任务（实测 ${propAfter.triggered_task_id}，不再被最后一次覆盖）`,
   );
 }
 

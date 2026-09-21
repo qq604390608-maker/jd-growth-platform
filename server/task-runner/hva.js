@@ -26,6 +26,8 @@
  *      取该 Agent 被授权的工具清单供阶段4 调度校验；无授权时回带 `tool_permissions_pending=true`（不阻断，
  *      权限登记属 M5 职责，查询零写红线由 M5 守）。
  *   ⑤ **幂等守卫**：同一建议不得重复启动任务（`MD-12.triggered_task_id` 已由 F-03 `markProposalTriggered` 守）——重复调用报错。
+ *      **F-39（2026-09-22）守卫前移**：本函数**在建任何行之前**先走 F-03 `ensureProposalNotTriggered`
+ *      **只读预检**——原实现把守卫排在最后，重复调用虽最终报错却已留下**孤儿任务 + 孤儿研究壳**。
  *   ⑥ **Queue 消息恰 `{task_id, step_no}` 两键**（≤1KB，与 F-02 同款），上下文从 D1 现读；Agent 只在任务内被调用
  *      （`delegateToAgent` 守卫，阶段4 接入真实 HVA Agent）。
  *   ⑦ **hva_followup（追问任务）的创建归 F-05**（`../task-runner/followup.js` 的 `createFollowupTask`，
@@ -58,6 +60,7 @@ import {
 import {
   getProposal,
   markProposalTriggered,
+  ensureProposalNotTriggered,
 } from "./proposal.js";
 import { getGoalVersion } from "./goal.js";
 import { createResearch, getResearch, listResearch, initTaskContext } from "../shared-context/index.js";
@@ -119,6 +122,13 @@ export async function createHvaResearchTask(db, {
 
   const proposal = await getProposal(db, pid);
   if (!proposal) throw new Error(`研究建议不存在：${pid}（HVA 任务只由真实建议触发）`);
+
+  // —— ⑤ 幂等守卫**前移**（F-39）：在任何建行之前先判「该建议是否已触发过任务」——
+  // 原实现把守卫排在「建任务 / LNK-04 / 建研究壳 / PD-06」之后（因 `markProposalTriggered` 的 `task_id`
+  // 必须是已存在任务），重复调用虽最终报错，却**已留下孤儿任务 + 孤儿研究壳**——线上
+  // `PROP-001 → T-0026 + T-0029` 双任务的同形机制。前置版是**只读预检**（`ensureProposalNotTriggered`），
+  // 不需要 task_id，故可排在最前；判据与 `markProposalTriggered` 一致，不引入第二套口径。
+  await ensureProposalNotTriggered(db, pid);
 
   const opportunity = await db
     .prepare("SELECT * FROM opportunity WHERE opportunity_id = ?")
@@ -211,7 +221,7 @@ export async function createHvaResearchTask(db, {
   // —— ④ CFG-03 工具权限（按所用 Agent 授权） ——
   const perms = await resolveHvaToolPermissions(db, { agent_code: snap.profile.agent_code });
 
-  // —— ⑤ 幂等守卫：同一建议不得重复启动任务 ——
+  // —— ⑤ 幂等守卫的**登记**（F-39 后：判缺已前移到函数开头，此处只做落 `triggered_task_id` 的写）——
   const trigger = await markProposalTriggered(db, { proposal_id: pid, task_id: task.task_id });
 
   // —— ⑥ Queue 消息恰两键 → 启动 Agent（delegateToAgent 守卫） ——

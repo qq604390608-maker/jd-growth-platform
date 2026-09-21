@@ -17,7 +17,7 @@
 | `agent-runtime/` | 运行时资产：公共业务指令、两个 Agent 的 agent.md 与 skills、工具注册表 | 🟡 部分：骨架 + `VERSIONS.md` + `business-rules.md`／`hva/agent.md` 本体已落；差额＝`discovery/agent.md` 与 `S-A1~S-A4`／`S-B1~S-B4` 仍为建壳（F-13 未落 discovery 本体，已登记未擅改）；T-23/T-24 待确认。详见 `agent-runtime/README.md` |
 | `prototype/` | 可交互前端原型，钉死需求即完成使命，保留作证据 | ✅ 已有 |
 | `frontend/` | 前端（前后端分离），六页面 F-27~F-32 | 🟡 部分：六页面**全部落地**；差额＝材料登记面未接入 `server/api`、静态资源同源绑定（TS-20）未定、机会状态字典无只读接口、无批量读模型端点、建议「是否已提交过」须以 MD-12 事实行为准——五项已登记未擅改，见 `frontend/README.md` §4 |
-| `server/` | 服务端：task-runner / shared-context / agent-orchestrator / tool-executor / api | 🟡 部分：M1~M5 功能点 **F-01~F-26 全落地** ＋ 接线工作项 **F-33~F-38**；差额＝`hva_followup`／`goal_check` 执行体未接线（仍走 `delegateToAgent` 占位）、取号面残余 12 处未收敛（Q-18）、零可用来源是否直接受阻待裁决。详见 `server/README.md` 与 `docs/04-plan/dev-plan.md` |
+| `server/` | 服务端：task-runner / shared-context / agent-orchestrator / tool-executor / api | 🟡 部分：M1~M5 功能点 **F-01~F-26 全落地** ＋ 接线工作项 **F-33~F-40**；差额＝`hva_followup`／`goal_check` 执行体未接线（仍走 `delegateToAgent` 占位）、取号面残余 12 处未收敛（Q-18）、零可用来源是否直接受阻待裁决。详见 `server/README.md` 与 `docs/04-plan/dev-plan.md` |
 | `db/` | 建表迁移与全 mock 种子数据；**线上一次性运维 SQL（`db/ops/`，经 CI 执行）** | ✅ 已建（37 张表＝**业务表 36** ＋ 1 张运行期基础设施表，真源 `docs/03-locks/schema.md` v1.9）。详见 `db/README.md` |
 | `scripts/` | 引用自检脚本（孤儿／悬空／重号） | ✅ 已建；20 条「路径不精确」软偏差与 2 条悬空登记待修、未擅改 |
 | `.github/` | CI/CD：GitHub Actions 流水线（D1 迁移 apply ＋ wrangler deploy ＋ PR 标题白盒约定校验 ＋ 一次性运维支） | ✅ 已建；主干 `ci.yml` 与 `ops-*.yml` 分离、各按自身文件路径精确触发。分支保护／Secrets 为仓库设置项，见 `.github/README.md` |

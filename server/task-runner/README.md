@@ -302,10 +302,14 @@ product_question / existing_evidence）——直接复用 `shared-context` 的 `
 
 **⑧ 研究壳幂等键＝`start_task_id`**：重复调用不新建第二行（与 ⑤ 的建议级守卫互补——⑤ 看建议、⑧ 看任务）。
 
-**⑨ 现状登记（待裁决，本次未擅改）**：⑤ 的建议级幂等守卫 `markProposalTriggered` 排在**建任务 / LNK-04 /
-建研究壳 / PD-06 之后**，故重复调用虽最终报错，**却已留下孤儿任务 + 孤儿研究壳**（`triggered_task_id` 只指回
-最后一次那条）。`test-f04.mjs` 的 **A44** 把该现状固定为断言（修复守卫顺序后应改为总数 3，**红即信号**）——
-这也解释了线上 `PROP-001 → T-0026 + T-0029` 双任务的同形机制。**守卫前移属独立的工作项**。
+**⑨ ~~现状登记（待裁决）~~ → ✅ 已修（F-39，2026-09-22）**：原 ⑤ 的建议级幂等守卫 `markProposalTriggered` 排在
+**建任务 / LNK-04 / 建研究壳 / PD-06 之后**（因它的 `task_id` 入参必须是**已存在**的任务，`MD-12.triggered_task_id`
+是外键），故重复调用虽最终报错，**却已留下孤儿任务 + 孤儿研究壳**（`triggered_task_id` 只指回最后一次那条）——
+线上 `PROP-001 → T-0026 + T-0029` 双任务即同形机制。修法＝**守卫前移**：`proposal.js` 新增
+**只读预检** `ensureProposalNotTriggered(db, proposal_id)`（只判「建议是否已触发过」，不需要 `task_id`，故可排在最前），
+`createHvaResearchTask` **在建任何行之前**先调它；靠后的 `markProposalTriggered` 只负责落 `triggered_task_id` 的写。
+**判据与原来一致**（仍报「已触发任务」，不引入第二套口径），`test-f04` **A44 由「现状 4 行」翻转为「期望 3 行」**
+并新增 A45（孤儿任务 0）/ A46（`triggered_task_id` 指回**首次**那条）；`test-f03` 新增 ⑩ 段 8 条断言（放行 / 零写 / 报错 / 报错路径零建行 / 守卫本体无写语句）。
 
 **⑩ 登记（待裁决）**：`followup.js` 建追问研究壳时把 `research_status` 写成 item_name「研究中」，而字典
 `RESEARCH_STATUS` 的 item_code 是 `running`（`varchar(16)` 无 CHECK，**库级拦不住**）。本次**未擅改 F-05**；

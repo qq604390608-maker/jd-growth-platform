@@ -25,6 +25,7 @@ import {
   getProposal,
   listProposals,
   markProposalTriggered,
+  ensureProposalNotTriggered,
   markOpportunitySubmitted,
   getProposalRecord,
   nextProposalId,
@@ -334,6 +335,43 @@ console.log("⑨ 写入面静态核验：建行只落 MD-12、改行只落 MD-12
   assert(!/UPDATE\s+opportunity\b/i.test(src), "机会状态改行不落在本文件（经 shared-context 的 F-10 单一写入面）");
   assert(!/\b(DELETE|DROP|TRUNCATE|ALTER)\b/i.test(src), "本文件不含删行 / 改结构语句");
   assert(!/fetch\(|https?:/.test(src), "本文件零外部调用（无 fetch / 无 URL）");
+}
+
+// ==================================================== ⑩ F-39 幂等守卫前移：`ensureProposalNotTriggered`（只读预检）
+console.log("⑩ `ensureProposalNotTriggered`：建议已被触发 → 在任何建行之前报错；未触发 → 放行；**零写**");
+{
+  const { db, sqlite } = freshDb();
+  const sub = await submitProposal(db, { opportunity_id: OPP_CANDIDATE, research_question: Q_FULL, submitted_by: "PM", at: AT });
+  const pid = sub.proposal.proposal_id;
+
+  await assertThrows(() => ensureProposalNotTriggered(db, ""), "缺 proposal_id → 报错", "proposal_id 必填");
+  await assertThrows(() => ensureProposalNotTriggered(db, "PROP-999"), "建议不存在 → 报错", "研究建议不存在");
+
+  // 未触发 → 放行（clear=true），且**不落任何行**
+  const before = {
+    proposal: countRows(sqlite, "research_proposal"),
+    task: countRows(sqlite, "task"),
+    log: countRows(sqlite, "opportunity_status_log"),
+  };
+  const ok = await ensureProposalNotTriggered(db, pid);
+  assert(ok.clear === true && ok.proposal_id === pid, "未触发 → 放行（clear=true，回带 proposal_id）");
+  assert(countRows(sqlite, "research_proposal") === before.proposal
+    && countRows(sqlite, "task") === before.task
+    && countRows(sqlite, "opportunity_status_log") === before.log,
+    "零写：预检不改动任何表的行数（只读）");
+  assert((await getProposal(db, pid)).triggered_task_id === null, "零写：预检不写 triggered_task_id");
+
+  // 已触发 → 报错（与 markProposalTriggered 同判据「已触发任务」）
+  await markProposalTriggered(db, { proposal_id: pid, task_id: "T-1022" });
+  await assertThrows(() => ensureProposalNotTriggered(db, pid),
+    "建议已触发 → 前置守卫报错（F-04 据此在建任务之前停手）", "已触发任务");
+  assert(countRows(sqlite, "task") === before.task, "报错路径同样零建行（不产生孤儿任务）");
+
+  // 静态：本文件新增的守卫是**只读**的（不新增 INSERT/UPDATE/DELETE）
+  const src2 = stripComments(readFileSync(MODULE_SRC, "utf8"));
+  const guardSrc = src2.slice(src2.indexOf("export async function ensureProposalNotTriggered"));
+  assert(!/INSERT\s+INTO|UPDATE\s+\w+\s+SET|DELETE\s+FROM/i.test(guardSrc),
+    "守卫本体零写（函数体内无 INSERT / UPDATE / DELETE）");
 }
 
 finish();
