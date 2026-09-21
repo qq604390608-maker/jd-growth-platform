@@ -44,27 +44,18 @@ import {
   listTaskSteps,
   listTaskObjects,
   getTask,
+  nextResearchNo,
 } from "./step-plan.js";
 import { agentSnapshotOf, createLocalEnqueue, delegateToAgent } from "./schedule.js";
 import { HVA_AGENT_PROFILE_ID, resolveHvaToolPermissions } from "./hva.js";
 import { createResearch, getResearch, initTaskContext } from "../shared-context/index.js";
 
+// 取号真源已于 2026-09-21 下沉到 `./step-plan.js`（F-04 建研究壳亦需取号，而 `hva.js` 引用本文件会成环）。
+// 此处**再导出**同一函数对象（非副本）——既有调用面（`./test-f05.mjs` 等）不变。
+export { nextResearchNo };
+
 const norm = (s) => (s == null ? "" : String(s).trim());
 const nowStamp = () => new Date().toISOString().slice(0, 19).replace("T", " ");
-
-/**
- * 下一个研究号：`R-` + 3 位补零（库内最大 +1，确定性、不撞号）。
- * 与 `proposal.js` 的 `nextProposalId` 同款形态；MD-07 `research_no` 全库口径 `R-xxx`。
- */
-export async function nextResearchNo(db) {
-  const rows = (await db.prepare("SELECT research_no FROM research").all()).results || [];
-  let max = 0;
-  for (const r of rows) {
-    const m = /^R-(\d+)$/.exec(String(r.research_no || "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `R-${String(max + 1).padStart(3, "0")}`;
-}
 
 /**
  * 下一条追问消息号：`MSG-` + 3 位补零（库内最大 +1，确定性、可回查）。

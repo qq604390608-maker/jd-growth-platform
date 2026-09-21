@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
- * 文档卡（阶段3 · M1 · F-04 用例执行器 · 2026-09-19）
+ * 文档卡（阶段3 · M1 · F-04 用例执行器 · 2026-09-19；2026-09-21 补 MD-07 研究壳断言）
  * 上游：`../../docs/05-test-cases/test-M1.md`
  *        ｜ **TC-I-M1-001 = 第二阶段启动时点 = 建议提交；任务程序决定何时启动、Agent 只在任务内被调用**（F-02/F-04）
  *        ｜ **TC-I-M1-002 = 建议与机会版本关联；重复提交幂等（同 idempotency_key 不重复启动相同任务）**（F-03/F-04）
  *        ｜ **TC-I-M1-007 = 建议与机会版本关联**（selected_opportunity_id 关联 MD-06）
  *   ｜ `../../docs/02-prd/PRD-M1-平台任务程序.md` F-04（验收要点：第二阶段启动时点＝建议提交；已允许的查询工具按任务规则执行）
- *   ｜ `../../docs/03-locks/schema.md` PD-01 / PD-06 / MD-12 / MD-06 / LNK-04 / CFG-03 / CFG-06
+ *   ｜ `../../docs/03-locks/schema.md` PD-01 / PD-06 / **MD-07（研究壳：`start_task_id`/`created_at` 的服务功能点列含 F-04）** / MD-12 / MD-06 / LNK-04 / CFG-03 / CFG-06
  *   ｜ `../../prototype/pages/tasks.html`（**`TYPE_STEPS` 中「HVA 研究」5 步，钉死需求**）
  *   ｜ `./hva.js`（被测模块）｜`./proposal.js`（建议读取面）｜`./step-plan.js`（任务骨架）｜`./schedule.js`（enqueue/Agent 守卫）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-04 用例并断言。
+ *   含 **MD-07 研究壳**（A29~A43）：建行归属、`start_task_id`/`created_at` 口径、`research_status` 取**字典 item_code**、
+ *   ① 由真源派生、②④⑥ 与不覆盖范围为显式「尚未开展」初值、research 产出锚点、重复调用不留第二行。
  * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构、语义、字典值与平台口径）。
  * 边界：本执行器只验 F-04；F-02 的发现任务、F-03 的建议登记、F-06 的异常恢复各自执行器覆盖。
  * 反向清单：登记 `./README.md` 与 `../README.md`；被 CI `validate` 步骤复用（`node server/task-runner/test-f04.mjs`）。
@@ -22,6 +24,7 @@ import {
   createHvaResearchTask,
   resolveHvaToolPermissions,
   HVA_AGENT_PROFILE_ID,
+  RESEARCH_SHELL_INITIAL,
 } from "./hva.js";
 import { listTaskObjects, listTaskSteps, getTask } from "./step-plan.js";
 
@@ -183,6 +186,55 @@ const HVA_RESEARCH_STEPS = [
     () => createHvaResearchTask(db, { proposal_id: "PROP-TEST-A" }),
     "A28 同一建议重复启动任务 → 报错（已触发，不得重复）",
     "已触发任务",
+  );
+
+  // ---- MD-07 研究壳（2026-09-21 补齐：F-04 建任务同时建研究壳，建行经 F-11 `createResearch`）----
+  const shells = sqlite.prepare("SELECT * FROM research WHERE start_task_id = ?").all(r.task.task_id);
+  assert(shells.length === 1, `A29 新建 1 行 MD-07 研究壳（实测 ${shells.length}）`);
+  const rs = shells[0];
+  assert(rs.opportunity_id === "OPP-TEST-04", "A30 研究壳归属被研究的机会");
+  assert(rs.research_question === r.proposal.research_question, "A31 research_question 逐字取自建议（真源，不重写）");
+  assert(rs.created_at === "2026-09-15 20:28", "A32 created_at = 建议提交时刻（schema MD-07 口径，不另取时钟）");
+  assert(rs.start_task_id === r.task.task_id, "A33 start_task_id = 本任务（schema MD-07「服务功能点」列含 F-04）");
+  assert(rs.parent_research_no === null, "A34 首个研究无追问链上游（parent_research_no 为空）");
+  assert(rs.goal_id === GOAL && rs.goal_version_no === 3, "A35 启动快照＝机会当前 v3（版本冲突以机会为准）");
+  assert(r.research_no === rs.research_no && r.research_created === true, "A36 返回值回带研究号与「本次建行」标记");
+  const statusCodes = sqlite
+    .prepare("SELECT item_code FROM dict_item WHERE dict_type_code = 'RESEARCH_STATUS'")
+    .all()
+    .map((x) => x.item_code);
+  assert(
+    statusCodes.includes(rs.research_status),
+    `A37 research_status 落在 dict:RESEARCH_STATUS 值域内（实测 ${JSON.stringify(rs.research_status)}，值域 ${statusCodes.join("/")}）`,
+  );
+  assert(rs.research_status !== "研究中", "A38 反例：不得写 item_name「研究中」（值域真源是 item_code）");
+  assert(rs.behavior_hypothesis === null, "A39 建议未提供假设时 behavior_hypothesis 为空（不写空串）");
+  assert(
+    /^业务目标：.+｜研究问题：.+$/.test(String(rs.e1_goal_statement)),
+    `A40 ① 由「业务目标 + 研究问题」逐字派生（实测 ${JSON.stringify(String(rs.e1_goal_statement).slice(0, 32))}…）`,
+  );
+  for (const [k, v] of Object.entries(RESEARCH_SHELL_INITIAL)) {
+    assert(rs[k] === v, `A41 ${k} 写显式「尚未开展」初值（四处 NOT NULL 不留空、不预填结论）`);
+  }
+  assert(
+    byType("research") && byType("research").link_role === "output" && byType("research").object_id === r.research_no,
+    "A42 LNK-04：research = output 锚点（与 F-05 追问建壳写法一致）",
+  );
+  assert(
+    sqlite.prepare("SELECT COUNT(*) c FROM research WHERE start_task_id = ?").get(r.task.task_id).c === 1,
+    "A43 研究壳幂等键（start_task_id）有效：同一任务恰好 1 行研究壳",
+  );
+  /**
+   * A44 **现状登记（不是期望行为）**——如实固定「幂等守卫位置偏晚」的后果：
+   * 守卫 ⑤ `markProposalTriggered` 排在**建任务 / LNK-04 / 建研究壳 / PD-06 之后**，故重复调用虽最终报错，
+   * 却已留下**孤儿任务 + 孤儿研究壳**（`triggered_task_id` 只指回最后一次的那条）。
+   * 这正是线上 `PROP-001 → T-0026 + T-0029` 双任务的同形机制（登记 `README.md` §8.1 ⑨，本次**不擅改**
+   * F-03/F-04 的守卫顺序）。**修复（守卫前移）后本断言应改为总数 3**——红即信号。
+   */
+  const researchTotal = sqlite.prepare("SELECT COUNT(*) c FROM research").get().c;
+  assert(
+    researchTotal === 4,
+    `A44 现状登记：种子 2 行 + 正常 1 行 + 被拦下的重复调用留下的孤儿 1 行 = 4（实测 ${researchTotal}；守卫前移后应为 3）`,
   );
 }
 

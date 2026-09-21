@@ -8,6 +8,7 @@
  * 关联 schema（`docs/03-locks/schema.md` §12 关联表 L861）：
  *   ｜ `PD-01 task`（`task_type=hva_research`/`hva_followup`，状态机写入面在 `../tool-executor/task-state.js`，本文件经 `./step-plan.js` 复用）
  *   ｜ `PD-06 context_injection`（二阶段上下文留痕，写入面在 `../shared-context/index.js`，本文件调用 `initTaskContext`）
+ *   ｜ `MD-07 research`（**研究壳建行**，写入面在 `../shared-context/index.js` 的 F-11 `createResearch`，本文件调用；2026-09-21 补齐）
  *   ｜ `MD-12 research_proposal`（建议，读取面在 `./proposal.js`）
  *   ｜ `MD-06 opportunity`（机会及版本，写入面在 F-10，本文件只读）
  *   ｜ `LNK-04 task_object`（启动对象锚点，写入面在 `./step-plan.js`）
@@ -29,9 +30,15 @@
  *      （`delegateToAgent` 守卫，阶段4 接入真实 HVA Agent）。
  *   ⑦ **hva_followup（追问任务）的创建归 F-05**（`../task-runner/followup.js` 的 `createFollowupTask`，
  *      复用本文件的 `resolveHvaToolPermissions` 与 `HVA_AGENT_PROFILE_ID`）；本文件不写未建文件名。
+ *   ⑧ **建任务同时建 MD-07 研究壳**（2026-09-21 补齐）：`start_task_id = 本任务`、`created_at = 建议提交时刻`、
+ *      `research_status = 'running'`（字典 **item_code**）；① 由「已应用目标版本业务目标 + 建议问题」逐字派生，
+ *      ②④⑥ 与「不覆盖范围」四处 NOT NULL 列写**显式「尚未开展」初值**（见 `RESEARCH_SHELL_INITIAL`，不预填结论），
+ *      落报告时由 F-21 整体覆盖。归属依据＝`schema.md` MD-07 字段表 `start_task_id`/`created_at` 的「服务功能点」列含 F-04；
+ *      **幂等键＝`start_task_id`**（重复调用不新建第二行，与 ⑤ 的建议级守卫互补）。
  *
- * 硬红线：本文件**零外部调用**、**生产零写**——改行只落在 PD-01 / LNK-04 / PD-06 / MD-12.triggered_task_id，
- *   且 PD-06 写入经 `initTaskContext` 单一写入面；MD-12 触发标记经 F-03 `markProposalTriggered` 单一写入面。
+ * 硬红线：本文件**零外部调用**、**生产零写**——改行/建行只落在 PD-01 / LNK-04 / PD-06 / MD-07 / MD-12.triggered_task_id，
+ *   且 PD-06 写入经 `initTaskContext` 单一写入面、**MD-07 建行经 F-11 `createResearch` 单一写入面**（本文件不写 SQL）、
+ *   MD-12 触发标记经 F-03 `markProposalTriggered` 单一写入面。研究取号经 `./step-plan.js` 的 `nextResearchNo`（唯一一份）。
  * -----------------------------------------------------------------------------
  */
 
@@ -41,6 +48,7 @@ import {
   planTaskSteps,
   listTaskSteps,
   getTask,
+  nextResearchNo,
 } from "./step-plan.js";
 import {
   agentSnapshotOf,
@@ -51,11 +59,26 @@ import {
   getProposal,
   markProposalTriggered,
 } from "./proposal.js";
-import { initTaskContext } from "../shared-context/index.js";
+import { getGoalVersion } from "./goal.js";
+import { createResearch, getResearch, listResearch, initTaskContext } from "../shared-context/index.js";
 import { listPermissions } from "../tool-executor/index.js";
 
 /** HVA 研究用的 Agent 角色（`agent_profile.profile_id`）；其 `agent_code = hva-agent` 用于 CFG-03 权限检索。 */
 export const HVA_AGENT_PROFILE_ID = "AGP-HVA";
+
+/**
+ * 研究壳（`MD-07`）四处 NOT NULL 正文列的**首建初值**。
+ * 建任务时研究尚未开展，②④⑥ 与「不覆盖范围」确实还不存在——此处**显式写「尚未开展」**而非留空、
+ * 也**不预填任何研究结论**（`MD-07` 的 `research_status='running'` 与此自洽）；
+ * 落报告时由 F-21 `saveResearchReport` 整体覆盖这四列，故不是第二个口径、也不是假数据。
+ * ① 不在此列：它由**已应用目标版本 + 建议问题**逐字派生（真源可追溯，见主入口）。
+ */
+export const RESEARCH_SHELL_INITIAL = Object.freeze({
+  e2_scope_method: "研究范围与方法：尚未开展（待研究任务执行后填写）",
+  e4_population_diff: "人群差异：尚未计算（待研究任务执行后填写）",
+  e6_limits: "其他解释与限制：尚未评估（待研究任务执行后填写）",
+  out_of_scope_note: "本研究的结论不覆盖范围尚未判定（待研究任务执行后声明）",
+});
 
 /** 本地时间工具（与 `task-state.js` / `step-plan.js` 同款形态：`YYYY-MM-DD HH:MM:SS`）。 */
 const norm = (s) => (s == null ? "" : String(s).trim());
@@ -136,6 +159,45 @@ export async function createHvaResearchTask(db, {
   await linkTaskObject(db, { task_id: task.task_id, object_type: "proposal", object_id: pid, link_role: "trigger", created_at: started_at });
   await linkTaskObject(db, { task_id: task.task_id, object_type: "opportunity", object_id: opportunity.opportunity_id, link_role: "output", created_at: started_at });
 
+  // —— ⑦ MD-07 研究壳（2026-09-21 补齐；建行经 F-11 `createResearch` 单一写入面，本文件不写 SQL） ——
+  // 归属依据（`docs/03-locks/schema.md` MD-07 字段表）：`start_task_id` 与 `created_at` 两行的「服务功能点」
+  // 列**均含 F-04**，且 `created_at` 口径写明「＝研究建议提交时刻」——除本函数外无人天然持有该时点；
+  // 与 F-05 追问（`followup.js` 建新研究壳）**对称**。此前 F-04 漏建，导致 `research` 表在 hva_research
+  // 路径上恒零行（线上实测），M4 出报告时 `saveResearchReport` 会撞「研究不存在」。
+  // 幂等：以 `start_task_id = 本任务` 为键查已有壳，重复调用不新建第二行（与 ⑤ 的建议级幂等守卫互补）。
+  const goalVersion = await getGoalVersion(db, opportunity.goal_id, effective_version_no);
+  const priorResearch = (await listResearch(db, { opportunity_id: opportunity.opportunity_id }))
+    .find((x) => x.start_task_id === task.task_id);
+  let researchCreated = false;
+  let research_no = priorResearch ? priorResearch.research_no : null;
+  if (!priorResearch) {
+    research_no = await nextResearchNo(db);
+    await createResearch(db, {
+      research_no,
+      opportunity_id: opportunity.opportunity_id,
+      research_question: proposal.research_question,
+      // ① 逐字派生自**真源**：已应用目标版本的业务目标 + PM 提交的研究问题（未取到目标文本时只写问题，不编造）
+      e1_goal_statement: goalVersion && goalVersion.business_goal
+        ? `业务目标：${goalVersion.business_goal}｜研究问题：${proposal.research_question}`
+        : `研究问题：${proposal.research_question}`,
+      e2_scope_method: RESEARCH_SHELL_INITIAL.e2_scope_method,
+      e4_population_diff: RESEARCH_SHELL_INITIAL.e4_population_diff,
+      e6_limits: RESEARCH_SHELL_INITIAL.e6_limits,
+      out_of_scope_note: RESEARCH_SHELL_INITIAL.out_of_scope_note,
+      research_status: "running", // dict:RESEARCH_STATUS 的 **item_code**（不是 item_name「研究中」）
+      goal_id: opportunity.goal_id,
+      goal_version_no: effective_version_no,
+      behavior_hypothesis: proposal.behavior_hypothesis ?? null,
+      population_limit: proposal.population_limit ?? null,
+      parent_research_no: null, // 首个研究：无追问链上游
+      start_task_id: task.task_id,
+      created_at: started_at, // 与任务一致＝建议提交时刻（不另取时钟）
+    });
+    researchCreated = true;
+    // 研究产出锚点（output）——与 F-05 追问建壳后的 LNK-04 写法一致
+    await linkTaskObject(db, { task_id: task.task_id, object_type: "research", object_id: research_no, link_role: "output", created_at: started_at });
+  }
+
   // 五步计划（hva_research 步骤名逐字对齐 `prototype/pages/tasks.html` TYPE_STEPS）
   const plan = await planTaskSteps(db, task.task_id, "hva_research");
 
@@ -165,6 +227,10 @@ export async function createHvaResearchTask(db, {
     task: await getTask(db, task.task_id),
     proposal: await getProposal(db, pid),
     opportunity,
+    // MD-07 研究壳（2026-09-21 补齐）：建行经 F-11 单一写入面；`research_created=false` 表示复用既有壳（幂等）
+    research: research_no ? await getResearch(db, research_no) : null,
+    research_no,
+    research_created: researchCreated,
     steps: await listTaskSteps(db, task.task_id),
     plan,
     context,

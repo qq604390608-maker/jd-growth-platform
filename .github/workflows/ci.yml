@@ -76,7 +76,7 @@ jobs:
         run: node server/task-runner/test-f02.mjs
       - name: 跑 F-03 用例（M1 研究建议管理·人工节点，跑 MD-12 建议登记与研究问题必需 + 可选列 varchar(300) 拒超长 + 幂等键确定性与分隔符歧义反例 + 建议与机会版本绑定（版本号从机会现读）+ 重复提交幂等（不新建行、不重复启动）+ 机会状态迁移留 PD-05 + PD-05 外键 L3 反例 + 触发登记守卫）
         run: node server/task-runner/test-f03.mjs
-      - name: 跑 F-04 用例（M1 HVA 研究任务调度，跑第二阶段启动时点＝建议提交 + 五步逐字对齐原型 + LNK-04 proposal 触发/opportunity 作用对象 + 二阶段上下文按 CFG-06 hva_research 模板落 PD-06（含 selected_opp 关联机会 / product_question 关联建议）+ CFG-03 按 hva-agent 取工具权限 + 版本冲突以机会为准并提示（不阻断）+ 重复启动同一建议报错 + Queue 消息恰两键 + Agent 只在任务内被调用 + 零外部调用）
+      - name: 跑 F-04 用例（M1 HVA 研究任务调度，跑第二阶段启动时点＝建议提交 + 五步逐字对齐原型 + LNK-04 proposal 触发/opportunity 作用对象 + 二阶段上下文按 CFG-06 hva_research 模板落 PD-06（含 selected_opp 关联机会 / product_question 关联建议）+ CFG-03 按 hva-agent 取工具权限 + 版本冲突以机会为准并提示（不阻断）+ 重复启动同一建议报错 + MD-07 研究壳（建行归属依据 / start_task_id 与 created_at 口径 / research_status 取字典 item_code 含反例 / ① 由真源派生 / ②④⑥ 与不覆盖范围为显式「尚未开展」初值 / 幂等键＝start_task_id / A44 现状登记：幂等守卫偏晚 → 重复调用留孤儿任务与孤儿研究壳）+ Queue 消息恰两键 + Agent 只在任务内被调用 + 零外部调用）
         run: node server/task-runner/test-f04.mjs
       - name: 跑 F-05 用例（M1 追问与版本管理，跑关联原研究建 hva_followup 任务（parent_task_id 挂原任务）+ 新 MD-07 研究壳（parent_research_no 指原研究 / start_task_id 指新任务 / 七要素从原研究承接）+ LNK-04 锚点 + 五步逐字对齐原型 + 二阶段上下文按 CFG-06 hva_followup 模板落 PD-06（含 related_history）+ CFG-03 按 hva-agent 取工具权限 + PD-07 追问消息双外键库级强制（TC-D-M1-008）+ 原研究/原任务维持启动版本不变（可显式升版不混旧）+ 编号推进 + 静态核验零外部调用）
         run: node server/task-runner/test-f05.mjs

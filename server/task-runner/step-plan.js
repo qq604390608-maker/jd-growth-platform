@@ -10,6 +10,9 @@
  *        口径检查 2 步、机会发现 5 步、HVA 研究 5 步、追问 5 步）
  * 职责：四类任务的**步骤计划**（`PD-02` 落行）与**进度串**（`PD-01.progress_text`）的唯一写入面。
  *   为 F-01（口径检查 2 步）、F-02（发现 5 步）、F-04（研究 5 步）、F-05（追问 5 步）、F-06（推进与回查）共用。
+ *   另承载本模块的**取号**（`nextTaskId` ＝ `PD-01`、`nextResearchNo` ＝ `MD-07`）——两者同款形态、各只有一份；
+ *   `nextResearchNo` 于 2026-09-21 由 `./followup.js` 下沉至此（F-04 建研究壳亦需取号，而 `hva.js` 引用
+ *   `followup.js` 会构成环），`followup.js` 改为再导出以保持既有调用面不变。
  * 边界：本文件只管「步骤与进度」这两件事；任务态跃迁（`task_status`）、受阻留痕（`PD-03`）、
  *   已完成部分（`done_part`）的写入面在 `../tool-executor/task-state.js`，本文件**再导出**而不重写。
  *   改行语句一律带 `WHERE task_id = ?`（**禁全表更新**）；本文件**不含删行语句**。
@@ -57,6 +60,22 @@ export async function nextTaskId(db) {
     if (m) max = Math.max(max, Number(m[1]));
   }
   return `T-${String(max + 1).padStart(4, "0")}`;
+}
+
+/**
+ * 下一个研究号：`R-` + 3 位补零（`MD-07 research_no` 全库口径 `R-xxx`，库内最大 +1，确定性不撞号）。
+ * **取号真源（唯一一份）**：F-04 建 HVA 研究壳与 F-05 追问建新研究壳共用同一实现——`./followup.js`
+ * 改为再导出本函数（`hva.js` 引用 `followup.js` 会成环，故取号下沉到本共用件）。
+ * 形态与 `nextTaskId` / `proposal.js` 的 `nextProposalId` 一致（不写 `SELECT MAX`，读全量自算）。
+ */
+export async function nextResearchNo(db) {
+  const rows = (await db.prepare("SELECT research_no FROM research").all()).results || [];
+  let max = 0;
+  for (const r of rows) {
+    const m = /^R-(\d+)$/.exec(String(r.research_no || "").trim());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `R-${String(max + 1).padStart(3, "0")}`;
 }
 
 /**

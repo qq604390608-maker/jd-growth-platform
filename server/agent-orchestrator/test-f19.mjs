@@ -263,7 +263,13 @@ let realCtx = null;
   assert(realCtx.population_limit === "搜索入口新客", "人群限制随清单带入");
   assert(realCtx.evidence.length === 2, `证据：条数＝LNK-01 关联数（实测 ${realCtx.evidence.length}）`);
   assert(realCtx.evidence.every((e) => e.evidence_id), "每条证据带 evidence_id（可回查）");
-  assert(realCtx.history.length === 1 && realCtx.history[0].research_no === "R-007", `历史研究：按机会现读 MD-07（实测 ${realCtx.history.map((h) => h.research_no).join(",")}）`);
+  // F-04 于 2026-09-21 补齐「建任务同时建 MD-07 研究壳」后，本机会的历史研究由 1 条变 2 条：
+  // 首条＝本研究刚建的研究壳（`R-008`，`start_task_id` 指回本任务）、次条＝种子里已有的 `R-007`。
+  // （口径未变：仍是「按机会现读 MD-07」；变的是**库里真的多了一行**——这正是补齐的目的。）
+  assert(
+    realCtx.history.map((h) => h.research_no).join(",") === "R-008,R-007" && realCtx.history[0].start_task_id === fx.task_id,
+    `历史研究：按机会现读 MD-07（实测 ${realCtx.history.map((h) => h.research_no).join(",")}；start_task_id=${JSON.stringify(realCtx.history[0] && realCtx.history[0].start_task_id)}）`,
+  );
   assert(realCtx.six_elements && typeof realCtx.six_elements === "object", "所选机会附六要素判定（供判断参考）");
   assert(realCtx.context_complete === true && realCtx.missing_required.length === 0, "CFG-06 hva_research 模板必需类型齐备");
   assert(Array.isArray(realCtx.injections) && realCtx.injections.length > 0, `PD-06 注入留痕非空（实测 ${realCtx.injections.length} 条）`);
