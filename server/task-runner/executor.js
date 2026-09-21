@@ -28,10 +28,17 @@
  * 投递通道：真 Queues 未接，驱动方式＝runner cron 每分钟顺带执行 `runPendingWork`
  *   （扫描 step_state='active' 且任务 running 的**已接线类型**步骤；旧名 `runPendingDiscoveryWork` 保留为别名）；
  *   `queue` consumer 接入后走同一执行体，判定逻辑不动。
+ * 单 tick 守卫（**F-34**，2026-09-21）：驱动回路套 `./tick-guard.js` 的三道轻量守卫——**步数配额**
+ *   （每 tick 至多 `TICK_QUOTA` 步，把批次摊到多个 tick）＋**同 tick 去重**（同一 `(task_id, step_no)`
+ *   在本 tick 内只执行一次，兼作「超时步骤仍为 active」时的死循环闸）＋**单步超时**（超时只放弃等待，
+ *   不落 PD-03、不改 `task_status`、不落 done，步骤保持 active 交下个 tick 重试）。
+ *   守卫本身**纯计算**（零数据库访问、零 SQL、零写）；配额与超时分别派生自 `TYPE_STEPS` 与
+ *   `DEFAULT_TIMEOUT_MS`，**不复制第二份口径**。
+ *   边界：**不是真独占**——并发 tick 仍可能同时选中同一步；真独占需 2b 租约（已否决）或期 3 真 Queues。
  * 红线落实：查询失败/受限 → 真实原因进 done_part（**失败不否定结论**）；不编造事实、
  *   不以模型预期代替查询；机会写入只经 F-10（formOpportunityOrGap 内部）。
  * 反向清单：被 `./index.js`（scheduled 顺带驱动 + queue consumer）引用；登记 `./README.md`；
- *   测试 `./test-stage4.mjs`（外加 F-33 的 `./test-f33.mjs` 覆盖分派与 M4 五步）。
+ *   测试 `./test-stage4.mjs`（外加 F-33 的 `./test-f33.mjs` 覆盖分派与 M4 五步、F-34 的 `./test-f34.mjs` 覆盖单 tick 守卫）。
  */
 import { getTask } from "./step-plan.js";
 import { listTaskSteps, advanceStep, appendDonePart, recordBlock, setTaskStatus, BLOCK_REASON_CODE } from "./step-plan.js";
@@ -41,6 +48,7 @@ import { loadDiscoveryContext, assembleDiscoveryPlan, summarizeCluesAsJourney } 
 import { runMetricVerification, verifyFiveChecks, buildEvidenceDraft, recordVerificationEvidence } from "../agent-orchestrator/verification.js";
 import { formOpportunityOrGap, OPPORTUNITY_OUTCOMES } from "../agent-orchestrator/opportunity.js";
 import { runResearchStep, RESEARCH_TASK_TYPE, WIRED_TASK_TYPES } from "./research.js";
+import { createTickGuard, STEP_TIMED_OUT, TICK_QUOTA, STEP_TIMEOUT_MS } from "./tick-guard.js";
 
 /** 计划数据源 → 实际调度的工具码（**取自 CFG-02 tool_registry 实际注册码**，契约基准 v1；
  *  注意 F-14 `createDiscoveryToolExecutor` 的旧映射 mkt.feedback.query / act.campaign.touch
@@ -329,11 +337,16 @@ export async function runStepMessage(db, { task_id, step_no }, opts = {}) {
 /**
  * cron 驱动本体：扫描「running 的**已接线类型**任务中 step_state='active' 的步骤」逐个执行。
  * 已接线类型清单取自 `./research.js` 的 `WIRED_TASK_TYPES`（单一真源），行内按类型分派。
- * 幂等：只消费 active 步骤；重复调用在无 active 步骤时是 no-op。
- * @returns {Promise<{executed: Array<{task_id:string, step_no:number, outcome:string}>, finished:string[]}>}
+ * **单 tick 守卫（F-34）**：配额 + 同 tick 去重 + 单步超时，本体在 `./tick-guard.js`；
+ *   `opts.quota` / `opts.step_timeout_ms` / `opts.timer` 可注入（用例据此**确定性**触发超时分支）。
+ * 幂等：只消费 active 步骤；重复调用在无 active 步骤时是 no-op；配额用尽即收手（不丢步，留待下个 tick）。
+ * @returns {Promise<{executed: Array<{task_id:string, step_no:number, outcome:string}>, finished:string[],
+ *   timed_out: Array<{task_id:string, step_no:number}>, exhausted:boolean, quota:number}>}
+ *   `exhausted` ＝ **配额已尽且仍有待执行的 active 步**（＝下个 tick 还会接着干）；跑完自然收手时为 false。
  */
 export async function runPendingWork(db, opts = {}) {
-  const out = { executed: [], finished: [] };
+  const guard = createTickGuard({ quota: opts.quota, timeoutMs: opts.step_timeout_ms, timer: opts.timer });
+  const out = { executed: [], finished: [], timed_out: guard.timed_out, exhausted: false, quota: guard.quota };
   const placeholders = WIRED_TASK_TYPES.map(() => "?").join(", ");
   for (;;) {
     const rows = (await db.prepare(
@@ -342,10 +355,23 @@ export async function runPendingWork(db, opts = {}) {
         WHERE s.step_state = 'active' AND t.task_status = 'running' AND t.task_type IN (${placeholders})
         GROUP BY s.task_id ORDER BY s.task_id`,
     ).bind(...WIRED_TASK_TYPES).all()).results || [];
-    if (rows.length === 0) break;
-    for (const { task_id, step_no } of rows) {
-      const r = await runStepMessage(db, { task_id, step_no: Number(step_no) }, opts);
-      out.executed.push({ task_id, step_no: Number(step_no), outcome: r.outcome });
+    // 同 tick 去重：本 tick 已执行过的 (task_id, step_no) 不再入选——超时被放弃的步骤**仍是 active**，
+    // 少了这道过滤它会在下一轮重查时被再次选中，同一 tick 内无限重试。
+    const fresh = rows.filter(({ task_id, step_no }) => !guard.isDuplicate(task_id, Number(step_no)));
+    if (fresh.length === 0) break; // 无活可干：跑完 or 剩下的全是本 tick 已占用过的
+    if (!guard.hasCapacity()) {
+      out.exhausted = true; // 有活但配额已尽：摊给下个 tick（不是失败、也不丢步）
+      break;
+    }
+    for (const { task_id, step_no } of fresh) {
+      if (!guard.hasCapacity()) {
+        out.exhausted = true; // 本批没跑完就没配额了——同样是「还有活」，留给下个 tick
+        break;
+      }
+      const no = Number(step_no);
+      const r = await guard.runStep(task_id, no, () => runStepMessage(db, { task_id, step_no: no }, opts));
+      if (r === STEP_TIMED_OUT) continue; // 本 tick 不再重复占用；步骤保持 active，下个 tick 自然重试
+      out.executed.push({ task_id, step_no: no, outcome: r.outcome });
       if (r.finished) out.finished.push(task_id);
     }
   }

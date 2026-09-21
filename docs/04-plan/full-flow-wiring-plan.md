@@ -128,7 +128,7 @@ M4 五步名（`task-runner/step-plan.js`，逐字照抄原型 `prototype/pages/
 | 编号 | 工作项 | 对应本节 | 状态 |
 |---|---|---|---|
 | **F-33** | **M4 执行体接线**（期 1）：五步执行体 + 按 `task_type` 分派 + runner `[ai]` + 自愈补扫 | 4.1 | ✅ **已上线 2026-09-21**（`209c85b`，CI `validate` + `deploy` 双绿；`research.js` + `self-heal.js` + `test-f33.mjs` 88 断言全绿；分派/选取/自愈同取 `WIRED_TASK_TYPES` 单一真源；线上验收见 §1.6） |
-| **F-34** | 步骤配额 + 同 tick 去重 + 单步超时（期 2.1 加固版，零 schema 变更） | 4.2 | ⬜ 待开工 |
+| **F-34** | 步骤配额 + 同 tick 去重 + 单步超时（期 2.1 加固版，零 schema 变更） | 4.2 | ✅ **已落地 2026-09-21**（新增 `server/task-runner/tick-guard.js` 纯计算件 + `test-f34.mjs` **56 断言全绿**并进 CI；配额与超时分别**派生自** `TYPE_STEPS` / `DEFAULT_TIMEOUT_MS`，不复制第二份口径；**超时不是失败**——不落 `PD-03`、不改 `task_status`、步骤留 `active` 交下个 tick 重试；**边界如实登记**：不是真独占，并发 tick 仍可能选中同一步；待提交） |
 | **F-35** | 取号原子化（`id_sequence` 表） | 4.2 | ⬜ 待开工 |
 | **F-36** | `runDueDiscoveryCalls` / `runPendingDiscoveryWork` 顺序与 try/catch 隔离 | 4.2 | ⬜ 待开工 |
 | （独立工作项） | F-03/F-04 幂等守卫前移（消除孤儿任务 + 孤儿研究壳；`test-f04` A44 已把现状固定为断言） | 4.3 | ⬜ 待开工 |

@@ -21,6 +21,9 @@
  *   （门禁见 external-deps §7）；接入后仅替换 enqueue 工厂，本文件判定逻辑不动。
  *   自愈补扫（`./self-heal.js`，F-33）与到期轮询**未做异常隔离**——任一抛错会饿死本 tick 的执行体，
  *   该隔离归 F-36（登记 `../../docs/04-plan/full-flow-wiring-plan.md` 期 2.3），此处不擅自扩范围。
+ *   执行体驱动（`./executor.js` 的 `runPendingWork`）自 2026-09-21 起套**单 tick 守卫**（F-34：步数配额 +
+ *   同 tick 去重 + 单步超时，本体在 `./tick-guard.js`）——`scheduled` 的返回体因此多带
+ *   `timed_out` / `exhausted` / `quota` 三个观测字段（**纯增量**，既有键不动）。
  * 反向清单：被 `wrangler.runner.toml`（main）与 CI deploy 第二步引用；用例 `./test-ts20.mjs`（另有 `./test-f33.mjs` 覆盖分派）；
  *   登记 `../README.md`（模块清单 task-runner 行）与 `./README.md`。
  */

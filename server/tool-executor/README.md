@@ -248,6 +248,7 @@ runQueryWithRecovery（F-26 一步编排）
 
 - `../api/index.js`（F-23 路由：`/api/tools`、`/api/tool-permissions`、`/api/tool-permission/check`、`/api/tool-permission/check-batch`；F-24 路由：`/api/tool-descriptions`、`/api/query`（受限 → 403）；F-25 路由：`POST /api/query-records`（执行+落痕，未留痕 → 202）、`GET /api/query-records`（组合筛选）、`GET /api/query-records/{query_id}`（回查+四要素）；**F-26 路由：`POST /api/query-recovery`（重试+落痕+任务态处置；受限 → 403、未留痕 → 202）、`GET /api/run-policy`（生效策略与重试上限）、`GET /api/task-blocks`（受阻记录回查）、`GET /api/tasks/{task_id}`（任务态回查）**）
 - `../agent-orchestrator`（后续：M3/M4 调用工具前先查权限；发起真实查询并落痕；失败/受限后消费 `recovery` 的任务态处置结果）
+- `../task-runner`（**消费方，只取只读面与常量**：`./executor.js` 取 `listQueryRecords` 回查 EXT-01（阶段4 M3 执行体的确定性重算来源，F-33/阶段4）；**`./tick-guard.js` 取 `DEFAULT_TIMEOUT_MS` 派生单步超时（F-34，2026-09-21）**——本模块仍**不向 task-runner 提供任何写面**，跨模块写面为零）
 - `./mcp-client.js`（F-24 传输层，被 `./index.js` 引用）｜`./task-state.js`（**F-26 任务态写入面**，被 `./index.js` 引用并由 `./test-f26.mjs` 直接断言写入面）
 - `../../docs/03-locks/schema.md` §12（Q-09、Q-10、Q-11、**Q-12** 登记处）｜`../../prototype/mock/scenarios.js`（夹具来源）
 - `../README.md`（server 枝杈登记）｜`.github/workflows/ci.yml`（validate 步骤）｜`../../AGENTS.md`（`server/` 状态位）

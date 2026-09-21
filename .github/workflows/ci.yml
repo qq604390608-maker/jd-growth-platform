@@ -86,6 +86,8 @@ jobs:
         run: node server/task-runner/test-stage4.mjs
       - name: 跑 F-33 用例（阶段4 M4 研究执行体接线，跑静态零裸 SQL/零删行（research.js 零 SELECT、self-heal.js 改行只经 advanceStep）+ 步 ① 单跑（F-19 三分支与停止条件）+ 全链路五步（5 源真实查询 → EXT-01/EXT-02 → MD-09/MD-10 → MD-07 七要素 + MD-08/LNK-02 落库，任务 done）+ 按 task_type 分派（hva_research 走 M4 体、hva_followup 仍占位、discovery 拒入、越界步号与非法判据入参抛错不落库）+ 幂等 + 结构受阻（PD-03 + blocked）+ 注入判据档（provided）+ 门禁档（确定性 fallback + llm_gated）+ 自愈补扫（缺研究壳者不擅自代建）+ 未接线类型不被选取 + 失败不否定结论）
         run: node server/task-runner/test-f33.mjs
+      - name: 跑 F-34 用例（阶段4 单 tick 执行守卫，跑静态（守卫零 SQL/零数据库句柄/import 恰两处真源、executor.js 不复制第二份默认值）+ 派生等式（TICK_QUOTA←TYPE_STEPS 最大步数、STEP_TIMEOUT_MS←DEFAULT_TIMEOUT_MS×2 且必须大于它、配额 < 一批 12 任务×5 步）+ 守卫纯单元（配额计数/去重位/入参严数值化拒绝）+ 单步超时（可注入 timer 确定性触发、未超时原样回传、迟到拒绝不变成未处理拒绝）+ 配额摊薄且不丢步 + 大批次摊到多 tick 仍幂等 + 步骤卡住（放弃 + 同 tick 只占一次 + 零 PD-03/零状态改动 + 下个 tick 重试）+ 默认配置语义不变（一次驱动仍跑满五步，TC-I-M1-001））
+        run: node server/task-runner/test-f34.mjs
       - name: 跑 F-13 用例（M3 角色指令配置·agent-orchestrator，跑 MD-13 agent_profile 读 + agent.md 版本推进（单行 UNIQUE、不新建行）+ MD-14 skill_registry 注册（PK/UK/FK 库级强制）+ 生效 Skills 列表 + 版本快照组装 + 静态核验零外部调用 / 唯一写入面 MD-13+MD-14）
         run: node server/agent-orchestrator/test-f13.mjs
       - name: 跑 F-14 用例（M3 围绕目标寻找线索·agent-orchestrator，跑意向分归一 min(raw/threshold,1) 封顶（TC-U-M3-001）+ S-A1 一阶段注入清单→确定性查证计划＋停止条件（TC-A-M3-001）+ S-A3 线索须有人群/旅程归属、拒裸变化（TC-A-M3-003）+ loadDiscoveryContext 复用 shared-context 读面零写 + 静态零外部调用 / 零裸 SQL）
