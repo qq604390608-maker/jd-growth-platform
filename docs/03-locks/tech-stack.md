@@ -403,6 +403,8 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 
 ## 8. 待确认清单
 
+> **裁决请求单**：本表未决项已翻成「拍板人可直接勾选的问题」（含备选项＋影响面＋不决后果），见 `../04-plan/ts-decision-requests.md`；裁决后回填本表对应行。
+
 | 编号 | 待确认事项 | 谁提供 | 阻塞什么 |
 | ---- | ---- | ---- | ---- |
 | TS-10 | **Workers AI 具体模型选型**：F-20 五查需强推理且须「敢说不足以判断」，须实机验证 | 技术方 + PM | ✅ **已于 2026-09-21 收口（Free 池）**：当前账号为 Workers Free 计划，原候选池（deepseek-v4 / glm-5.3-flash / kimi-k2.6 均 `require_workers_paid=true`）调不通；改以 Free 可用且已实测的模型收口，默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（实测 23/0 满分，honesty 全 0 失败）。客户端封装 `server/agent-orchestrator/llm-client.js`（58 断言全绿）+ `wrangler.toml` 的 `[ai]` binding + `MODELS` 常量池（MAIN/HEAVY/LIGHT 三档 Free ID 已钉死）；实测证据 `server/probes/model-selection/raw/` + README §3。红线（敢说不足/不编造）可达。若需更高 SLA 可升 Workers Paid 后补跑原候选（探针 `REAL_MODELS` 池） |
