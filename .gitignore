@@ -6,3 +6,7 @@ node_modules/
 *.log
 .DS_Store
 __pycache__/
+
+# 阶段4 CI deploy 生成的 0002 FK-OFF 临时副本（由 scripts/deploy-seed-off.mjs 产出，仅 deploy 步使用）
+.tmp_0002_deploy.sql
+db/seed/.tmp_0002_deploy.sql

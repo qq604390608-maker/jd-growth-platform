@@ -71,15 +71,19 @@ const HEADER = `-- ============================================================
 --   （2026-09-21 实测发现）——故文件头部先按「子表在前」的逆拓扑序 DELETE 全部
 --   配置行，再按原拓扑序 INSERT，每次部署将配置表对齐到本文件声明态。
 --   配置值变更：改 0001 配置节 → 重跑提取 → 合 main 即生效，无需手工 UPDATE。
--- 外键（2026-09-21 修正）：生产库经前端/运行会产生业务数据，业务表
+-- 外键（2026-09-21 定调，2026-09-21 修正）：本文件声明态为 PRAGMA foreign_keys = ON，
+--   用于 CI validate 探针的正向干净载入 + 反向「含目标级策略 POL-Q3 必外键违约」门禁
+--   （探针自行设 ON 后 exec 本文件，验证行级过滤必要）。
+--   但 deploy 步向「已有业务数据的生产库」重放本文件时，业务表
 --   query_record/evidence → source_registry、research → agent_profile、
---   research_goal → gap_rule 存在外键引用；故种子以 PRAGMA foreign_keys = OFF
---   执行 DELETE+INSERT（重新插入的配置行主键不变，业务外键引用自然恢复有效）。
---   ⚠ 不可改回 ON：改回后重放会在「已有业务数据的库」上触发 FK 违约而失败
+--   research_goal → gap_rule 存在外键引用，FK ON 下 DELETE 配置父表必违约
 --   （首部署空库能过，库一有目标/任务/证据等数据就必挂——CI 历次 deploy 失败即此因）。
+--   故 ci.yml deploy 步经 scripts/deploy-seed-off.mjs 生成本文件的「FK OFF 临时副本」
+--   （D1 连接内 PRAGMA 有效、跨连接无效，故必须文件内 OFF 副本）再重放，
+--   重新插入的配置行主键不变，业务外键引用自然恢复有效；本文件本体保持 ON 不变。
 -- ============================================================
 
-PRAGMA foreign_keys = OFF;
+PRAGMA foreign_keys = ON;
 `;
 
 const sectionRe = /^-- ---- (\w+) \((\d+) 行\) ----$/;
