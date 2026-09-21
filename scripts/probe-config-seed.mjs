@@ -59,4 +59,14 @@ db2: {
   }
   if (!violated) throw new Error('P2 FAIL：POL-Q3 竟然载入成功，行级过滤失去意义，须复查 FK 定义');
 }
+// ---- P3 幂等：同库重放 0002 两次（模拟 deploy 每次 push main 重放），行数不变 ----
+{
+  const configSql = readFileSync(path.join(ROOT, 'db/seed/0002_config.sql'), 'utf8');
+  db.exec(configSql); // 第二次重放（P1 已载过一次）
+  const counts = db.prepare("SELECT (SELECT COUNT(*) FROM dict_item) a, (SELECT COUNT(*) FROM tool_registry) b, (SELECT COUNT(*) FROM run_policy) c").get();
+  if (!(counts.a === 84 && counts.b === 12 && counts.c === 1)) {
+    throw new Error(`P3 FAIL 重放后行数漂移：dict_item=${counts.a} tool_registry=${counts.b} run_policy=${counts.c}`);
+  }
+  console.log(`[P3 OK] 同库重放 0002 幂等：行数不变（dict_item=${counts.a} / tool_registry=${counts.b} / run_policy=${counts.c}）`);
+}
 console.log('[DONE] 0002_config.sql 载入实测通过');

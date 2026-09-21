@@ -18,6 +18,7 @@
 - **配置表整节提取（11 表 / 183 行）**：`dict_type`(26) / `dict_item`(84) / `source_registry`(5) / `tool_registry`(12) / `tool_permission`(24) / `gap_rule`(4) / `context_template`(20) / `agent_profile`(2) / `skill_registry`(2) / `touchpoint`(3) / `run_policy`(1)。
 - **行级过滤**：`run_policy` 仅提取 `goal_id IS NULL` 的**平台级**行——目标级策略（`POL-Q3`）挂在 mock 业务目标 `GOAL-2026Q3-01` 上，属业务数据，灌生产会触发外键违约（`goal_id REFERENCES research_goal(goal_id)`，探针 P2 已实测拦截）。
 - **防漂移**：0002 是 0001 的派生物，改配置须改 0001（或生成器）后重跑提取脚本；`node scripts/extract-config-seed.mjs --check` 比对不一致即 exit 1。
+- **幂等调和**（2026-09-21 补，实测教训）：deploy 每次 push main 都重放本文件，纯 INSERT 第二次必撞主键——文件头部先逆拓扑序（子表在前）DELETE 全部配置行再拓扑序 INSERT，每次部署把配置对齐到声明态；探针 P3 实测同库重放行数不变。配置值变更流程：改 0001 → 重跑提取 → 合 main 即生效。
 
 ## 上游（我来自哪）
 

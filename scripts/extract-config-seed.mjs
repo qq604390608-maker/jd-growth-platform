@@ -67,6 +67,10 @@ const HEADER = `-- ============================================================
 --   生产库仅灌本文件（ci.yml deploy 阶段 d1 execute --remote --file）。
 -- 提取规则：配置表整节 + run_policy 仅平台级（goal_id IS NULL）；
 --   目标级策略（如 POL-Q3）挂在 mock 目标上，属业务数据，不进生产包。
+-- 幂等调和语义：deploy 每次 push main 都会重放本文件，纯 INSERT 第二次必撞主键
+--   （2026-09-21 实测发现）——故文件头部先按「子表在前」的逆拓扑序 DELETE 全部
+--   配置行，再按原拓扑序 INSERT，每次部署将配置表对齐到本文件声明态。
+--   配置值变更：改 0001 配置节 → 重跑提取 → 合 main 即生效，无需手工 UPDATE。
 -- 外键：本包所有行无外键指向 mock 表，可在仅含 schema 的生产库独立载入（FK ON 实测）。
 -- ============================================================
 
@@ -93,8 +97,7 @@ function parseSections(sql) {
 function buildConfigSql(srcSql) {
   const sections = parseSections(srcSql);
   const seen = new Set();
-  const out = [HEADER];
-  const manifest = [];
+  const keptSections = [];
   for (const sec of sections) {
     if (!CONFIG_TABLES.has(sec.table)) continue;
     if (seen.has(sec.table)) throw new Error(`配置表 ${sec.table} 在 0001 中出现多个分节`);
@@ -102,12 +105,23 @@ function buildConfigSql(srcSql) {
     const filter = ROW_FILTERS[sec.table];
     const kept = filter ? sec.lines.filter(filter) : sec.lines;
     if (kept.length === 0) continue; // 全被过滤的表不产空节
-    out.push(`-- ---- ${sec.table} (${kept.length} 行) ----`);
-    out.push(...kept, '');
-    manifest.push({ table: sec.table, declared: sec.declared, kept: kept.length });
+    keptSections.push({ table: sec.table, lines: kept, declared: sec.declared });
   }
   const missing = [...CONFIG_TABLES].filter((t) => !seen.has(t));
   if (missing.length) throw new Error(`0001 中缺少配置表分节：${missing.join(', ')}`);
+
+  const out = [HEADER];
+  // 幂等调和：先逆拓扑序（子表在前）DELETE，避免父表先删触发 FK 拦截
+  out.push('-- ---- 幂等调和 · 逆拓扑序清空配置表（子表在前） ----');
+  for (const { table } of [...keptSections].reverse()) out.push(`DELETE FROM ${table};`);
+  out.push('');
+  // 再按 0001 原拓扑序 INSERT（父表先于子表）
+  const manifest = [];
+  for (const { table, lines, declared } of keptSections) {
+    out.push(`-- ---- ${table} (${lines.length} 行) ----`);
+    out.push(...lines, '');
+    manifest.push({ table, declared, kept: lines.length });
+  }
   return { sql: out.join('\n') + '\n', manifest };
 }
 

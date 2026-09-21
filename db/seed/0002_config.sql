@@ -7,10 +7,27 @@
 --   生产库仅灌本文件（ci.yml deploy 阶段 d1 execute --remote --file）。
 -- 提取规则：配置表整节 + run_policy 仅平台级（goal_id IS NULL）；
 --   目标级策略（如 POL-Q3）挂在 mock 目标上，属业务数据，不进生产包。
+-- 幂等调和语义：deploy 每次 push main 都会重放本文件，纯 INSERT 第二次必撞主键
+--   （2026-09-21 实测发现）——故文件头部先按「子表在前」的逆拓扑序 DELETE 全部
+--   配置行，再按原拓扑序 INSERT，每次部署将配置表对齐到本文件声明态。
+--   配置值变更：改 0001 配置节 → 重跑提取 → 合 main 即生效，无需手工 UPDATE。
 -- 外键：本包所有行无外键指向 mock 表，可在仅含 schema 的生产库独立载入（FK ON 实测）。
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
+
+-- ---- 幂等调和 · 逆拓扑序清空配置表（子表在前） ----
+DELETE FROM tool_permission;
+DELETE FROM skill_registry;
+DELETE FROM run_policy;
+DELETE FROM tool_registry;
+DELETE FROM dict_item;
+DELETE FROM touchpoint;
+DELETE FROM agent_profile;
+DELETE FROM context_template;
+DELETE FROM gap_rule;
+DELETE FROM source_registry;
+DELETE FROM dict_type;
 
 -- ---- dict_type (26 行) ----
 INSERT INTO dict_type (dict_type_code, dict_type_name, used_by_field) VALUES ('GOAL_STATUS', '目标生命周期状态', 'MD-01 goal_status');
