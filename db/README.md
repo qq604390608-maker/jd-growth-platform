@@ -56,6 +56,7 @@
 | 4 | ~~TS-11 / TS-14 的实测结论尚未回填 `tech-stack.md` §8~~ → **已于 2026-09-19 收口**；~~TS-11 策略仍待裁决~~ → **已于 2026-09-20 裁决为「应用层校验」**（见检查单第 3 项），`0001_init.sql` 据此**不写**库级长度 `CHECK`（若日后改裁决库级 `CHECK` 再补迁移） | `tech-stack.md` **v1.2** 已按探针结论改写 §3.1 / §3.2 / §3.3 并更新 §8 的 TS-11 / TS-12 / TS-14；**v1.3** 收口 TS-11 策略裁决 |
 | 5 | `probes/` 的**共享 `probe_` 前缀表**分散在三个子库各建一份 | 三份探针各自 `schema.sql` 独立，若将来需要跨探针联查需另建；当前各自隔离是有意为之（避免约束互相掩盖，见 `probes/README.md` 三条硬要求 3） |
 | 6 | ~~**两张锁定件的「36 张表」交叉引用未同步**~~ → ✅ **已于 2026-09-22 校正（用户授权「走默认」）** | ① `docs/03-locks/tech-stack.md` **v1.5 → v1.6**：§0.2 DS-01 / DS-04 论据、§1 架构图、§2.3 表数行、§12 引用卡四处「36 张表」→ **37 张**（业务表仍 36），选型与平台限制结论未变；旧版归档 `.trash/tech-stack.md-v1.5.md`（SHA 9b418af15732）。② `docs/03-locks/external-deps.md` **v1.3 → v1.4**：§4 D-1 行同改；契约基准 v1 与 §7 全部 21 条结论**未变**（`id_sequence` 是平台自有计数器、不进外部依赖清单）；旧版归档 `.trash/external-deps.md-v1.3.md`（SHA f19e660bcf45）。两份均走了完整改版流程（bump 版本 + 旧版进 `.trash/` + 记 SHA + 同步下游钉版：`db/migrations/README.md` 的 `tech-stack.md` 钉版 v1.5→v1.6、`docs/03-locks/README.md` 状态列同步）。③ `docs/07-decisions/DEC-PACK-001.md` **L384** 引述 D-1 时仍写「36 张表」——该件是**时点决策留档**（记的是 2026-09-19 的裁决语境「Q-03/04/05 都不改变表的数量」），按惯例**不改历史留档**，追溯口径一律以 `schema.md` 现版为准 |
+| 7 | **演示数据重置 SQL 已不可执行（2026-09-22 实测，未擅改）** | `db/ops/2026-09-21-demo-opportunities.sql` 的第 7 句 `DELETE FROM opportunity WHERE goal_id='GOAL-2026Q3-01'` 被**外键拦下**——**F-04 起**机会上会挂 `research` 研究壳（`research.opportunity_id` 外键），而该 SQL 写于研究壳存在之前、未覆盖这张表。**干跑实证**（本地 `node:sqlite` 载真实 DDL + 种子 + 造一条研究壳）：第 7 句即报 `FOREIGN KEY constraint failed`，CI 上 `ops-demo-reset.yml` 因此失败。**未擅自改的原因**：补删除 `research` 就等于**删研究结果**，与 BRD §7「失败不否定结论 / 追问不覆盖原研究」相悖，且该支本就是「一次性演示重置」、其使命已完成（演示数据已落库）。**副作用**：该 workflow 现为红，**线上演示数据未被清**（等于没有执行破坏性清场，反而是安全侧）。**处置建议**：要么退役该 workflow（推荐——演示重置已完成使命），要么改为「只删 discovery 任务痕迹 + 保留全部 `research` 行」的非破坏性版本；**均需用户点头** |
 
 ## 反向（我被谁引用）
 
@@ -67,5 +68,6 @@
 | `probes/README.md` | 子目录枝杈 | ✅ 已登记 |
 | `migrations/README.md` · `seed/README.md` | 子目录枝杈，反向引用本 README 与三份锁定 | ✅ 已建（2026-09-19） |
 | `ops/2026-09-22-id-sequence.sql` | 一次性运维 SQL；其头部反向清单指回本 README（「一次性运维入口清单」） | ✅ 已建（2026-09-22，F-35） |
+| `ops/2026-09-22-id-sequence-verify.sql` | 上一条的**回读校验**（**纯 SELECT**：表已建 + 计数器行数 + 三条命名空间的「库内实际最大」，供人工核对冷路径自愈种子的落点）；走 `--file` 而非 `--command`（与 `ci.yml` 灌配置种子的写法一致） | ✅ 已建（2026-09-22） |
 | `.github/workflows/ops-id-sequence.yml` | 上述 ops SQL 的**唯一执行入口**（按该文件路径精确触发） | ✅ 已建（2026-09-22，F-35） |
 | `server/shared-context/id-sequence.js` · `test-f35.mjs` | 本目录 `migrations/0001_init.sql` 的 CFG-09 DDL 是其**写入面的表结构依据**；用例含「`schema.md` 声明表数 ↔ DDL `CREATE TABLE` 实数」漂移守卫 | ✅ 已建（2026-09-22，F-35） |

@@ -37,12 +37,10 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/ops/2026-09-22-id-sequence.sql -y
+      # 回读校验用 **`--file`** 而非 `--command`：与 `ci.yml` deploy 步灌配置种子的写法一致（已实证可用）。
+      # 校验 SQL 是**纯 SELECT**（无 INSERT / UPDATE / DELETE / DDL），本地已用 node:sqlite 载入真实 DDL + 种子跑通。
       - name: 回读校验（表已建 + 计数器初值 + 三条命名空间的「库内实际最大」，供人工核对自愈种子的落点）
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote -y \
-            --command "SELECT (SELECT COUNT(*) FROM id_sequence) AS counter_rows, (SELECT COUNT(*) FROM task) AS tasks, (SELECT COUNT(*) FROM research) AS researches, (SELECT COUNT(*) FROM opportunity) AS opportunities"
-          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote -y \
-            --command "SELECT MAX(CAST(substr(task_id, 3) AS INTEGER)) AS task_max FROM task WHERE task_id GLOB 'T-[0-9]*'"
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/ops/2026-09-22-id-sequence-verify.sql -y
