@@ -11,7 +11,7 @@
  *   ｜ ./recovery.js（F-06 本体，复用 F-26 task-state.js 写入面）｜ ../tool-executor/task-state.js（F-26 写入面）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-06 用例并断言。
  * 硬红线：本地内存库，**零真实外部调用、零生产写**（写只写本地内存库的 PD-01 / PD-03）；
- *   **demo 数值一律不进断言**，只断字段形态、映射语义、字典值域、状态跃迁与「失败不否定结论」不变量。
+ *   **数值以契约基准 v1（ADR-004）为准**，只断字段形态、映射语义、字典值域、状态跃迁与「失败不否定结论」不变量。
  * 边界：只验 F-06；F-26 阻断口径一致性由 test-f26.mjs 覆盖（本执行器仅复用其写入面并校验 FK 反例）。
  * 反向清单：登记 ./README.md 与本目录 README.md；被 CI `validate` 步骤复用（`node server/task-runner/test-f06.mjs`）。
  *

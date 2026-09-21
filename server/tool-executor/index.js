@@ -34,9 +34,12 @@
  *   逐次尝试的证据面留在信封 `attempts[]`）；EXT-01 无承载「限制」的字段，四要素之「限制」仍在信封里
  *   （schema §12 **Q-10 方向②**）；`EXT-02 evidence` 提炼归 F-09；**任务调度/Queues 重投递与完整状态机归 M1 F-06（阶段3）**，
  *   本模块只按共用口径写任务态；传输、超时、错误码映射五项协议面在 `./mcp-client.js`，**那一个文件零 SQL、零写**。
- * 门禁状态：`external-deps.md` §7 的 T-01/T-02/T-05 未关闭——`tool_code` 为 demo 占位（`*` 后缀），
- *   **demo 值不进断言**；**T-06（HJE/PIM/MKT 失败语义）未关闭 → F-26 的 `TC-I-M5-004` 按 stub/mock 打桩、不设为发布门禁**；
- *   TS-10 已于 2026-09-21 收口（Free 池 qwen3-30b 默认），本模块模型选型已锁死于 `llm-client.js` 的 `MODELS`；TS-22（MCP 协议版本）未决，协议细节仍取决于 T-01/T-02 真实契约。
+ * 门禁状态：**已随 ADR-004（2026-09-21）收口为契约基准 v1**（`external-deps.md` v1.3 §7）——T-01/T-02/T-05
+ *   自答回填，`tool_code` 由 demo 占位转正为基准 v1 自拟值（可进断言，断言文案标注基准版本）；
+ *   **T-06 失败三形已定**（超时重试 / 403 受限不重试 / 空与不可算落 ok，`QUERY_STATUS` 不扩域），
+ *   F-26 的 `TC-I-M5-004` 不再依赖「未关闭不设门禁」豁免；T-22（MCP 协议）＝DS-06 五面实现冻结
+ *   （`mcp-client.js` `contract: baseline-v1`）；TS-10 已收口（Free 池 qwen3-30b 默认，选型锁死于
+ *   `llm-client.js` 的 `MODELS`）；tech-stack TS-22（凭证）在基准 v1 下 mock 无凭证需求。
  *
  * 反向清单：被 `../api/index.js`（F-23 路由 / F-24 路由 / **F-25 路由** / **F-26 路由**）与后续 `../agent-orchestrator`
  *   （调用前先查权限；M3/M4 发起真实查询并落痕；失败/受限后消费任务态处置结果）引用；`./mcp-client.js`（F-24 传输层）

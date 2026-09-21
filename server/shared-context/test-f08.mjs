@@ -8,7 +8,7 @@
  *   ｜ `../../db/seed/0001_mock.sql`（CFG-01 五来源种子，用于「种子齐全」正例）
  *   ｜ `./index.js`（被测模块）
  * 职责：以 `node:sqlite`（Node 内置）建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-08 用例并断言。
- * 硬红线：仅本地内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构与语义，不断言 3.2 万行等 demo 值）。
+ * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构与语义，不断言 3.2 万行等基准 v1 自拟值）。
  * 反向清单：登记 `../README.md`；被 CI `validate` 步骤复用（`node server/shared-context/test-f08.mjs`）。
  *
  * 用法：node server/shared-context/test-f08.mjs

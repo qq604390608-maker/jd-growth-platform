@@ -9,7 +9,7 @@
  *   ｜ ../../agent-runtime/hva/agent.md / ../../agent-runtime/business-rules.md（**本体**，逐条对齐断言）
  *   ｜ ./role.js（F-18 本体）｜ ./profile.js（**F-13 读面**）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-18 用例并断言。
- * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**demo 数值一律不进断言**，只断结构与语义
+ * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**数值以契约基准 v1（ADR-004）为准**，只断结构与语义
  *   （版本串取自种子、断言其与种子一致而非自造数值）。
  * 边界：只验 F-18（装载 + 结束条件 + 假设性质 + 输出边界扫描）；F-19~F-22 不在本执行器。
  * 反向清单：登记 ./README.md 与 ../../README.md；被 CI `validate` 步骤复用（node server/agent-orchestrator/test-f18.mjs）。

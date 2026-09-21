@@ -2,8 +2,9 @@
 // prototype/mock/scenarios.js
 // 9 类 mock 响应（external-deps.md §6：7 类行为 + 超时失败 + 执行中）
 //
-// ⚠️ 红线：所有 data 内数值均为 demo 占位（对应 external-deps §7 T-01/T-02/T-05 未关闭），
-//    不得进任何断言（见 test-M5 §4 待桩说明、dev-plan 阶段0 依赖前序）。
+// 📌 口径（ADR-004，2026-09-21）：所有 data 内数值均为**契约基准 v1 自拟值**（`external-deps.md`
+//    v1.3 §7 自答回填冻结），**可进断言**（断言文案标注基准版本）；真对接方出现时经 ADR 修订
+//    （bump 基准 v2）整体替换，不直接改值。
 // 每个响应体均含 EXT-01 可映射字段：result_status / result_summary / returned_rows /
 // fail_reason / retry_count / restricted_flag（见 §6 统一约定）。
 

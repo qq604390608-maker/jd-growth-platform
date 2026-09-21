@@ -12,7 +12,7 @@
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-19 用例并断言。
  * 夹具：用 F-03 `submitProposal` 造真实研究建议（**依赖前序**），用 F-04 `createHvaResearchTask` 造真实任务链
  *   （任务 + LNK-04 锚点 + CFG-06 `hva_research` 模板落 PD-06）——不手工拼任务行。
- * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**demo 数值不进断言**，只断结构与语义。
+ * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**数值以契约基准 v1（ADR-004）为准**，只断结构与语义。
  * 边界：只验 F-19（适合性判断 + 三分支路由 + 比较条件 + 查证顺序 + 薄读注入清单）；F-20~F-22 不在本执行器。
  * 反向清单：登记 ./README.md 与 ../../README.md；被 CI `validate` 步骤复用（node server/agent-orchestrator/test-f19.mjs）。
  *

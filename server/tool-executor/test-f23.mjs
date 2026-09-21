@@ -11,7 +11,7 @@
  *   ｜ `../../db/seed/0001_mock.sql`（CFG-02 12 行 / CFG-03 24 行 / CFG-05 4 行 / CFG-01 5 行：ACT=degraded+mcp_ready=0）
  *   ｜ `./index.js`（被测模块）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-23 用例并断言。
- * 硬红线：仅本地内存库，零外部调用、零生产写；**demo 值不进断言**（只断结构与语义，不断言具体响应数值）。
+ * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构与语义，不断言具体响应数值）。
  * 门禁：`external-deps.md` §7 未关——带 `*` 的 `tool_code` 为 demo 占位，本执行器**不把任何 demo 数值写进断言**。
  * 边界：只验 F-23；真实调用（F-24）、`EXT-01` 落痕（F-25）、重试与暂停（F-26）不在本执行器范围。
  * 反向清单：登记 `../README.md` 与本目录 `README.md`；被 CI `validate` 步骤复用（`node server/tool-executor/test-f23.mjs`）。
@@ -107,7 +107,7 @@ console.log("TC-D-M5-001 · CFG-02 tool_registry：重复 tool_id / tool_code（
   assert(badFk.success === false && /FOREIGN/i.test(badFk.error), "反④：source_id 不存在被 FK 拒绝");
 }
 
-console.log("TC-D-M5-001 · 正：12 工具（TOL-01~12）种子齐全（demo 名不进断言，只断数量与归属）");
+console.log("TC-D-M5-001 · 正：12 工具（TOL-01~12）种子齐全（工具名以契约基准 v1（ADR-004）为准，只断数量与归属）");
 {
   const { db } = freshDb();
   const tools = await listTools(db);

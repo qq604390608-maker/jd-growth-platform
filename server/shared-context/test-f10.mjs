@@ -12,7 +12,7 @@
  *   ｜ `../../db/seed/0001_mock.sql`（MD-06 8 条 / PD-05 4 条 / LNK-01 10 条 / LNK-03 2 条）
  *   ｜ `./index.js`（被测模块）
  * 职责：以 `node:sqlite`（Node 内置）建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-10 用例并断言。
- * 硬红线：仅本地内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构与语义，不断言 38.2% / 52 万等 demo 值）。
+ * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构与语义，不断言 38.2% / 52 万等基准 v1 自拟值）。
  * 标注：`goal_version_no` 是数值列（`CHECK (goal_version_no >= 1)`），**空串对它无意义**——
  *   故 TC-D-M2-004 的「空串拒」在**五个文本六要素字段**上验（`goal_id` 除外：它同时是 FK，
  *   本执行器另以 `target_object` / `phenomenon` / `initial_basis_note` / `research_reason` + `goal_id` 全覆盖），

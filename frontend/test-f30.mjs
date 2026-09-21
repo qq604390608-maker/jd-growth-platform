@@ -21,7 +21,7 @@
  * 职责：用 jsdom 加载**真实页面**（内联 `<script src>`，走真实 `DOMContentLoaded` → `pageInit` 链路），
  *       把 `window.fetch` 接到**真实 Worker + 真实 D1（node:sqlite 适配层，载真实 DDL/种子）**，
  *       实跑 F-30 用例并断言。
- * 硬红线：仅本机内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构、语义与「前后端分离」）。
+ * 硬红线：仅本机内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构、语义与「前后端分离」）。
  * 边界：本执行器只验 F-30；F-27/F-28/F-29 与 F-31~F-32 各自的执行器覆盖。静态扫描一律**先 strip 注释**
  *       （本文件自身的文档卡里就出现 `frontend`、`fetch` 等被扫词，不 strip 会自伤）。
  * 反向清单：登记 `./README.md`；被 `.github/workflows/ci.yml` 的 `validate` 步骤复用

@@ -18,7 +18,7 @@
  *       ② **M1 F-05 真实调用链**——F-03 `submitProposal` → F-04 `createHvaResearchTask` → F-11 `createResearch`
  *          → F-21 `saveResearchReport`（造出带发现与证据关联的 done 研究）→ F-05 `createFollowupTask`
  *          （产 `hva_followup` 任务 + 带 `parent_research_no` 的新研究壳）——**建行全归上游功能点，F-22 不复制**。
- * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡语义判断）；**demo 数值不进断言**，只断结构与语义。
+ * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡语义判断）；**数值以契约基准 v1（ADR-004）为准**，只断结构与语义。
  * 边界：只验 F-22（承接 + 依据复用判定 + 版本口径 + 新一轮入口）；不验 S-B1~S-B4 的执行（F-19/F-20/F-21 各自用例负责）。
  * 反向清单：登记 ./README.md 与 ../../README.md；被 CI `validate` 步骤复用（node server/agent-orchestrator/test-f22.mjs）。
  *

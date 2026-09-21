@@ -15,7 +15,7 @@
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-20 用例并断言。
  * 夹具：用 F-03 `submitProposal` + F-04 `createHvaResearchTask` 造**真实任务链**（不手工拼任务行）；
  *   M5 查询链路用**注入式 transport**（复用 `prototype/mock/scenarios.js`）+ 自造授权（不复用种子长期授权）。
- * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**demo 数值不进断言**，只断结构与语义。
+ * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**数值以契约基准 v1（ADR-004）为准**，只断结构与语义。
  * 边界：只验 F-20（入池筛选 + 人群可比性 + 五查 + 缺比较条件守卫 + 候选行为落库）；F-21/F-22 不在本执行器。
  * 反向清单：登记 ./README.md 与 ../../README.md；被 CI `validate` 步骤复用（node server/agent-orchestrator/test-f20.mjs）。
  *

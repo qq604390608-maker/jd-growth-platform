@@ -9,7 +9,7 @@
  * 职责：实测 ① 频率→最小间隔（daily / daily_multi / hourly / weekly）；
  *       ② 到期矩阵（无任务→建；未到间隔→跳；已过间隔→建；archived 目标不参与；无策略跳过）；
  *       ③ queue handler 消费 `{task_id, step_no}` → `delegateToAgent` 契约占位 + ack。
- * 硬红线：本地内存库（`node:sqlite` 载真实 DDL + 种子），零外部调用、零生产写；**demo 数值不进断言**。
+ * 硬红线：本地内存库（`node:sqlite` 载真实 DDL + 种子），零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**。
  * 边界：F-02 建任务语义 / F-26 步骤语义归各自执行器，本用例只验入口装配与判定矩阵。
  * 反向清单：登记 `../README.md` 与 `./README.md`；被 CI `validate` 步骤复用（`node server/task-runner/test-ts20.mjs`）。
  *

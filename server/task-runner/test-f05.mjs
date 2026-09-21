@@ -12,7 +12,7 @@
  *   ｜ `../../prototype/pages/tasks.html`（**`TYPE_STEPS.hva_followup` 5 步，钉死需求**）
  *   ｜ `./followup.js`（被测模块）｜`./hva.js`（HVA 权限读取面）｜`./step-plan.js`（任务骨架）｜`./schedule.js`（enqueue/Agent 守卫）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-05 用例并断言。
- * 硬红线：仅本地内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构、语义、字典值与平台口径）。
+ * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构、语义、字典值与平台口径）。
  * 边界：本执行器只验 F-05；F-02/F-03/F-04/F-06 各自执行器覆盖。
  * 反向清单：登记 `./README.md` 与 `../README.md`；被 CI `validate` 步骤复用（`node server/task-runner/test-f05.mjs`）。
  *

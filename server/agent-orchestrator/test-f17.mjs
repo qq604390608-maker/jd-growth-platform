@@ -11,7 +11,7 @@
  *   ｜ ../task-runner/proposal.js（F-03 `submitProposal`——本用例用它**造人工节点产物** fixture）
  *   ｜ ./handoff.js（F-17 本体）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-17 用例并断言。
- * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**demo 数值一律不进断言**——
+ * 硬红线：本地内存库，**零真实外部调用、零 LLM 调用**（A-1 门禁只挡推理）；**数值以契约基准 v1（ADR-004）为准**——
  *   只断「人工节点守卫以 MD-12 实行为准（不看机会状态）/ 四要素透传 / 不自动交接 / 不建 M4 任务」等结构性事实。
  * 边界：只验 F-17 的衔接守卫与交接物组装；M4（F-18~F-22）归阶段4 后半，本文件**不触发**。
  * 反向清单：登记 ../agent-orchestrator/README.md 与 ../../server/README.md；被 CI `validate` 复用（node server/agent-orchestrator/test-f17.mjs）。

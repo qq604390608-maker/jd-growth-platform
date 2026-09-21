@@ -28,7 +28,7 @@
  *   ③ **零写语句**：本文件不含任何 `INSERT` / `UPDATE` / `DELETE`；
  *      EXT-01 落痕由 M5 的 `runQueryWithRecovery` 承接，EXT-02 证据由 F-09 `createEvidence` 承接（**单一写入面复用**）。
  *   ④ 不复制中文枚举：口径规则来自库内 CFG-05（`is_active=1`），不内联业务字典。
- * 边界（mock/demo 推进，demo 值不进断言）：真实推理（把自然语言线索转成待查指标＋范围）须 LLM（`external-deps` A-1 ⬜ 未提供），
+ * 边界（mock/demo 推进；数值口径依契约基准 v1 · ADR-004）：真实推理（把自然语言线索转成待查指标＋范围）须 LLM（`external-deps` A-1 ⬜ 未提供），
  *   本文件提供**确定性编排**并在门禁关闭前只用**注入返回体**（transport 注入）验证结构契约；TC-A-M3-002 的真实产出契约登记为「门禁未关闭、非发布门禁」。
  * 反向清单：登记 `./README.md` 与 `../../server/README.md`；被 CI `validate` 步骤复用（node server/agent-orchestrator/test-f15.mjs）。
  *

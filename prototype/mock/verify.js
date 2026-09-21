@@ -1,5 +1,5 @@
 'use strict';
-// prototype/mock/verify.js — mock server 自检（demo 值不进断言）
+// prototype/mock/verify.js — mock server 自检（数值口径依契约基准 v1 · ADR-004）
 //
 // 启动 index.js，逐 9 类请求，断言「可映射 EXT-01 六字段 + 行为语义正确」。
 // 只断言结构与行为语义，不断言任何 demo 数值（红线）。
@@ -78,7 +78,7 @@ async function main() {
   assert(def.status === 'ok' && def.result_status === 'ok', '默认须返回 ok 响应');
 
   // eslint-disable-next-line no-console
-  console.log(`VERIFY PASS: ${behaviors.length} 类响应均可映射 EXT-01 六字段 + 行为语义正确（demo 值未进断言）`);
+  console.log(`VERIFY PASS: ${behaviors.length} 类响应均可映射 EXT-01 六字段 + 行为语义正确（数值口径依契约基准 v1）`);
 }
 
 const child = spawn(process.execPath, [path.join(__dirname, 'index.js')], {

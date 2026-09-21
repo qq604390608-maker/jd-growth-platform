@@ -12,7 +12,7 @@
  *   ｜ `./index.js`（F-24 编排）｜ `./mcp-client.js`（F-24 传输层，五项协议面）
  * 职责：以 `node:sqlite` 建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-24 用例并断言。
  * 硬红线：本地内存库 + 注入式 transport，**零真实外部调用、零生产写**；
- *   **demo 数值（activity_count=37 等）一律不进断言**，只断字段形态、映射语义与字典值域。
+ *   **activity_count=37 等数值为契约基准 v1 自拟值（ADR-004，可进断言并标注基准版本）**，只断字段形态、映射语义与字典值域。
  * 边界：只验 F-24；`EXT-01` 落痕（F-25）、重试与暂停（F-26）不在本执行器范围。
  * 反向清单：登记 `../README.md` 与本目录 `README.md`；被 CI `validate` 步骤复用（`node server/tool-executor/test-f24.mjs`）。
  *

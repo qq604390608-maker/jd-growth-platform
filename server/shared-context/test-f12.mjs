@@ -17,7 +17,7 @@
  *        `task` 7 行，其中 T-1022=discovery、T-1023=hva_followup；MD-12 `research_proposal` 种子为空）
  *   ｜ `./index.js`（被测模块）
  * 职责：以 `node:sqlite`（Node 内置）建 D1 兼容适配层，载入真实 DDL + 种子，实跑 F-12 用例并断言。
- * 硬红线：仅本地内存库，零外部调用、零生产写；**demo 数值不进断言**（只断结构与语义）。
+ * 硬红线：仅本地内存库，零外部调用、零生产写；**数值以契约基准 v1（ADR-004）为准**（只断结构与语义）。
  * 边界：本执行器只验 F-12；LNK-04 `task_object` 的**写入**归 M1 task-runner，此处只读其锚点并断言库级复合 UK。
  * 反向清单：登记 `../README.md`；被 CI `validate` 步骤复用（`node server/shared-context/test-f12.mjs`）。
  *
