@@ -75,10 +75,13 @@ node scripts/ref-check.mjs
 | 探针 | 位置 | 跑法 |
 | ---- | ---- | ---- |
 | D1 外键行为 | `db/probes/fk/` | 本地 `wrangler d1 execute --local`；远程见该 README §5b（R1~R6） |
-| D1 类型/长度 | `db/probes/type/` | 同上（**仍限 `--local`，线上复测待部署后**） |
+| D1 类型/长度 | `db/probes/type/` | 本地 `wrangler d1 execute --local`；远程已实测（2026-09-21，`run-remote-rest.mjs` REST 通道，147/148 步一致，见该 README §5b） |
+| D1 中文排序 | `db/probes/collation/` | 本地 `wrangler d1 execute --local`；远程已实测（2026-09-21，同通道，6 组逐字节一致，见该 README §7） |
 | 模型选型 | `server/probes/model-selection/` | `CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_API_TOKEN=… node run-rest.mjs raw/<日期>.json [模型键]`；`PROBE_MAX_TOKENS=4096` 可放开输出预算对照；TS-10 已收口，原候选池仅留 Paid 升级后对比复跑 |
 
 ## 6. 部署上线（门禁 B，均需人工前置动作）
+
+> **已就绪的账号侧前置（2026-09-21）**：workers.dev 子域名 **`dongzhuo.workers.dev` 已注册**（`wrangler deploy` 的硬前置，走 API `PUT /accounts/{id}/workers/subdomain`）；远程 D1 `jd-growth-platform`（业务库）已实建，`database_id` 已入 `wrangler.toml`。账号当前零 worker。
 
 1. `git remote add origin <远程地址>` → `git push -u origin main`（触发 `.github/workflows/ci.yml`）；
 2. GitHub `Settings → Secrets and variables → Actions` 配 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`（凭证只经 Secrets，绝不入仓）；
@@ -89,6 +92,7 @@ node scripts/ref-check.mjs
 
 | 事项 | 事实 | 处置 |
 | ---- | ---- | ---- |
+| `*.workers.dev` 本机不可达 | 大陆网络对 workers.dev 封锁（`api.cloudflare.com` 可达，workers.dev 连接被重置） | 部署后本机 curl 冒烟验证走不通：用业务域路由，或经代理访问；探针类验证可用「worker 源码 + D1 REST `/query` 垫片」通道（见 `db/probes/type/run-remote-rest.mjs` 范式） |
 | Workers AI Free 限流 | Free 计划有每日额度，超限返回 `429` 并附重置时间（UTC+8） | 等重置或切其他 Free 模型；生产高峰限流是 Free 唯一代价（TS-10 收口裁决已接受） |
 | wrangler 首次下载 | 不带 `-y` 会卡交互确认 | 一律 `npx -y wrangler@4.135.0` |
 | 远程无 SQL 事务 | `BEGIN` 禁用（code 7500） | 批量写靠单次 execute 批次的原子性；跨语句一致性靠排序（§3） |
