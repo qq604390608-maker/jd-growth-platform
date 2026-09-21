@@ -1,0 +1,5047 @@
+{
+  "note": "原样执行记录，不做结论",
+  "groups": {
+    "g0": {
+      "group": "g0",
+      "title": "引擎事实（不属 T-11 结论，仅作前提）",
+      "steps": [
+        {
+          "label": "SQLite 引擎版本",
+          "sql": "SELECT sqlite_version() AS sqlite_version",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: not authorized to use function: sqlite_version at offset 7: SQLITE_ERROR (code 7500)"
+        },
+        {
+          "label": "可用排序规则清单",
+          "sql": "PRAGMA collation_list",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: not authorized: SQLITE_AUTH (code 7500)"
+        },
+        {
+          "label": "编译选项",
+          "sql": "PRAGMA compile_options",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: not authorized: SQLITE_AUTH (code 7500)"
+        },
+        {
+          "label": "探针表 probe_type 的原样声明（declared type 是否被改写）",
+          "sql": "PRAGMA table_info(probe_type)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 0,
+              "name": "row_id",
+              "type": "INTEGER",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 1
+            },
+            {
+              "cid": 1,
+              "name": "tag",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 2,
+              "name": "c_v24",
+              "type": "varchar(24)",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 3,
+              "name": "c_v200",
+              "type": "varchar(200)",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 4,
+              "name": "c_text",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 5,
+              "name": "c_dt",
+              "type": "datetime",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 6,
+              "name": "c_int",
+              "type": "INT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 7,
+              "name": "c_tiny",
+              "type": "tinyint",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 8,
+              "name": "c_big",
+              "type": "bigint",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 9,
+              "name": "c_int2",
+              "type": "INTEGER",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 10,
+              "name": "c_real",
+              "type": "REAL",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 11,
+              "name": "c_bool",
+              "type": "boolean",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.6247
+            },
+            "duration": 0.6247,
+            "changes": 0,
+            "last_row_id": 0,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "探针表 probe_dt 的原样声明",
+          "sql": "PRAGMA table_info(probe_dt)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 0,
+              "name": "pid",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 1
+            },
+            {
+              "cid": 1,
+              "name": "grp",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 2,
+              "name": "local_txt",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 3,
+              "name": "utc_txt",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 4,
+              "name": "dt_col",
+              "type": "datetime",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.5852
+            },
+            "duration": 0.5852,
+            "changes": 0,
+            "last_row_id": 0,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "探针表 probe_check 的原样声明",
+          "sql": "PRAGMA table_info(probe_check)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 0,
+              "name": "id",
+              "type": "INTEGER",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 1
+            },
+            {
+              "cid": 1,
+              "name": "tag",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 2,
+              "name": "code",
+              "type": "varchar(24)",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 3,
+              "name": "opt",
+              "type": "varchar(24)",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 4,
+              "name": "kind",
+              "type": "TEXT",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            },
+            {
+              "cid": 5,
+              "name": "ts",
+              "type": "datetime",
+              "notnull": 0,
+              "dflt_value": null,
+              "pk": 0
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3112
+            },
+            "duration": 0.3112,
+            "changes": 0,
+            "last_row_id": 0,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "length() 对中文：字符 vs 字节",
+          "sql": "SELECT length('中') AS chars, length(cast('中' as blob)) AS bytes, hex('中') AS hex",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "chars": 1,
+              "bytes": 3,
+              "hex": "E4B8AD"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4381
+            },
+            "duration": 0.4381,
+            "changes": 0,
+            "last_row_id": 0,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g1": {
+      "group": "g1",
+      "title": "item1：varchar(24) 存入 200 字符 —— 是否截断 / 报错 / 读回长度",
+      "steps": [
+        {
+          "label": "① varchar(24) 写入 200 字符",
+          "sql": "INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len200"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.369
+            },
+            "duration": 0.369,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "② 读回：字符数 / 字节数 / 存储类 / 首尾各 5 字符（尾部完整=未截断）",
+          "sql": "SELECT tag, length(c_v24) AS chars, length(cast(c_v24 AS blob)) AS bytes, typeof(c_v24) AS storage_class, substr(c_v24,1,5) AS head, substr(c_v24,-5) AS tail FROM probe_type WHERE tag = ?",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len200"
+            }
+          ],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "len200",
+              "chars": 200,
+              "bytes": 200,
+              "storage_class": "text",
+              "head": "xxxxx",
+              "tail": "xxxxx"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.298
+            },
+            "duration": 0.298,
+            "changes": 0,
+            "last_row_id": 1,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 1,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "③ varchar(200) 写入 300 字符",
+          "sql": "INSERT INTO probe_type (tag, c_v200) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len300"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2835
+            },
+            "duration": 0.2835,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "④ 读回 varchar(200) 列",
+          "sql": "SELECT tag, length(c_v200) AS chars, typeof(c_v200) AS storage_class FROM probe_type WHERE tag = ?",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len300"
+            }
+          ],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "len300",
+              "chars": 300,
+              "storage_class": "text"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3612
+            },
+            "duration": 0.3612,
+            "changes": 0,
+            "last_row_id": 2,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 2,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑤ varchar(24) 写入恰好 24 字符（边界值）",
+          "sql": "INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len24"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3059
+            },
+            "duration": 0.3059,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑥ varchar(24) 写入 30 个中文字符（30 字符 / 90 字节）",
+          "sql": "INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "cn30"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中中中中中中中中中中中中中中中中中中中中中中中"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2814
+            },
+            "duration": 0.2814,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑦ 读回中文行：字符数 / 字节数",
+          "sql": "SELECT tag, length(c_v24) AS chars, length(cast(c_v24 AS blob)) AS bytes, typeof(c_v24) AS storage_class FROM probe_type WHERE tag = ?",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "cn30"
+            }
+          ],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "cn30",
+              "chars": 30,
+              "bytes": 90,
+              "storage_class": "text"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4147
+            },
+            "duration": 0.4147,
+            "changes": 0,
+            "last_row_id": 4,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑧ 统计：有多少行实际超出声明长度 24",
+          "sql": "SELECT count(*) AS rows_over_24 FROM probe_type WHERE c_v24 IS NOT NULL AND length(c_v24) > 24",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "rows_over_24": 2
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3159
+            },
+            "duration": 0.3159,
+            "changes": 0,
+            "last_row_id": 4,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑨ 对同一列做 MIN/MAX 长度：声明长度与实存长度是否脱钩",
+          "sql": "SELECT min(length(c_v24)) AS min_chars, max(length(c_v24)) AS max_chars FROM probe_type WHERE c_v24 IS NOT NULL",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "min_chars": 24,
+              "max_chars": 200
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.272
+            },
+            "duration": 0.272,
+            "changes": 0,
+            "last_row_id": 4,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g2": {
+      "group": "g2",
+      "title": "item2：空串 vs NULL 是否可区分；NOT NULL 与 UNIQUE 遇二者的行为",
+      "steps": [
+        {
+          "label": "① NOT NULL 列写入空串（应成功）",
+          "sql": "INSERT INTO probe_nn (tag, c_nn, c_u) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "empty_str"
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.7352
+            },
+            "duration": 0.7352,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "② NOT NULL 列缺省写入（应报 NOT NULL）",
+          "sql": "INSERT INTO probe_nn (tag, c_u) VALUES ('nn_missing', NULL)",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: NOT NULL constraint failed: probe_nn.c_nn: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_NOTNULL) (code 7500)"
+        },
+        {
+          "label": "③ UNIQUE 列再写一个空串（应报 UNIQUE）",
+          "sql": "INSERT INTO probe_nn (tag, c_nn, c_u) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "empty_str_2"
+            },
+            {
+              "jsType": "string",
+              "value": "b"
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: UNIQUE constraint failed: probe_nn.c_u: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE) (code 7500)"
+        },
+        {
+          "label": "④ UNIQUE 列写 NULL 两次（预期均成功：NULL 互不相等）",
+          "sql": "INSERT INTO probe_nn (tag, c_nn, c_u) VALUES (?, ?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "null_1"
+            },
+            {
+              "jsType": "string",
+              "value": "c"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2745
+            },
+            "duration": 0.2745,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑤ UNIQUE 列写 NULL 第三次",
+          "sql": "INSERT INTO probe_nn (tag, c_nn, c_u) VALUES (?, ?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "null_2"
+            },
+            {
+              "jsType": "string",
+              "value": "d"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2008
+            },
+            "duration": 0.2008,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑥ 逐行读回：IS NULL 判定 / length / typeof / quote（原样）",
+          "sql": "SELECT id, tag, c_nn, c_nn IS NULL AS is_null, length(c_nn) AS len, typeof(c_nn) AS cls, quote(c_nn) AS quoted FROM probe_nn ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "empty_str",
+              "c_nn": "",
+              "is_null": 0,
+              "len": 0,
+              "cls": "text",
+              "quoted": "''"
+            },
+            {
+              "id": 2,
+              "tag": "null_1",
+              "c_nn": "c",
+              "is_null": 0,
+              "len": 1,
+              "cls": "text",
+              "quoted": "'c'"
+            },
+            {
+              "id": 3,
+              "tag": "null_2",
+              "c_nn": "d",
+              "is_null": 0,
+              "len": 1,
+              "cls": "text",
+              "quoted": "'d'"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4608
+            },
+            "duration": 0.4608,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑦ 空串行能否被 IS NULL 命中（期望 0 行）",
+          "sql": "SELECT count(*) AS cnt FROM probe_nn WHERE c_nn IS NULL",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt": 0
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3645
+            },
+            "duration": 0.3645,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑧ 空串行能否被 = '' 命中（期望 1 行）",
+          "sql": "SELECT count(*) AS cnt, group_concat(tag, ',') AS tags FROM probe_nn WHERE c_nn = ''",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt": 1,
+              "tags": "empty_str"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.7443
+            },
+            "duration": 0.7443,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑨ 用 length()=0 能否找到空串（期望 1 行）",
+          "sql": "SELECT count(*) AS cnt FROM probe_nn WHERE length(c_nn) = 0",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt": 1
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3083
+            },
+            "duration": 0.3083,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑩ c_u 列中 NULL 的行数",
+          "sql": "SELECT count(*) AS cnt_null FROM probe_nn WHERE c_u IS NULL",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt_null": 2
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.296
+            },
+            "duration": 0.296,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "⑪ c_u 列中空串的行数",
+          "sql": "SELECT count(*) AS cnt_empty FROM probe_nn WHERE c_u = ''",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt_empty": 1
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2978
+            },
+            "duration": 0.2978,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 1,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g3": {
+      "group": "g3",
+      "title": "item3：datetime 落 TEXT(ISO8601 UTC) 后字符串排序是否等于时间排序",
+      "steps": [
+        {
+          "label": "写入样本 a1（TZ）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "a1"
+            },
+            {
+              "jsType": "string",
+              "value": "TZ"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-03-01T00:30:00+08:00"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-28T16:30:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-28T16:30:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4049
+            },
+            "duration": 0.4049,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 a2（TZ）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "a2"
+            },
+            {
+              "jsType": "string",
+              "value": "TZ"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-28T20:00:00-05:00"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-03-01T01:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-03-01T01:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2487
+            },
+            "duration": 0.2487,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 b1（MONTH）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "b1"
+            },
+            {
+              "jsType": "string",
+              "value": "MONTH"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-01-31T23:59:59Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-01-31T23:59:59Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-01-31T23:59:59Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3889
+            },
+            "duration": 0.3889,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 b2（MONTH）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "b2"
+            },
+            {
+              "jsType": "string",
+              "value": "MONTH"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-01T00:00:01Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-01T00:00:01Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-02-01T00:00:01Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2791
+            },
+            "duration": 0.2791,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 c1（LEAP）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "c1"
+            },
+            {
+              "jsType": "string",
+              "value": "LEAP"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-29T23:59:59Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-29T23:59:59Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-29T23:59:59Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3176
+            },
+            "duration": 0.3176,
+            "changes": 1,
+            "last_row_id": 5,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 c2（LEAP）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "c2"
+            },
+            {
+              "jsType": "string",
+              "value": "LEAP"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-03-01T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-03-01T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-03-01T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2948
+            },
+            "duration": 0.2948,
+            "changes": 1,
+            "last_row_id": 6,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 c3（LEAP）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "c3"
+            },
+            {
+              "jsType": "string",
+              "value": "LEAP"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-28T12:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-28T12:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2024-02-28T12:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2576
+            },
+            "duration": 0.2576,
+            "changes": 1,
+            "last_row_id": 7,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 p1（PAD）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "p1"
+            },
+            {
+              "jsType": "string",
+              "value": "PAD"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-9-18T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-9-18T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-9-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4641
+            },
+            "duration": 0.4641,
+            "changes": 1,
+            "last_row_id": 8,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入样本 p2（PAD）",
+          "sql": "INSERT INTO probe_dt (pid, grp, local_txt, utc_txt, dt_col) VALUES (?, ?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "p2"
+            },
+            {
+              "jsType": "string",
+              "value": "PAD"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-10-01T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-10-01T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-10-01T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3005
+            },
+            "duration": 0.3005,
+            "changes": 1,
+            "last_row_id": 9,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入 m1：ISO 字符串",
+          "sql": "INSERT INTO probe_dt (pid, grp, utc_txt, dt_col) VALUES (?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "m1"
+            },
+            {
+              "jsType": "string",
+              "value": "MIX"
+            },
+            {
+              "jsType": "string",
+              "value": "2025-09-18T00:00:00Z"
+            },
+            {
+              "jsType": "string",
+              "value": "2025-09-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2611
+            },
+            "duration": 0.2611,
+            "changes": 1,
+            "last_row_id": 10,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入 m2：纯数字串 20260918120000",
+          "sql": "INSERT INTO probe_dt (pid, grp, utc_txt, dt_col) VALUES (?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "m2"
+            },
+            {
+              "jsType": "string",
+              "value": "MIX"
+            },
+            {
+              "jsType": "string",
+              "value": "20260918120000"
+            },
+            {
+              "jsType": "string",
+              "value": "20260918120000"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2728
+            },
+            "duration": 0.2728,
+            "changes": 1,
+            "last_row_id": 11,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入 m3：JS number 绑定（epoch 毫秒）",
+          "sql": "INSERT INTO probe_dt (pid, grp, utc_txt, dt_col) VALUES (?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "m3"
+            },
+            {
+              "jsType": "string",
+              "value": "MIX"
+            },
+            {
+              "jsType": "string",
+              "value": "1758200000000"
+            },
+            {
+              "jsType": "number",
+              "value": 1758200000000
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3184
+            },
+            "duration": 0.3184,
+            "changes": 1,
+            "last_row_id": 12,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "datetime 声明列的存储类（ISO 串是否原样落 TEXT）",
+          "sql": "SELECT pid, grp, dt_col, typeof(dt_col) AS storage_class, quote(dt_col) AS quoted FROM probe_dt ORDER BY pid",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "a1",
+              "grp": "TZ",
+              "dt_col": "2026-02-28T16:30:00Z",
+              "storage_class": "text",
+              "quoted": "'2026-02-28T16:30:00Z'"
+            },
+            {
+              "pid": "a2",
+              "grp": "TZ",
+              "dt_col": "2026-03-01T01:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2026-03-01T01:00:00Z'"
+            },
+            {
+              "pid": "b1",
+              "grp": "MONTH",
+              "dt_col": "2026-01-31T23:59:59Z",
+              "storage_class": "text",
+              "quoted": "'2026-01-31T23:59:59Z'"
+            },
+            {
+              "pid": "b2",
+              "grp": "MONTH",
+              "dt_col": "2026-02-01T00:00:01Z",
+              "storage_class": "text",
+              "quoted": "'2026-02-01T00:00:01Z'"
+            },
+            {
+              "pid": "c1",
+              "grp": "LEAP",
+              "dt_col": "2024-02-29T23:59:59Z",
+              "storage_class": "text",
+              "quoted": "'2024-02-29T23:59:59Z'"
+            },
+            {
+              "pid": "c2",
+              "grp": "LEAP",
+              "dt_col": "2024-03-01T00:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2024-03-01T00:00:00Z'"
+            },
+            {
+              "pid": "c3",
+              "grp": "LEAP",
+              "dt_col": "2024-02-28T12:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2024-02-28T12:00:00Z'"
+            },
+            {
+              "pid": "m1",
+              "grp": "MIX",
+              "dt_col": "2025-09-18T00:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2025-09-18T00:00:00Z'"
+            },
+            {
+              "pid": "m2",
+              "grp": "MIX",
+              "dt_col": 20260918120000,
+              "storage_class": "integer",
+              "quoted": "20260918120000"
+            },
+            {
+              "pid": "m3",
+              "grp": "MIX",
+              "dt_col": 1758200000000,
+              "storage_class": "integer",
+              "quoted": "1758200000000"
+            },
+            {
+              "pid": "p1",
+              "grp": "PAD",
+              "dt_col": "2026-9-18T00:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2026-9-18T00:00:00Z'"
+            },
+            {
+              "pid": "p2",
+              "grp": "PAD",
+              "dt_col": "2026-10-01T00:00:00Z",
+              "storage_class": "text",
+              "quoted": "'2026-10-01T00:00:00Z'"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.443
+            },
+            "duration": 0.443,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 12,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "julianday() 解析对照（若为 NULL 则该串不可被时间函数识别）",
+          "sql": "SELECT pid, grp, utc_txt, julianday(utc_txt) AS jd FROM probe_dt WHERE grp <> 'MIX' ORDER BY pid",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "a1",
+              "grp": "TZ",
+              "utc_txt": "2026-02-28T16:30:00Z",
+              "jd": 2461100.1875
+            },
+            {
+              "pid": "a2",
+              "grp": "TZ",
+              "utc_txt": "2026-03-01T01:00:00Z",
+              "jd": 2461100.5416666665
+            },
+            {
+              "pid": "b1",
+              "grp": "MONTH",
+              "utc_txt": "2026-01-31T23:59:59Z",
+              "jd": 2461072.499988426
+            },
+            {
+              "pid": "b2",
+              "grp": "MONTH",
+              "utc_txt": "2026-02-01T00:00:01Z",
+              "jd": 2461072.500011574
+            },
+            {
+              "pid": "c1",
+              "grp": "LEAP",
+              "utc_txt": "2024-02-29T23:59:59Z",
+              "jd": 2460370.499988426
+            },
+            {
+              "pid": "c2",
+              "grp": "LEAP",
+              "utc_txt": "2024-03-01T00:00:00Z",
+              "jd": 2460370.5
+            },
+            {
+              "pid": "c3",
+              "grp": "LEAP",
+              "utc_txt": "2024-02-28T12:00:00Z",
+              "jd": 2460369
+            },
+            {
+              "pid": "p1",
+              "grp": "PAD",
+              "utc_txt": "2026-9-18T00:00:00Z",
+              "jd": null
+            },
+            {
+              "pid": "p2",
+              "grp": "PAD",
+              "utc_txt": "2026-10-01T00:00:00Z",
+              "jd": 2461314.5
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3772
+            },
+            "duration": 0.3772,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 12,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[TZ] 字符串排序 ORDER BY utc_txt",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'TZ' ORDER BY utc_txt",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "a1"
+            },
+            {
+              "pid": "a2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.311
+            },
+            "duration": 0.311,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "a1,a2",
+          "count": 2
+        },
+        {
+          "label": "[TZ] 时间排序 ORDER BY julianday(utc_txt)",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'TZ' ORDER BY julianday(utc_txt)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "a1"
+            },
+            {
+              "pid": "a2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.293
+            },
+            "duration": 0.293,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "a1,a2",
+          "count": 2
+        },
+        {
+          "label": "[MONTH] 字符串排序 ORDER BY utc_txt",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'MONTH' ORDER BY utc_txt",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "b1"
+            },
+            {
+              "pid": "b2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3363
+            },
+            "duration": 0.3363,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "b1,b2",
+          "count": 2
+        },
+        {
+          "label": "[MONTH] 时间排序 ORDER BY julianday(utc_txt)",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'MONTH' ORDER BY julianday(utc_txt)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "b1"
+            },
+            {
+              "pid": "b2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2996
+            },
+            "duration": 0.2996,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "b1,b2",
+          "count": 2
+        },
+        {
+          "label": "[LEAP] 字符串排序 ORDER BY utc_txt",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'LEAP' ORDER BY utc_txt",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "c3"
+            },
+            {
+              "pid": "c1"
+            },
+            {
+              "pid": "c2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4586
+            },
+            "duration": 0.4586,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "c3,c1,c2",
+          "count": 3
+        },
+        {
+          "label": "[LEAP] 时间排序 ORDER BY julianday(utc_txt)",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'LEAP' ORDER BY julianday(utc_txt)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "c3"
+            },
+            {
+              "pid": "c1"
+            },
+            {
+              "pid": "c2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.5401
+            },
+            "duration": 0.5401,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "c3,c1,c2",
+          "count": 3
+        },
+        {
+          "label": "[PAD] 字符串排序 ORDER BY utc_txt",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'PAD' ORDER BY utc_txt",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "p2"
+            },
+            {
+              "pid": "p1"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4291
+            },
+            "duration": 0.4291,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "p2,p1",
+          "count": 2
+        },
+        {
+          "label": "[PAD] 时间排序 ORDER BY julianday(utc_txt)",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'PAD' ORDER BY julianday(utc_txt)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "p1"
+            },
+            {
+              "pid": "p2"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3376
+            },
+            "duration": 0.3376,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "p1,p2",
+          "count": 2
+        },
+        {
+          "label": "[TZ] 本地带偏移串排序 ORDER BY local_txt",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'TZ' ORDER BY local_txt",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "a2"
+            },
+            {
+              "pid": "a1"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3196
+            },
+            "duration": 0.3196,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 14,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "a2,a1",
+          "count": 2
+        },
+        {
+          "label": "[MIX] 混合存储类排序 ORDER BY dt_col",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'MIX' ORDER BY dt_col",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "m3"
+            },
+            {
+              "pid": "m2"
+            },
+            {
+              "pid": "m1"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3536
+            },
+            "duration": 0.3536,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "m3,m2,m1",
+          "count": 3
+        },
+        {
+          "label": "[MIX] 同一批按 julianday(dt_col) 排序",
+          "sql": "SELECT pid FROM probe_dt WHERE grp = 'MIX' ORDER BY julianday(dt_col)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "pid": "m2"
+            },
+            {
+              "pid": "m3"
+            },
+            {
+              "pid": "m1"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2603
+            },
+            "duration": 0.2603,
+            "changes": 0,
+            "last_row_id": 12,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": "m2,m3,m1",
+          "count": 3
+        }
+      ],
+      "compare_TZ": {
+        "string_order": "a1,a2",
+        "time_order": "a1,a2",
+        "match": true,
+        "rows": 2,
+        "local_order": "a2,a1",
+        "local_match_time": false
+      },
+      "compare_MONTH": {
+        "string_order": "b1,b2",
+        "time_order": "b1,b2",
+        "match": true,
+        "rows": 2
+      },
+      "compare_LEAP": {
+        "string_order": "c3,c1,c2",
+        "time_order": "c3,c1,c2",
+        "match": true,
+        "rows": 3
+      },
+      "compare_PAD": {
+        "string_order": "p2,p1",
+        "time_order": "p1,p2",
+        "match": false,
+        "rows": 2
+      },
+      "compare_MIX": {
+        "by_column": "m3,m2,m1",
+        "by_julianday": "m2,m3,m1",
+        "match": false
+      }
+    },
+    "g4": {
+      "group": "g4",
+      "title": "item4：boolean 的实际存储值与读回类型（SQL 字面量 + JS 驱动绑定）",
+      "steps": [
+        {
+          "label": "SQL 字面量：c_bool = true",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_kw_true', true)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2369
+            },
+            "duration": 0.2369,
+            "changes": 1,
+            "last_row_id": 5,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = false",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_kw_false', false)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2922
+            },
+            "duration": 0.2922,
+            "changes": 1,
+            "last_row_id": 6,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = TRUE",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_kw_TRUE', TRUE)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3041
+            },
+            "duration": 0.3041,
+            "changes": 1,
+            "last_row_id": 7,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = 'true'",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_str_true', 'true')",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4192
+            },
+            "duration": 0.4192,
+            "changes": 1,
+            "last_row_id": 8,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = 'yes'",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_str_yes', 'yes')",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2085
+            },
+            "duration": 0.2085,
+            "changes": 1,
+            "last_row_id": 9,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = 1",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_int_1', 1)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2264
+            },
+            "duration": 0.2264,
+            "changes": 1,
+            "last_row_id": 10,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = 0",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_int_0', 0)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2623
+            },
+            "duration": 0.2623,
+            "changes": 1,
+            "last_row_id": 11,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "SQL 字面量：c_bool = 2",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES ('bool_int_2', 2)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2853
+            },
+            "duration": 0.2853,
+            "changes": 1,
+            "last_row_id": 12,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "JS 驱动绑定：.bind(true)",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "bool_bind_true"
+            },
+            {
+              "jsType": "boolean",
+              "value": true
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2835
+            },
+            "duration": 0.2835,
+            "changes": 1,
+            "last_row_id": 13,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "JS 驱动绑定：.bind(false)",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "bool_bind_false"
+            },
+            {
+              "jsType": "boolean",
+              "value": false
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3049
+            },
+            "duration": 0.3049,
+            "changes": 1,
+            "last_row_id": 14,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "JS 驱动绑定：.bind(1)",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "bool_bind_1"
+            },
+            {
+              "jsType": "number",
+              "value": 1
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.5716
+            },
+            "duration": 0.5716,
+            "changes": 1,
+            "last_row_id": 15,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "JS 驱动绑定：.bind(\"true\")",
+          "sql": "INSERT INTO probe_type (tag, c_bool) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "bool_bind_str"
+            },
+            {
+              "jsType": "string",
+              "value": "true"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.403
+            },
+            "duration": 0.403,
+            "changes": 1,
+            "last_row_id": 16,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "读回：原样值 / 存储类 / quote / 与 1 的等值判定",
+          "sql": "SELECT tag, c_bool, typeof(c_bool) AS storage_class, quote(c_bool) AS quoted, (c_bool = 1) AS eq_int_1, (c_bool = 0) AS eq_int_0 FROM probe_type WHERE tag LIKE 'bool_%' ORDER BY tag",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "bool_bind_1",
+              "c_bool": 1,
+              "storage_class": "integer",
+              "quoted": "1",
+              "eq_int_1": 1,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_bind_false",
+              "c_bool": "false",
+              "storage_class": "text",
+              "quoted": "'false'",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_bind_str",
+              "c_bool": "true",
+              "storage_class": "text",
+              "quoted": "'true'",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_bind_true",
+              "c_bool": "true",
+              "storage_class": "text",
+              "quoted": "'true'",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_int_0",
+              "c_bool": 0,
+              "storage_class": "integer",
+              "quoted": "0",
+              "eq_int_1": 0,
+              "eq_int_0": 1
+            },
+            {
+              "tag": "bool_int_1",
+              "c_bool": 1,
+              "storage_class": "integer",
+              "quoted": "1",
+              "eq_int_1": 1,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_int_2",
+              "c_bool": 2,
+              "storage_class": "integer",
+              "quoted": "2",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_kw_TRUE",
+              "c_bool": 1,
+              "storage_class": "integer",
+              "quoted": "1",
+              "eq_int_1": 1,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_kw_false",
+              "c_bool": 0,
+              "storage_class": "integer",
+              "quoted": "0",
+              "eq_int_1": 0,
+              "eq_int_0": 1
+            },
+            {
+              "tag": "bool_kw_true",
+              "c_bool": 1,
+              "storage_class": "integer",
+              "quoted": "1",
+              "eq_int_1": 1,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_str_true",
+              "c_bool": "true",
+              "storage_class": "text",
+              "quoted": "'true'",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            },
+            {
+              "tag": "bool_str_yes",
+              "c_bool": "yes",
+              "storage_class": "text",
+              "quoted": "'yes'",
+              "eq_int_1": 0,
+              "eq_int_0": 0
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.698
+            },
+            "duration": 0.698,
+            "changes": 0,
+            "last_row_id": 16,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 28,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "读回：区分 INTEGER 1 与 TEXT 'true'",
+          "sql": "SELECT typeof(c_bool) AS storage_class, count(*) AS cnt, group_concat(tag, ',') AS tags FROM probe_type WHERE tag LIKE 'bool_%' GROUP BY typeof(c_bool)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "storage_class": "integer",
+              "cnt": 7,
+              "tags": "bool_kw_true,bool_kw_false,bool_kw_TRUE,bool_int_1,bool_int_0,bool_int_2,bool_bind_1"
+            },
+            {
+              "storage_class": "text",
+              "cnt": 5,
+              "tags": "bool_str_true,bool_str_yes,bool_bind_true,bool_bind_false,bool_bind_str"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3875
+            },
+            "duration": 0.3875,
+            "changes": 0,
+            "last_row_id": 16,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 28,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 列的存储类（schema.md 用 17 次，原意多为布尔，需知其真实存储）",
+          "sql": "SELECT tag, c_tiny, typeof(c_tiny) AS storage_class FROM probe_type WHERE c_tiny IS NOT NULL",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3894
+            },
+            "duration": 0.3894,
+            "changes": 0,
+            "last_row_id": 16,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 16,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 写入 true 字面量",
+          "sql": "INSERT INTO probe_type (tag, c_tiny) VALUES ('tiny_true', true)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2097
+            },
+            "duration": 0.2097,
+            "changes": 1,
+            "last_row_id": 17,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 写入 2（是否拦越界）",
+          "sql": "INSERT INTO probe_type (tag, c_tiny) VALUES ('tiny_2', 2)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2608
+            },
+            "duration": 0.2608,
+            "changes": 1,
+            "last_row_id": 18,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 写入 300（是否拦越界）",
+          "sql": "INSERT INTO probe_type (tag, c_tiny) VALUES ('tiny_300', 300)",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.254
+            },
+            "duration": 0.254,
+            "changes": 1,
+            "last_row_id": 19,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 读回",
+          "sql": "SELECT tag, c_tiny, typeof(c_tiny) AS storage_class FROM probe_type WHERE tag LIKE 'tiny_%' ORDER BY tag",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "tiny_2",
+              "c_tiny": 2,
+              "storage_class": "integer"
+            },
+            {
+              "tag": "tiny_300",
+              "c_tiny": 300,
+              "storage_class": "integer"
+            },
+            {
+              "tag": "tiny_true",
+              "c_tiny": 1,
+              "storage_class": "integer"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.6542
+            },
+            "duration": 0.6542,
+            "changes": 0,
+            "last_row_id": 19,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 22,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g5": {
+      "group": "g5",
+      "title": "item5：中文在 BINARY 排序下是否等于拼音序",
+      "steps": [
+        {
+          "label": "写入中文值 张三（同时写 varchar(24) 列）",
+          "sql": "INSERT INTO probe_cn (name, name_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "张三"
+            },
+            {
+              "jsType": "string",
+              "value": "张三"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2653
+            },
+            "duration": 0.2653,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入中文值 李四（同时写 varchar(24) 列）",
+          "sql": "INSERT INTO probe_cn (name, name_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "李四"
+            },
+            {
+              "jsType": "string",
+              "value": "李四"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.1949
+            },
+            "duration": 0.1949,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "写入中文值 王五（同时写 varchar(24) 列）",
+          "sql": "INSERT INTO probe_cn (name, name_v24) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "王五"
+            },
+            {
+              "jsType": "string",
+              "value": "王五"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2085
+            },
+            "duration": 0.2085,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "默认排序 ORDER BY name（无 COLLATE，即 BINARY）",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 1,
+              "name": "张三"
+            },
+            {
+              "cid": 2,
+              "name": "李四"
+            },
+            {
+              "cid": 3,
+              "name": "王五"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4038
+            },
+            "duration": 0.4038,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": ",,",
+          "count": 3,
+          "names": "张三,李四,王五"
+        },
+        {
+          "label": "显式 ORDER BY name COLLATE BINARY",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name COLLATE BINARY",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 1,
+              "name": "张三"
+            },
+            {
+              "cid": 2,
+              "name": "李四"
+            },
+            {
+              "cid": 3,
+              "name": "王五"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4221
+            },
+            "duration": 0.4221,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": ",,",
+          "count": 3,
+          "names": "张三,李四,王五"
+        },
+        {
+          "label": "ORDER BY name COLLATE NOCASE（是否影响中文）",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name COLLATE NOCASE",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 1,
+              "name": "张三"
+            },
+            {
+              "cid": 2,
+              "name": "李四"
+            },
+            {
+              "cid": 3,
+              "name": "王五"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3533
+            },
+            "duration": 0.3533,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": ",,",
+          "count": 3,
+          "names": "张三,李四,王五"
+        },
+        {
+          "label": "ORDER BY name DESC",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name DESC",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 3,
+              "name": "王五"
+            },
+            {
+              "cid": 2,
+              "name": "李四"
+            },
+            {
+              "cid": 1,
+              "name": "张三"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3152
+            },
+            "duration": 0.3152,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          },
+          "sequence": ",,",
+          "count": 3,
+          "names": "王五,李四,张三"
+        },
+        {
+          "label": "字节层面证据：UTF-8 十六进制与码点",
+          "sql": "SELECT cid, name, hex(name) AS utf8_hex, unicode(substr(name,1,1)) AS first_codepoint FROM probe_cn ORDER BY name",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 1,
+              "name": "张三",
+              "utf8_hex": "E5BCA0E4B889",
+              "first_codepoint": 24352
+            },
+            {
+              "cid": 2,
+              "name": "李四",
+              "utf8_hex": "E69D8EE59B9B",
+              "first_codepoint": 26446
+            },
+            {
+              "cid": 3,
+              "name": "王五",
+              "utf8_hex": "E78E8BE4BA94",
+              "first_codepoint": 29579
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3655
+            },
+            "duration": 0.3655,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "尝试拼音排序规则 COLLATE PINYIN（预期：无此排序规则）",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name COLLATE PINYIN",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: no such collation sequence: PINYIN: SQLITE_ERROR (extended: SQLITE_ERROR_MISSING_COLLSEQ) (code 7500)"
+        },
+        {
+          "label": "尝试 COLLATE ICALLBACK，即 COLLATE zh（预期：无此排序规则）",
+          "sql": "SELECT cid, name FROM probe_cn ORDER BY name COLLATE zh",
+          "params": [],
+          "ok": false,
+          "error": "D1_ERROR: no such collation sequence: zh: SQLITE_ERROR (extended: SQLITE_ERROR_MISSING_COLLSEQ) (code 7500)"
+        },
+        {
+          "label": "中文值在 varchar(24) 列的字符数/字节数",
+          "sql": "SELECT cid, name, length(name) AS chars, length(cast(name AS blob)) AS bytes FROM probe_cn ORDER BY cid",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cid": 1,
+              "name": "张三",
+              "chars": 2,
+              "bytes": 6
+            },
+            {
+              "cid": 2,
+              "name": "李四",
+              "chars": 2,
+              "bytes": 6
+            },
+            {
+              "cid": 3,
+              "name": "王五",
+              "chars": 2,
+              "bytes": 6
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.8558
+            },
+            "duration": 0.8558,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g6": {
+      "group": "g6",
+      "title": "item6：复合 UNIQUE 与 CHECK（length/glob/typeof）是否按预期生效",
+      "steps": [
+        {
+          "label": "UNIQUE ① 写 (g1,1)",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "g1"
+            },
+            {
+              "jsType": "number",
+              "value": 1
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3518
+            },
+            "duration": 0.3518,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE ② 再写 (g1,1) —— 预期报 UNIQUE",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "g1"
+            },
+            {
+              "jsType": "number",
+              "value": 1
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: UNIQUE constraint failed: probe_uk.goal_id, probe_uk.version_no: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE) (code 7500)"
+        },
+        {
+          "label": "UNIQUE ③ 写 (g1,2) —— 预期成功（复合键第二列不同）",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "g1"
+            },
+            {
+              "jsType": "number",
+              "value": 2
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3219
+            },
+            "duration": 0.3219,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE ④ 写 (NULL,1)",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "null",
+              "value": null
+            },
+            {
+              "jsType": "number",
+              "value": 1
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2949
+            },
+            "duration": 0.2949,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE ⑤ 再写 (NULL,1) —— 预期成功（含 NULL 的复合键互不相等）",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "null",
+              "value": null
+            },
+            {
+              "jsType": "number",
+              "value": 1
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3074
+            },
+            "duration": 0.3074,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE ⑥ 写 (g1,NULL) 两次",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "g1"
+            },
+            {
+              "jsType": "null",
+              "value": null
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2793
+            },
+            "duration": 0.2793,
+            "changes": 1,
+            "last_row_id": 5,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE ⑦ 同上一行",
+          "sql": "INSERT INTO probe_uk (goal_id, version_no) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "g1"
+            },
+            {
+              "jsType": "null",
+              "value": null
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3802
+            },
+            "duration": 0.3802,
+            "changes": 1,
+            "last_row_id": 6,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 2,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE 结果全集",
+          "sql": "SELECT rowid, goal_id, version_no, quote(goal_id) AS q_goal, quote(version_no) AS q_ver FROM probe_uk ORDER BY rowid",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "goal_id": "g1",
+              "version_no": 1,
+              "q_goal": "'g1'",
+              "q_ver": "1"
+            },
+            {
+              "id": 2,
+              "goal_id": "g1",
+              "version_no": 2,
+              "q_goal": "'g1'",
+              "q_ver": "2"
+            },
+            {
+              "id": 3,
+              "goal_id": null,
+              "version_no": 1,
+              "q_goal": "NULL",
+              "q_ver": "1"
+            },
+            {
+              "id": 4,
+              "goal_id": null,
+              "version_no": 1,
+              "q_goal": "NULL",
+              "q_ver": "1"
+            },
+            {
+              "id": 5,
+              "goal_id": "g1",
+              "version_no": null,
+              "q_goal": "'g1'",
+              "q_ver": "NULL"
+            },
+            {
+              "id": 6,
+              "goal_id": "g1",
+              "version_no": null,
+              "q_goal": "'g1'",
+              "q_ver": "NULL"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4697
+            },
+            "duration": 0.4697,
+            "changes": 0,
+            "last_row_id": 6,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "UNIQUE 索引定义原样",
+          "sql": "SELECT name, sql FROM sqlite_master WHERE type='index' AND tbl_name='probe_uk'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "name": "sqlite_autoindex_probe_uk_1",
+              "sql": null
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2666
+            },
+            "duration": 0.2666,
+            "changes": 0,
+            "last_row_id": 6,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "多约束同表 ① 全部合法（code=24 / kind=F-01 / ts=ISO）",
+          "sql": "INSERT INTO probe_check (tag, code, kind, ts) VALUES (?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "ok_all"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "F-01"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3881
+            },
+            "duration": 0.3881,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "多约束同表 ② ts = NULL",
+          "sql": "INSERT INTO probe_check (tag, ts) VALUES (?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "ts_null"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: typeof(ts) = 'text': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "多约束同表 ③ ts 合法、code = NULL",
+          "sql": "INSERT INTO probe_check (tag, code, ts) VALUES (?, NULL, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "code_null"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3069
+            },
+            "duration": 0.3069,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "多约束同表 ④ ts 合法、kind = NULL",
+          "sql": "INSERT INTO probe_check (tag, kind, ts) VALUES (?, NULL, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "kind_null"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.301
+            },
+            "duration": 0.301,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "多约束同表 ⑤ ts 合法、code = 25 字符",
+          "sql": "INSERT INTO probe_check (tag, code, ts) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "code25"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "多约束同表 ⑥ 同时违反两列（code 25 字符 + kind=X-1）",
+          "sql": "INSERT INTO probe_check (tag, code, kind, ts) VALUES (?, ?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "both"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "X-1"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "多约束同表 读回",
+          "sql": "SELECT id, tag, code, kind, ts FROM probe_check ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "ok_all",
+              "code": "xxxxxxxxxxxxxxxxxxxxxxxx",
+              "kind": "F-01",
+              "ts": "2026-09-18T00:00:00Z"
+            },
+            {
+              "id": 2,
+              "tag": "code_null",
+              "code": null,
+              "kind": null,
+              "ts": "2026-09-18T00:00:00Z"
+            },
+            {
+              "id": 3,
+              "tag": "kind_null",
+              "code": null,
+              "kind": null,
+              "ts": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4912
+            },
+            "duration": 0.4912,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "多约束同表 DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check (\n  id   INTEGER PRIMARY KEY,\n  tag  TEXT,\n  code varchar(24) CHECK (length(code) <= 24),\n  opt  varchar(24) CHECK (length(opt) <= 24),\n  kind TEXT CHECK (kind GLOB 'F-[0-9]*'),\n  ts   datetime CHECK (typeof(ts) = 'text')\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3532
+            },
+            "duration": 0.3532,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g6b": {
+      "group": "g6b",
+      "title": "item6b：CHECK 隔离测试（length / glob / typeof + NULL 放行 + UPDATE + 中文按字符计）",
+      "steps": [
+        {
+          "label": "[len] code = 24 字符",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len24"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3373
+            },
+            "duration": 0.3373,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] code = 25 字符",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len25"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[len] code = NULL —— 关键：length(NULL)<=24 求值为 NULL 时是否放行",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len_null"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.5702
+            },
+            "duration": 0.5702,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] code = 空串",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len_empty"
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.282
+            },
+            "duration": 0.282,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] code = 24 个中文（24 字符 / 72 字节）",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len_cn24"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中中中中中中中中中中中中中中中中中"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3279
+            },
+            "duration": 0.3279,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] code = 25 个中文（25 字符 / 75 字节）",
+          "sql": "INSERT INTO probe_check_len (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "len_cn25"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中中中中中中中中中中中中中中中中中中"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[len] UPDATE len24 改为 25 字符 —— CHECK 是否约束 UPDATE",
+          "sql": "UPDATE probe_check_len SET code = ? WHERE tag = ?",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "yyyyyyyyyyyyyyyyyyyyyyyyy"
+            },
+            {
+              "jsType": "string",
+              "value": "len24"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[len] UPDATE len24 改回 24 字符",
+          "sql": "UPDATE probe_check_len SET code = ? WHERE tag = ?",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "len24"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2902
+            },
+            "duration": 0.2902,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] UPDATE len_null 行（原为 NULL）写入 25 字符",
+          "sql": "UPDATE probe_check_len SET code = ? WHERE tag = 'len_null'",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "zzzzzzzzzzzzzzzzzzzzzzzzz"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[len] UPDATE len_null 行写入 NULL",
+          "sql": "UPDATE probe_check_len SET code = NULL WHERE tag = 'len_null'",
+          "params": [],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4135
+            },
+            "duration": 0.4135,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] 读回（含长度、字节与存储类）",
+          "sql": "SELECT id, tag, code IS NULL AS is_null, length(code) AS chars, length(cast(code AS blob)) AS bytes, typeof(code) AS cls FROM probe_check_len ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "len24",
+              "is_null": 0,
+              "chars": 24,
+              "bytes": 24,
+              "cls": "text"
+            },
+            {
+              "id": 2,
+              "tag": "len_null",
+              "is_null": 1,
+              "chars": null,
+              "bytes": null,
+              "cls": "null"
+            },
+            {
+              "id": 3,
+              "tag": "len_empty",
+              "is_null": 0,
+              "chars": 0,
+              "bytes": 0,
+              "cls": "text"
+            },
+            {
+              "id": 4,
+              "tag": "len_cn24",
+              "is_null": 0,
+              "chars": 24,
+              "bytes": 72,
+              "cls": "text"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3804
+            },
+            "duration": 0.3804,
+            "changes": 0,
+            "last_row_id": 4,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 4,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[len] DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check_len'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check_len (\n  id   INTEGER PRIMARY KEY,\n  tag  TEXT,\n  code varchar(24) CHECK (length(code) <= 24)\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3514
+            },
+            "duration": 0.3514,
+            "changes": 0,
+            "last_row_id": 4,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] kind = \"F-01\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_F01"
+            },
+            {
+              "jsType": "string",
+              "value": "F-01"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3318
+            },
+            "duration": 0.3318,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] kind = \"F-999\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_F999"
+            },
+            {
+              "jsType": "string",
+              "value": "F-999"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.243
+            },
+            "duration": 0.243,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] kind = \"F-1\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_F1"
+            },
+            {
+              "jsType": "string",
+              "value": "F-1"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2424
+            },
+            "duration": 0.2424,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] kind = \"X-1\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_X1"
+            },
+            {
+              "jsType": "string",
+              "value": "X-1"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: kind GLOB 'F-[0-9]*': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[glob] kind = \"\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_empty"
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: kind GLOB 'F-[0-9]*': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[glob] kind = \"F-01extra\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_F01extra"
+            },
+            {
+              "jsType": "string",
+              "value": "F-01extra"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4215
+            },
+            "duration": 0.4215,
+            "changes": 1,
+            "last_row_id": 4,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] kind = \"f-01\"",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_f01"
+            },
+            {
+              "jsType": "string",
+              "value": "f-01"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: kind GLOB 'F-[0-9]*': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[glob] kind = NULL",
+          "sql": "INSERT INTO probe_check_glob (tag, kind) VALUES (?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "v_null"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2901
+            },
+            "duration": 0.2901,
+            "changes": 1,
+            "last_row_id": 5,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] 读回",
+          "sql": "SELECT id, tag, kind, typeof(kind) AS cls FROM probe_check_glob ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "v_F01",
+              "kind": "F-01",
+              "cls": "text"
+            },
+            {
+              "id": 2,
+              "tag": "v_F999",
+              "kind": "F-999",
+              "cls": "text"
+            },
+            {
+              "id": 3,
+              "tag": "v_F1",
+              "kind": "F-1",
+              "cls": "text"
+            },
+            {
+              "id": 4,
+              "tag": "v_F01extra",
+              "kind": "F-01extra",
+              "cls": "text"
+            },
+            {
+              "id": 5,
+              "tag": "v_null",
+              "kind": null,
+              "cls": "null"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.4129
+            },
+            "duration": 0.4129,
+            "changes": 0,
+            "last_row_id": 5,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 5,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[glob] DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check_glob'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check_glob (\n  id   INTEGER PRIMARY KEY,\n  tag  TEXT,\n  kind TEXT CHECK (kind GLOB 'F-[0-9]*')\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.6204
+            },
+            "duration": 0.6204,
+            "changes": 0,
+            "last_row_id": 5,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[typeof] ts = ISO 串",
+          "sql": "INSERT INTO probe_check_type (tag, ts) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "iso"
+            },
+            {
+              "jsType": "string",
+              "value": "2026-09-18T00:00:00Z"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2986
+            },
+            "duration": 0.2986,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[typeof] ts = JS number",
+          "sql": "INSERT INTO probe_check_type (tag, ts) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "num"
+            },
+            {
+              "jsType": "number",
+              "value": 20260918
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: typeof(ts) = 'text': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[typeof] ts = 纯数字串（数字亲和是否转成 integer）",
+          "sql": "INSERT INTO probe_check_type (tag, ts) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "numstr"
+            },
+            {
+              "jsType": "string",
+              "value": "20260918"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: typeof(ts) = 'text': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[typeof] ts = 空串",
+          "sql": "INSERT INTO probe_check_type (tag, ts) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "empty"
+            },
+            {
+              "jsType": "string",
+              "value": ""
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2869
+            },
+            "duration": 0.2869,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[typeof] ts = NULL —— typeof(NULL)='null' 是否放行",
+          "sql": "INSERT INTO probe_check_type (tag, ts) VALUES (?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "null"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: typeof(ts) = 'text': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[typeof] 读回",
+          "sql": "SELECT id, tag, ts, typeof(ts) AS cls FROM probe_check_type ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "iso",
+              "ts": "2026-09-18T00:00:00Z",
+              "cls": "text"
+            },
+            {
+              "id": 2,
+              "tag": "empty",
+              "ts": "",
+              "cls": "text"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3868
+            },
+            "duration": 0.3868,
+            "changes": 0,
+            "last_row_id": 2,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 2,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[typeof] DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check_type'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check_type (\n  id  INTEGER PRIMARY KEY,\n  tag TEXT,\n  ts  datetime CHECK (typeof(ts) = 'text')\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2436
+            },
+            "duration": 0.2436,
+            "changes": 0,
+            "last_row_id": 2,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[multi] code 25 + kind=X-1 同时违反",
+          "sql": "INSERT INTO probe_check_multi (tag, code, kind) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "both"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "X-1"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[multi] 仅 code 25",
+          "sql": "INSERT INTO probe_check_multi (tag, code, kind) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "c25"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "F-01"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(code) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[multi] 仅 kind=X-1",
+          "sql": "INSERT INTO probe_check_multi (tag, code, kind) VALUES (?, ?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "kbad"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            },
+            {
+              "jsType": "string",
+              "value": "X-1"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: kind GLOB 'F-[0-9]*': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[multi] DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check_multi'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check_multi (\n  id   INTEGER PRIMARY KEY,\n  tag  TEXT,\n  code varchar(24) CHECK (length(code) <= 24),\n  kind TEXT CHECK (kind GLOB 'F-[0-9]*')\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3923
+            },
+            "duration": 0.3923,
+            "changes": 0,
+            "last_row_id": 2,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "g6c": {
+      "group": "g6c",
+      "title": "item6c：CHECK 用 length(cast(x AS blob)) 表达「字节」上限是否可行",
+      "steps": [
+        {
+          "label": "[bytes] 24 个 ASCII（24 字节）",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "a24"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3126
+            },
+            "duration": 0.3126,
+            "changes": 1,
+            "last_row_id": 1,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[bytes] 25 个 ASCII（25 字节）",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "a25"
+            },
+            {
+              "jsType": "string",
+              "value": "xxxxxxxxxxxxxxxxxxxxxxxxx"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(cast(code AS blob)) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[bytes] 8 个中文（24 字节 / 8 字符）",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "cn8"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2554
+            },
+            "duration": 0.2554,
+            "changes": 1,
+            "last_row_id": 2,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[bytes] 9 个中文（27 字节 / 9 字符）",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "cn9"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中中"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(cast(code AS blob)) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[bytes] 12 个中文（36 字节 / 12 字符）",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, ?)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "cn12"
+            },
+            {
+              "jsType": "string",
+              "value": "中中中中中中中中中中中中"
+            }
+          ],
+          "ok": false,
+          "error": "D1_ERROR: CHECK constraint failed: length(cast(code AS blob)) <= 24: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_CHECK) (code 7500)"
+        },
+        {
+          "label": "[bytes] NULL",
+          "sql": "INSERT INTO probe_check_bytes (tag, code) VALUES (?, NULL)",
+          "params": [
+            {
+              "jsType": "string",
+              "value": "b_null"
+            }
+          ],
+          "ok": true,
+          "rows": [],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.356
+            },
+            "duration": 0.356,
+            "changes": 1,
+            "last_row_id": 3,
+            "changed_db": true,
+            "size_after": 69632,
+            "rows_read": 0,
+            "rows_written": 1,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[bytes] 读回（字符数与字节数对照）",
+          "sql": "SELECT id, tag, length(code) AS chars, length(cast(code AS blob)) AS bytes FROM probe_check_bytes ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "a24",
+              "chars": 24,
+              "bytes": 24
+            },
+            {
+              "id": 2,
+              "tag": "cn8",
+              "chars": 8,
+              "bytes": 24
+            },
+            {
+              "id": 3,
+              "tag": "b_null",
+              "chars": null,
+              "bytes": null
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3142
+            },
+            "duration": 0.3142,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "[bytes] DDL 原样",
+          "sql": "SELECT sql FROM sqlite_master WHERE type='table' AND name='probe_check_bytes'",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "sql": "CREATE TABLE probe_check_bytes (\n  id   INTEGER PRIMARY KEY,\n  tag  TEXT,\n  code TEXT CHECK (length(cast(code AS blob)) <= 24)\n)"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3623
+            },
+            "duration": 0.3623,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 15,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    },
+    "recheck": {
+      "group": "recheck",
+      "title": "只读复核：空串/NULL 同列对照、tinyint 越界、boolean 存储类、中文排序、复合 UNIQUE 落库",
+      "steps": [
+        {
+          "label": "空串与 NULL 同列对照（c_u 列同时含两类值）",
+          "sql": "SELECT id, tag, c_u IS NULL AS is_null, length(c_u) AS len, typeof(c_u) AS cls, quote(c_u) AS quoted FROM probe_nn ORDER BY id",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "tag": "empty_str",
+              "is_null": 0,
+              "len": 0,
+              "cls": "text",
+              "quoted": "''"
+            },
+            {
+              "id": 2,
+              "tag": "null_1",
+              "is_null": 1,
+              "len": null,
+              "cls": "null",
+              "quoted": "NULL"
+            },
+            {
+              "id": 3,
+              "tag": "null_2",
+              "is_null": 1,
+              "len": null,
+              "cls": "null",
+              "quoted": "NULL"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3794
+            },
+            "duration": 0.3794,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "c_u 列：NULL 与空串计数",
+          "sql": "SELECT sum(c_u IS NULL) AS cnt_null, sum(c_u = '') AS cnt_empty, count(*) AS total FROM probe_nn",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cnt_null": 2,
+              "cnt_empty": 1,
+              "total": 3
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3957
+            },
+            "duration": 0.3957,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 3,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "tinyint 写 300 后的落库值与存储类（是否拦越界）",
+          "sql": "SELECT tag, c_tiny, typeof(c_tiny) AS cls FROM probe_type WHERE tag LIKE 'tiny_%' ORDER BY tag",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "tag": "tiny_2",
+              "c_tiny": 2,
+              "cls": "integer"
+            },
+            {
+              "tag": "tiny_300",
+              "c_tiny": 300,
+              "cls": "integer"
+            },
+            {
+              "tag": "tiny_true",
+              "c_tiny": 1,
+              "cls": "integer"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2715
+            },
+            "duration": 0.2715,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 22,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "boolean 列两种存储类并存计数",
+          "sql": "SELECT typeof(c_bool) AS cls, count(*) AS cnt FROM probe_type WHERE tag LIKE 'bool_%' GROUP BY typeof(c_bool)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cls": "integer",
+              "cnt": 7
+            },
+            {
+              "cls": "text",
+              "cnt": 5
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3001
+            },
+            "duration": 0.3001,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 31,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "datetime 列各存储类计数",
+          "sql": "SELECT typeof(dt_col) AS cls, count(*) AS cnt FROM probe_dt WHERE dt_col IS NOT NULL GROUP BY typeof(dt_col)",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "cls": "integer",
+              "cnt": 2
+            },
+            {
+              "cls": "text",
+              "cnt": 10
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3268
+            },
+            "duration": 0.3268,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 24,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "中文默认排序结果（原样）",
+          "sql": "SELECT name FROM probe_cn ORDER BY name",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "name": "张三"
+            },
+            {
+              "name": "李四"
+            },
+            {
+              "name": "王五"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3971
+            },
+            "duration": 0.3971,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "中文 DESC 排序结果（原样）",
+          "sql": "SELECT name FROM probe_cn ORDER BY name DESC",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "name": "王五"
+            },
+            {
+              "name": "李四"
+            },
+            {
+              "name": "张三"
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.2859
+            },
+            "duration": 0.2859,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        },
+        {
+          "label": "复合 UNIQUE 最终落库行",
+          "sql": "SELECT rowid, goal_id, version_no FROM probe_uk ORDER BY rowid",
+          "params": [],
+          "ok": true,
+          "rows": [
+            {
+              "id": 1,
+              "goal_id": "g1",
+              "version_no": 1
+            },
+            {
+              "id": 2,
+              "goal_id": "g1",
+              "version_no": 2
+            },
+            {
+              "id": 3,
+              "goal_id": null,
+              "version_no": 1
+            },
+            {
+              "id": 4,
+              "goal_id": null,
+              "version_no": 1
+            },
+            {
+              "id": 5,
+              "goal_id": "g1",
+              "version_no": null
+            },
+            {
+              "id": 6,
+              "goal_id": "g1",
+              "version_no": null
+            }
+          ],
+          "meta": {
+            "served_by": "v3-prod",
+            "served_by_region": "WNAM",
+            "served_by_colo": "LAX",
+            "served_by_primary": true,
+            "timings": {
+              "sql_duration_ms": 0.3437
+            },
+            "duration": 0.3437,
+            "changes": 0,
+            "last_row_id": 3,
+            "changed_db": false,
+            "size_after": 69632,
+            "rows_read": 6,
+            "rows_written": 0,
+            "total_attempts": 1
+          }
+        }
+      ]
+    }
+  }
+}

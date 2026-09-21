@@ -250,7 +250,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 >
 > **写入侧必须「零填充 + 归一到 UTC」**——这是「靠字符串排序」成立的前提，不能只靠文档约定。
 >
-> **实测依据**：`../../db/probes/type/README.md`（§2.1 / §2.3 / §2.4 与 §3 落差表 27 行）。**未验证面**：以上均为 `--local`（miniflare）结论，**线上 D1 未测**。
+> **实测依据**：`../../db/probes/type/README.md`（§2.1 / §2.3 / §2.4 与 §3 落差表 27 行）。~~未验证面：以上均为 `--local`（miniflare）结论，线上 D1 未测~~ → **已于 2026-09-21 补齐 `--remote` 复测**（真实 D1 `type-probe` 库，REST 通道）：147/148 步行为一致、授权层同规则；唯一差异（boolean 绑定）判归 REST 传输层、不影响 §3.1 结论，详见该 README §5b。
 
 ### 3.2 字符集与排序规则
 
@@ -276,7 +276,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | **迁移的引用完整性顺序** | 因外键默认强制，**建表 / 插入 / 删除顺序**必须满足引用完整性（先建父表后建子表、先删子行后删父行）。若迁移中确需临时违反（如调整建表顺序），只能用 `PRAGMA defer_foreign_keys=on` |
 
 > **实测依据**：外键 —— `../../db/probes/fk/README.md`（§2 a~f、§3 与官方文档对照）；约束与类型 —— `../../db/probes/type/README.md`（§2.2 / §2.6 与 §3 落差表）。
-> **未验证面（更新于 2026-09-21）**：两份探针原均为 `--local`（miniflare）。**外键探针已于 2026-09-21 补齐 `--remote` 实测**（真实 D1 `jd-growth-platform`：默认强制、`OFF` 无效与本地一致；**defer 在批次内不放行、SQL 显式 `BEGIN` 被禁**为远程更严的新事实，详见 `db/probes/fk/README.md` §5b）；**类型/长度探针（`db/probes/type/`）仍限 `--local`**——`CHECK` 与长度的线上行为是否与本地逐条一致，待部署后线上复测。
+> **未验证面（更新于 2026-09-21）**：两份探针原均为 `--local`（miniflare）。**两份均已补齐 `--remote` 实测**：①外键探针（真实 D1 `jd-growth-platform`：默认强制、`OFF` 无效与本地一致；**defer 在批次内不放行、SQL 显式 `BEGIN` 被禁**为远程更严的新事实，详见 `db/probes/fk/README.md` §5b）；②类型/长度探针（真实 D1 `type-probe` 库，REST 通道：147/148 步行为一致、授权层同规则，唯一差异 boolean 绑定判归传输层，详见 `db/probes/type/README.md` §5b）。残留：类型探针的 JS 驱动在线上 worker 运行时的 boolean 绑定未直接实证（workers.dev 大陆不可达所致），可在门禁 B 部署后从业务 worker 内复核。
 > **对 `schema.md` v1.2 的直接落点**：`MD-06` 六要素的必填约束（`NOT NULL` 拦 `NULL` + `CHECK (length(trim(x)) > 0)` 拦空串）**正是依据本表第 3 行**设计的——`NOT NULL` 与 `CHECK` **不可互相替代**。
 
 ### 3.4 表名前缀
@@ -406,7 +406,7 @@ SQLite 只认 5 种存储类（`NULL` / `INTEGER` / `REAL` / `TEXT` / `BLOB`）�
 | 编号 | 待确认事项 | 谁提供 | 阻塞什么 |
 | ---- | ---- | ---- | ---- |
 | TS-10 | **Workers AI 具体模型选型**：F-20 五查需强推理且须「敢说不足以判断」，须实机验证 | 技术方 + PM | ✅ **已于 2026-09-21 收口（Free 池）**：当前账号为 Workers Free 计划，原候选池（deepseek-v4 / glm-5.3-flash / kimi-k2.6 均 `require_workers_paid=true`）调不通；改以 Free 可用且已实测的模型收口，默认模型定为 `@cf/qwen/qwen3-30b-a3b-fp8`（实测 23/0 满分，honesty 全 0 失败）。客户端封装 `server/agent-orchestrator/llm-client.js`（58 断言全绿）+ `wrangler.toml` 的 `[ai]` binding + `MODELS` 常量池（MAIN/HEAVY/LIGHT 三档 Free ID 已钉死）；实测证据 `server/probes/model-selection/raw/` + README §3。红线（敢说不足/不编造）可达。若需更高 SLA 可升 Workers Paid 后补跑原候选（探针 `REAL_MODELS` 池） |
-| TS-11 | `varchar(n)` 长度约束在 D1 的兜底策略（应用层校验 or `CHECK` 约束） | 技术方 | ✅ **已决（2026-09-20，依用户裁决）：应用层校验**。事实面已由实测完成（2026-09-18，`db/probes/type/`：长度**一律不强制**；`CHECK` 可用、按**字符**计、**不拦 NULL**）；分类清单见该 README §5（编号锚点 94 / 长文本 39 / 其余短字段 47）。**连带结论**：采应用层校验 → **库级 `CHECK` 不写进 `0001`**，首版迁移不受影响；代价是**绕过写入面的路径拦不住**，故须在**各写入面分别落实**并由用例逐点锁死（不依赖统一中间件） |
+| TS-11 | `varchar(n)` 长度约束在 D1 的兜底策略（应用层校验 or `CHECK` 约束） | 技术方 | ✅ **已决（2026-09-20，依用户裁决）：应用层校验**。事实面已由实测完成（2026-09-18，`db/probes/type/`：长度**一律不强制**；`CHECK` 可用、按**字符**计、**不拦 NULL**），**并于 2026-09-21 补齐 `--remote` 复测**（真实 D1 `type-probe` 库：147/148 步行为一致、授权层同规则，唯一差异 boolean 绑定判归 REST 传输层——详见该 README §5b）；分类清单见该 README §5（编号锚点 94 / 长文本 39 / 其余短字段 47）。**连带结论**：采应用层校验 → **库级 `CHECK` 不写进 `0001`**，首版迁移不受影响；代价是**绕过写入面的路径拦不住**，故须在**各写入面分别落实**并由用例逐点锁死（不依赖统一中间件） |
 | TS-12 | 哪些列需要中文排序 → 是否增设拼音/排序键列 | PM + 前端 | F-27/F-28 列表排序。**部分实测已完成**：默认 **BINARY ≠ 拼音序**（已证实）、D1 **无拼音排序规则**（`COLLATE PINYIN` 报错）→ 仍待 PM 逐列确认「哪些列要排拼音」 |
 | TS-13 | 前端是否需要轻量组件复用手段（如 Web Components） | 前端 | `frontend/` 开发方式 |
 | TS-14 | **D1 中 `PRAGMA foreign_keys` 是否默认生效**（`schema.md` §11 承诺了真实外键，须实测） | 技术方 | `schema.md` §11 的可兑现性。**✅ 本地+远程双实测**：`--local` 2026-09-18（`db/probes/fk/`）——**默认强制外键**、`OFF` 无法关闭、临时放行只能 `defer_foreign_keys`；`--remote` 2026-09-21 补测——默认强制与 `OFF` 无效**同本地**，且**更严**：`defer_foreign_keys` 在批次内不放行、SQL 显式 `BEGIN` 被平台禁（code 7500）→ **远程迁移/种子必须靠语句排序满足引用完整性**（详见 `db/probes/fk/README.md` §5b）。§11 可直接落 |

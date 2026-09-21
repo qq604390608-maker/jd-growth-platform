@@ -8,4 +8,5 @@ compatibility_date = "2026-09-01"
 [[d1_databases]]
 binding = "DB"
 database_name = "type-probe"
-database_id = "00000000-0000-0000-0000-000000000000"
+# 远程探针库：2026-09-21 实建（--remote 复测用，与业务库 jd-growth-platform 隔离）
+database_id = "c73a1ea3-0933-4c49-b99f-8f16c6ae4db8"

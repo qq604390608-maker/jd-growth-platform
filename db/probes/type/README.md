@@ -30,7 +30,8 @@
 本文所有数字与行为摘于 **2026-09-18**，运行于 wrangler **4.135.0** 的 miniflare D1（local）。
 
 - D1 的 SQLite 引擎版本**无法从 SQL 读出**（见 §2.1 与 §3 第 25 行）——这是本轮的第一个发现。
-- 本地 miniflare D1 与**线上 D1** 是否在上述每一条上完全一致，**本轮未验证**（无线上凭据）。§6 已列为待复验项。
+- ~~本地 miniflare D1 与**线上 D1** 是否在上述每一条上完全一致，**本轮未验证**~~ → **已于 2026-09-21 远程复测收口**（`--remote`，真实 D1 `type-probe` 库）：148 步中 147 步**行为一致**、授权层同规则；唯一差异（boolean 绑定）判归 REST 传输层，见 **§5b**。
+- 原始存证：本地 `raw/g*.json`（2026-09-18）＋ 远程 `raw/2026-09-21-remote.json`（REST 通道）。
 
 ### 0.3 本轮明确没做的事
 
@@ -354,7 +355,7 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | 22 | `CHECK (x GLOB 'F-[0-9]*')` | 可用、**区分大小写**（`f-01` 拒）；**前缀过宽**（`F-01extra` 通过） | ⚠️ **有落差**：`GLOB` 不是精确格式校验 |
 | 23 | `CHECK (typeof(x) = 'text')` 遇 NULL | `typeof(NULL)='null'` → **拒绝 NULL** | ⚠️ **反差**：同为 CHECK，`length()` 那条放行 NULL、`typeof()` 这条拒绝 NULL —— **NULL 行为取决于表达式本身，不取决于 CHECK** |
 | 24 | 多约束同时失败 | 只报**声明顺序第一条**，其余违规不出现在报错里 | ⚠️ **有落差**：报错信息不完整，排障时容易以为只有一条违规 |
-| 25 | `sqlite_version()` / `PRAGMA collation_list` / `PRAGMA compile_options` | 全部 `D1_ERROR: not authorized to use function` / `not authorized: SQLITE_AUTH` | 🔴 **有落差**：D1 的 SQL 面被裁剪，**无法用 PRAGMA 自证运行环境** |
+| 25 | `sqlite_version()` / `PRAGMA collation_list` / `PRAGMA compile_options` | 全部 `D1_ERROR: not authorized to use function` / `not authorized: SQLITE_AUTH` | 🔴 **有落差**：D1 的 SQL 面被裁剪，**无法用 PRAGMA 自证运行环境**。**2026-09-21 远程复测：线上同规则**（同三类拒绝，错误多带 `code 7500` 后缀）——见 §5b |
 | 26 | `PRAGMA table_info(x)` | 可用，declared type 原样可读 | ✅ 可用 |
 | 27 | 声明类型的大小写 | `text`→`TEXT`、`int`→`INT`、`integer`→`INTEGER`、`real`→`REAL` 被规范化；`varchar(24)`/`tinyint`/`bigint`/`boolean`/`datetime` **原样保留** | ℹ️ 事实，未测到后果 |
 
@@ -539,13 +540,31 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 
 > 校验：94+39+47 = 180 ✓；180+29+69 = 278 ✓（与 `schema.md` 实际字段行数一致，36 张表）
 
+### 5b. `--remote` 复测结论（2026-09-21 补测）
+
+**背景**：§0.2 原登记「线上未验证」；2026-09-21 凭证到位后补测。探针库为专用远程 D1 `type-probe`（`c73a1ea3-…`，与业务库 `jd-growth-platform` 隔离），`schema.sql` 以 `wrangler d1 execute --remote --file` 落库。
+
+**通道说明（诚实前提）**：本机网络不可达 `*.workers.dev`（大陆封锁，`api.cloudflare.com` 可达），worker 部署+curl 通道走不通；改用 **REST 通道**——`run-remote-rest.mjs` 直接复用探针 worker 源码（`worker/index.js` 一行不改），以「D1 REST `/query` 后端的 `env.DB` 垫片」替换注入绑定。D1 REST 与 JS 驱动走同一服务端执行，读回形状一致；**唯一已知不等价是 boolean 绑定**（REST JSON 布尔被服务端按文本落，JS 驱动落 integer——见下）。
+
+**结果（148 步逐一比对，比对脚本按 label+sql 对齐、错误只比类别）**：
+
+| 判定 | 数量 | 说明 |
+| ---- | ---- | ---- |
+| **行为一致** | 122 | 读回值/存储类/约束拒绝/排序/引擎裁剪逐条同本地 |
+| 错误文案格式差 | 24 | 同一错误类别，远程多带 `(code 7500)` 等后缀＋垫片截断；**判为等价** |
+| **真实差异** | **1** | **boolean 绑定**：`.bind(true/false)` 本地落 `integer 1/0`；REST JSON 布尔落 `text`（REST 参数支持类型不含 boolean）。`bind` 之外的全部 boolean 行为（关键字 `TRUE`/`true`/`false` 落 integer、字符串 `'true'` 落 text、读回永不返回 JS boolean）**线上与本地一致** |
+
+**判定与影响**：真实差异**判归传输层、非引擎差异**——生产路径（worker JS 驱动绑定）不经 REST 序列化，且 workerd 的绑定实现同一份代码；§3 的 boolean 结论（**不要引入 `boolean` 列，沿用 `tinyint` 0/1**）**不受影响、维持原判**。授权层（§3 第 25 行）线上同规则坐实。**§6 第 1 项就此关闭。**
+
+**残留（诚实）**：JS 驱动在**线上 worker 运行时**的 boolean 绑定行为未直接实测（workers.dev 不可达所致）；若未来需要直接实证，可在部署门禁 B 完成后从业务 worker 内打一次探针路由复核。
+
 ---
 
 ## 6. 未测 / 未验（诚实清单）
 
 | # | 项 | 状态 |
 | ---- | ---- | ---- |
-| 1 | 上述行为在**线上 D1**（非 miniflare local）是否逐条一致 | ⬜ **未验证**（无线上凭据）。尤其 §3 第 25 行的 `not authorized` 属 D1 授权层，本地与线上是否同规则未验 |
+| 1 | 上述行为在**线上 D1**（非 miniflare local）是否逐条一致 | ✅ **已复测（2026-09-21，`--remote`）**：147/148 步行为一致（含 §3 第 25 行授权层同规则）；唯一差异为 boolean 绑定且判归 REST 传输层——详见 **§5b** |
 | 2 | D1 的 SQLite **引擎版本号** | ⬜ 无法从 SQL 读出（`sqlite_version()` 被拒），本地也未单独确认 miniflare 打包的版本 |
 | 3 | **2 MB/行**与 **10 GB/库**上限 | ⬜ 未测（属 `tech-stack.md` §4，本轮不在范围） |
 | 4 | `varchar(n)` 长度声明在 **D1 的 `.all()` / 批量写 / 事务**路径下行为是否一致 | ⬜ 未测（本轮全部走单条 `prepare().bind().all()`） |
@@ -579,7 +598,7 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | `../../../docs/03-locks/schema.md`（v1.3） | 若按本文件事实调整字段声明或增补约束，需回指 | ✅ **已互指（2026-09-19）**：其 Q-05 的 `CHECK (length(trim(x)) > 0)` 设计经 `ADR-003` §3.1 引用本文件实测（并已按本文件结论补上「`CHECK` 不拦 NULL，须配 `NOT NULL`」）。v1.3 为宪法交叉引用校正，未改字段 |
 | `../../../db/` 迁移脚本 | 建表时对类型/约束的取舍依据 | ✅ 已建（2026-09-19） |
 
-> **诚实说明（更新于 2026-09-19）**：本文件的**上游与反向现已双向闭环**。上游 `schema.md` 的类型清单是实际解析所得（148 条执行记录有原始 JSON 存证）；反向原有三处 `⏳` 已收敛——`tech-stack.md` §3.1 / §3.2 / §3.3 已按本文件实测改写（`varchar(24)` 写 200 字符不截断、`datetime` 实为 NUMERIC 亲和、`CHECK` 按字符计且不拦 NULL 三句均已落文），`schema.md` v1.2 的 `CHECK` 设计已回指本文件。**仍未收敛的一面是「策略」而非「事实」**：TS-11 的兜底方式（应用层校验 vs 库级 `CHECK`）尚未裁决，故 `db/` 迁移脚本仍未建。
+> **诚实说明（更新于 2026-09-19）**：本文件的**上游与反向现已双向闭环**。上游 `schema.md` 的类型清单是实际解析所得（148 条执行记录有原始 JSON 存证）；反向原有三处 `⏳` 已收敛——`tech-stack.md` §3.1 / §3.2 / §3.3 已按本文件实测改写（`varchar(24)` 写 200 字符不截断、`datetime` 实为 NUMERIC 亲和、`CHECK` 按字符计且不拦 NULL 三句均已落文），`schema.md` v1.2 的 `CHECK` 设计已回指本文件。**仍未收敛的一面是「策略」而非「事实」**：TS-11 的兜底方式（应用层校验 vs 库级 `CHECK`）尚未裁决，故 `db/` 迁移脚本仍未建。（**更新 2026-09-21**：此为 09-19 时点快照——策略面已于 **2026-09-20 裁决为应用层校验**、`db/` 迁移脚本已建、线上行为已于本日远程复测收口 §5b，见上行与「事实来源汇总」。）
 
 ---
 
@@ -589,6 +608,7 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | ---- | ---- | ---- |
 | 探针表数 | 11 | `schema.sql` |
 | 执行记录 | 148（成功 121 / 报错 27） | `raw/*.json` |
+| 远程复测执行记录 | 148（成功 121 / 报错 27；行为一致 147，1 处传输层差异） | `raw/2026-09-21-remote.json` + §5b |
 | 原始响应体量 | 64,887 B | `raw/` |
 | `schema.md` 字段行 | 278 | `/tmp` 解析脚本（可重跑） + `schema.md` |
 | `schema.md` 表数 | 36 | 同上 |
