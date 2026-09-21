@@ -49,6 +49,10 @@
  * @typedef {Object} D1Like D1 绑定（`env.DB`），提供 prepare().bind().run()/all()/first()
  */
 
+// TS-16 应用层截断（tech-stack §8 已决 2026-09-21）：EXT-02 `result_summary` 落库前超限截断＋留痕标注。
+// 分析面拿到的仍是全量原文，截断只发生在 F-09 单一写入面落库前一刻；纯函数引自 M5 `../tool-executor/text-limit.js`。
+import { truncateForStorage } from "../tool-executor/text-limit.js";
+
 const REQUIRED_BUSINESS_CONTEXT = ["context_id", "context_kind", "title", "content", "source_ref"];
 const REQUIRED_TOUCHPOINT = ["touchpoint_id", "touchpoint_name", "channel", "position_desc"];
 
@@ -420,7 +424,8 @@ export async function createEvidence(db, input) {
       input.query_condition,
       input.info_time_point,
       input.applicability_scope,
-      input.result_summary,
+      // TS-16：超单列上限（1MB 字节）时截断＋文末留痕标注；未超限原样落库
+      truncateForStorage(input.result_summary, { field: "evidence.result_summary" }),
       input.missing_note,
       input.created_at || nowStamp()
     )

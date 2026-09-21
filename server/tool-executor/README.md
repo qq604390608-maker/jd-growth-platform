@@ -26,10 +26,12 @@
 | `index.js` | F-23 本体：CFG-02 工具注册（登记/查询）、CFG-03 授权登记、**调用前权限判定**（判定链互斥、受限必带原因）；**F-24 编排层**：`describeTools` + `executeQuery`（先判权限→允许才发请求→映射为 EXT-01 口径信封 + 四要素）；**F-25 落痕层**：`saveQueryRecord` / `recordQuery` / `getQueryRecord` / `listQueryRecords` / `readbackQuery`；**F-26 重试与编排**：`getRunPolicy` / `retryLimitOf` / `executeQueryWithRetry` / `handleQueryFailure` / `runQueryWithRecovery` | ✅ F-23 / F-24 / F-25 / **F-26** 已建 2026-09-19 |
 | `mcp-client.js` | **F-24 传输层（DS-06 自建 MCP 客户端）**：五项协议面（工具描述格式 / 调用回传 / 超时 / 错误码映射 / 权限拒绝形态）+ 条件序列化 + 限制萃取 + 实体级隔离。**零 SQL、零写** | ✅ F-24 已建 2026-09-19 |
 | `task-state.js` | **F-26 任务态写入面**：`PD-01 task` 任务态跃迁（含「停止状态不自动重启」「已完成不改写」守卫）与 `done_part` 只追加；`PD-03 task_block` 受阻留痕（`dict:BLOCK_REASON` 值域校验）与回查；`dictCodes` 通用字典取值。**单独成文件的理由与 `mcp-client.js` 同：让写入面可静态验证** | ✅ F-26 已建 2026-09-19 |
+| `text-limit.js` | **TS-16 应用层截断**（tech-stack §8 已决 2026-09-21）：`truncateForStorage` 纯函数——超单列上限（1,000,000 字节）在**写入面落库前**截断（UTF-8 字节计量、字符边界回退）＋文末 `[TRUNCATED <列名>]` 留痕标注；未超限原样返回同一引用。被 `index.js`（EXT-01 落痕）与 `../shared-context/index.js`（EXT-02 落库）import；**分析面仍拿全量原文**，不改变「真实返回原样透传」红线 | ✅ 已建 2026-09-21（`test-ts16.mjs` 16 断言全绿） |
 | `test-f23.mjs` | F-23 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子） | ✅ 已建（38 断言全绿） |
 | `test-f24.mjs` | F-24 用例执行器（注入式 transport + `prototype/mock/scenarios.js` 真实夹具，零外部调用） | ✅ 已建（**74 断言全绿**） |
 | `test-f25.mjs` | F-25 用例执行器（真实 DDL + 种子；断言落痕完整性、失败也留痕、回查、留痕不变量、零写） | ✅ 已建（**53 断言全绿**） |
 | `test-f26.mjs` | F-26 用例执行器（真实 DDL + 种子；断言重试是代码逻辑、上限口径、成功不算失败、用尽→受阻、再犯→停止、停止不自动重启、受限不重试、写入面静态验证、失败不否定结论） | ✅ 已建（**100 断言全绿**） |
+| `test-ts16.mjs` | TS-16 截断用例执行器（① 纯函数边界：字节计量 / 字符边界 / 留痕标注 / 空值透传；② EXT-01 `saveQueryRecord` 端到端；③ EXT-02 `createEvidence` 端到端；未超限逐字节原样、超限截断＋标注） | ✅ 已建 2026-09-21（**16 断言全绿**，进 CI validate） |
 
 ## F-23 判定链（互斥，依次短路）
 

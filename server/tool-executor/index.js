@@ -63,6 +63,7 @@ import {
   setTaskStatus,
   appendDonePart,
 } from "./task-state.js";
+import { truncateForStorage } from "./text-limit.js";
 
 // F-26 的任务态写入面（`PD-01`/`PD-03`）与只读回查：转出，便于路由与用例统一从本模块取用。
 // 其中「改动已有行」的实现**只在 `./task-state.js`**，本文件因此不含改行 / 删行类 SQL（生产零写可静态验证）。
@@ -455,7 +456,9 @@ export async function saveQueryRecord(db, envelope, opts = {}) {
       envelope.query_condition,
       envelope.queried_at,
       envelope.result_status,
-      envelope.result_summary ?? null,
+      // TS-16 应用层截断（tech-stack §8 已决 2026-09-21）：超 D1 单行上限风险的长文本在落库前一刻截断＋留痕标注；
+      // 分析面（信封消费方）拿到的仍是全量原文，此处只防护存储面。
+      truncateForStorage(envelope.result_summary ?? null),
       envelope.returned_rows ?? null,
       envelope.fail_reason ?? null,
       Number.isInteger(envelope.retry_count) ? envelope.retry_count : 0,
