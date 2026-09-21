@@ -27,6 +27,19 @@ const POLL_MAX_TRIES = 30; // 30 × 20s = 10 分钟（五步 × cron 1/min 留�
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const log = (msg) => console.log(`[e2e] ${new Date().toISOString()} ${msg}`);
 
+// blocked/stopped 原因码 → 自助排查提示（让红色步骤直接可读出根因，免贴长日志）
+const REASON_HINTS = {
+  QUERY_RESTRICTED: "查询受限 → 多半是『出关运维待办』UPDATE 未生效：4 个计划工具 is_enabled 仍为 0 或 ACT availability_status 非 ok（去 Cloudflare D1 控制台 SELECT 核对 tool_registry/ source_registry）",
+  SOURCE_DEGRADED: "来源降级 → ACT 等来源 availability_status 非 ok（检查 source_registry）",
+  TARGET_UNCLEAR: "目标口径不清 → 该 goal 的 metric_definition / business_scope 在远程缺失或不完整",
+  GOAL_POLICY_MISSING: "目标无生效策略 → resolveRunPolicy 在远程找不到 active 策略（检查 research_strategy / CFG-04）",
+  AGENT_PROFILE_MISSING: "角色指令缺失 → agentSnapshotOf('AGP-DISC') 在远程找不到生效角色（检查 MD-13 agent_profile）",
+  CRON_NOT_FIRED: "runner cron 未触发 → 检查 wrangler.runner.toml [triggers] crons=['* * * * *'] 与 Cloudflare Cron Triggers 面板是否绑定本 Worker",
+};
+function reasonHint(code) {
+  return code ? `（${code} → ${REASON_HINTS[code] || "未知原因码，查 PD-03 task_block 记录"}）` : "（无原因码）";
+}
+
 async function fetchJSON(path, init, tries = 3) {
   let lastErr;
   for (let i = 0; i < tries; i++) {
@@ -88,14 +101,20 @@ async function main() {
       .join(" ");
     log(`（${i}/${POLL_MAX_TRIES}）task_status=${status} · ${doneCount}/5 done · ${progress}`);
     if (status === "blocked" || status === "stopped") {
-      throw new Error(`任务被处置为 ${status}（详情查 /api/task-blocks?task_id=${task_id}），闭环未走通`);
+      const code = d.task?.block_reason_code || d.task?.stop_reason_code || d.task?.last_error_code;
+      throw new Error(`任务被处置为 ${status} ${reasonHint(code)}；闭环未走通（task_id=${task_id}）`);
     }
     if (status === "done" && doneCount === steps.length && steps.length === 5) {
       log(`五步全部 done：${progress}`);
       break;
     }
     if (i === POLL_MAX_TRIES) {
-      throw new Error(`轮询超时（10 分钟）未完成：task_status=${status}，${progress}`);
+      // 超时：区分『cron 没驱动』与『驱动了但卡在某步』——后者步骤会停在 active/pending 而非全 running
+      const stuck = steps.filter((s) => s.step_state !== "done").map((s) => `#${s.step_no}:${s.step_state}`).join(" ");
+      const hint = status === "running" && steps.every((s) => s.step_state === "active" || s.step_state === "pending")
+        ? reasonHint("CRON_NOT_FIRED")
+        : "（步骤已部分推进说明 cron 在跑，卡点见上方 stuck 步骤——多半是某步查询受限被 F-26 处置，但状态未及时刷新，查 PD-03）";
+      throw new Error(`轮询超时（10 分钟）：task_status=${status}，${progress}；stuck=[${stuck}] ${hint}`);
     }
   }
 
