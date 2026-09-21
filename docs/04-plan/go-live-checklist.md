@@ -45,7 +45,7 @@
 | 4 | 流水线 `deploy` 阶段（仅 push 到 main 时） | `d1 migrations apply jd-growth-platform --remote` → `wrangler deploy` | ✅ 已过 |
 | 5 | GitHub 仓库 Settings → Branches | 开启 `main` 分支保护（防强推/防删除，按需加 PR 审核 + 状态检查）。**属仓库设置项，不在 `ci.yml` 内，须手动开**（见 `.github/README.md`） | ✅ 已确认（2026-09-21 用户网页操作） |
 
-**线上冒烟（2026-09-21）**：`*.workers.dev` 大陆直连不可达（运维事实，见 runbook §7）；经 `wrangler dev --remote`（边缘运行时 + 真实远程 D1，绕开被墙域名）实测——`/api/health` ✅（AI binding 已接）、`/api/db-ping` ✅、`/api/dicts/OPP_STATUS` 路由通但 **items 为空**。空属预期：远程库按「生产零写」只有 schema；配置缺失问题已由**决策项2 落地**收口——`db/seed/0002_config.sql`（11 表 / 183 行配置）经 CI deploy 阶段自动灌入远程库，见 §4 决策项2。另：根路径 `/` 无前端页面属预期——Worker 是 API-only，前端托管形态是未决项 **TS-20**。
+**线上冒烟（2026-09-21）**：`*.workers.dev` 大陆直连不可达（运维事实，见 runbook §7）；经 `wrangler dev --remote`（边缘运行时 + 真实远程 D1，绕开被墙域名）实测——`/api/health` ✅（AI binding 已接）、`/api/db-ping` ✅、`/api/dicts/OPP_STATUS` 路由通但 **items 为空**。空属预期：远程库按「生产零写」只有 schema；配置缺失问题已由**决策项2 落地**收口——`db/seed/0002_config.sql`（11 表 / 183 行配置）经 CI deploy 阶段自动灌入远程库，见 §4 决策项2。另：根路径 `/` 无前端页面——**已于 2026-09-21 收口**：依用户裁决（TS-15 长期同源＋「现在就挂」确认），前端运营工作台（`frontend/` 六页，读真库）以 Workers Static Assets 同源挂到本 Worker（`wrangler.toml` `[assets]`），本地实测 `/`→HTML、`/assets/api.js`→JS、`/api/*` 照常穿透 Worker。访问通道先用 `workers.dev`（大陆需代理），自定义域名待用户后续提供。
 
 **PR 标题约定**：须以 `F-xx` / `阶段N` / `chore` / `docs` / `ci` 开头，否则 `pr-title-check` 会失败（对应 dev-plan「每 F-xx 一 PR」纪律）。
 

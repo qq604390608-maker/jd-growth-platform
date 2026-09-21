@@ -5,10 +5,18 @@
 # 反向清单：被 AGENTS.md 索引 server/ 行引用；被 server/ 各模块（后续）与阶段0-CI（.github/workflows）复用。
 # TS-20 已落地（2026-09-21）：本文件为 **api Worker**（jd-growth-platform）；第二个 Worker（runner）见
 # `wrangler.runner.toml`（main = server/task-runner/index.js，CI deploy 第二步 `deploy -c` 部署）。
+# TS-15 已落地（2026-09-21，依用户裁决「长期同源」＋本次确认「现在就挂」）：前端运营工作台
+# （frontend/，F-27~F-32 六页，读真库）以 Workers Static Assets **同源同 Worker 托管**——
+# 命中静态文件由平台直接服务（`/` → index.html），未命中路径（/api/* 等）照常进 Worker 脚本。
+# 前端唯一网络出口 frontend/assets/api.js 只发 `/api/` 同源相对路径，与同源部署互为前提。
 
 name = "jd-growth-platform"
 main = "server/api/index.js"
 compatibility_date = "2026-09-19"
+
+# 前端静态资产（TS-15 同源；宪法红线：原型的 mock 数据不复制进前端，页面动态数据全经 /api/）
+[assets]
+directory = "./frontend"
 
 # D1 数据库绑定（tech-stack §2.3 / §3；外键强制已本地+远程双实测，见 db/probes/fk/）
 # 本地：wrangler dev / wrangler d1 migrations apply --local 自动建本地库
