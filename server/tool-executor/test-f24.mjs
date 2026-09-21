@@ -124,7 +124,7 @@ console.log("① tech-stack §2.6 · 自建 MCP 客户端五项协议面齐备")
   const desc = describeTool(tool, { availability_status: "ok", is_mcp_ready: 1 });
   assert(desc.name === tool.tool_code && typeof desc.description === "string", "工具描述格式：name/description 齐备");
   assert(desc.inputSchema?.required?.includes("query_condition"), "工具描述格式：入参要求查询条件");
-  assert(String(desc._meta.contract).includes("demo"), "工具描述格式：显式标注 demo（§7 T-01/T-02/TS-22 未关闭）");
+  assert(String(desc._meta.contract).includes("baseline-v1"), "工具描述格式：显式标注契约基准 v1（ADR-004 冻结，原 demo 门禁已收口）");
   assert(typeof createHttpTransport === "function" && DEFAULT_TIMEOUT_MS === 30000, "调用回传 + 超时面：默认阈值 30s（§6.1）");
   let threw = null;
   try { new TransportTimeout(1000).message; } catch (e) { threw = e; }

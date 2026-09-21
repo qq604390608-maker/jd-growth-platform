@@ -14,14 +14,15 @@
  * 职责：**传输层**——把外部系统返回映射成 EXT-01 可直接落库的结果信封，并实现五项协议面。
  * 边界（严格只做 F-24 的传输面）：**本文件零 SQL、零写**（不碰 `EXT-01` 落痕＝F-25、不碰重试＝F-26、
  *   不碰权限判定＝F-23，权限判定由 `./index.js` 编排层调用并据此短路）。
- * 门禁：`external-deps.md` §7 的 T-01/T-02/T-05 与 `tech-stack.md` §8 TS-22 未关闭——
- *   工具描述格式与 `tool_code` 均为 **demo 占位**，`describeTool` 显式打 `contract: demo`；
- *   **返回体内所有数值都是外部真实返回值，不由本层生成，也不进断言**。
+ * 门禁：`external-deps.md` §7 的 T-01/T-02/T-05 与 `tech-stack.md` §8 TS-22 **已随 ADR-004 收口**（2026-09-21：
+ *   无外部对接方，11 条契约由我方自拟冻结为**契约基准 v1**，允许进断言）——工具描述格式与 `tool_code`
+ *   即基准 v1 本身，`describeTool` 显式打 `contract: baseline-v1`；
+ *   **返回体内所有数值均为契约基准 v1 的约定值，不由本层生成**（「来源可追溯」红线，ADR-004 §3.4）。
  *
  * 反向清单：被 `./index.js`（F-24 `executeQuery` 编排）引用；登记 `./README.md`；测试 `./test-f24.mjs`。
  */
 
-// ---------------------------------------------------- 协议面 1：工具描述格式（demo）
+// ---------------------------------------------------- 协议面 1：工具描述格式（基准 v1）
 
 /** 五项协议面清单（便于 Implement chaperone 与用例断言「五面齐备」）。 */
 export const MCP_FACES = [
@@ -36,8 +37,8 @@ export const MCP_FACES = [
 export const DEFAULT_TIMEOUT_MS = 30000;
 
 /**
- * 协议面 1 —— 工具描述格式。
- * ⚠️ 结构为 demo（§7 T-01/T-02 与 TS-22 未关闭），真实契约到手前**不得据此外推**，故显式打 `contract: demo`。
+ * 协议面 1 —— 工具描述格式（契约基准 v1，ADR-004 冻结）。
+ * 结构即基准 v1 本身（§7 T-01/T-02 与 TS-22 已收口）；真对接方出现时走 ADR 修订替换。
  */
 export function describeTool(tool, source = null) {
   return {
@@ -54,7 +55,7 @@ export function describeTool(tool, source = null) {
       call_condition: tool.call_condition,
       availability_status: source ? source.availability_status : null,
       is_mcp_ready: source ? source.is_mcp_ready : null,
-      contract: "demo（external-deps §7 T-01/T-02 与 tech-stack §8 TS-22 未关闭）",
+      contract: "baseline-v1（external-deps §7 契约基准 v1，ADR-004 冻结；真对接方出现时走 ADR 修订替换）",
     },
   };
 }
