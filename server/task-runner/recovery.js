@@ -20,7 +20,9 @@
  *   ② `recordTaskBlock` —— 受阻矩阵「处理调用失败／来源未接入／口径不清／接口未返回／无足够依据」→ 保留 `done_part`（已完成部分）
  *        ＋ 置 `blocked` ＋ 写 `PD-03`；③ `handleTaskFailure` —— 处理调用失败的便捷编排（`call_failed`）；
  *   ④ `stopTask` —— 矩阵「达到运行限制或人工取消」→ 保留 `done_part` ＋ 置 `stopped`（**停止状态不自动重启**，由 `task-state` 守卫）＋ 写 `PD-03(limit_or_cancel)`；
- *   ⑤ `resumeTask` —— `blocked`→`running`（状态流「检查继续条件满足 → 恢复原任务」），受阻记录（`PD-03`）为追加式历史缺口日志，本函数不改动它。
+ *   ⑤ `resumeTask` —— `blocked`→`running`（状态流「检查继续条件满足 → 恢复原任务」），受阻记录（`PD-03`）为追加式历史缺口日志，本函数不改动它；
+ *        并按 schema PD-01 `ended_at` 列口径「任务结束时点；**进行中为空**」**显式清空 `ended_at`**（`clear_ended_at: true`，F-37）——
+ *        受阻侧的两个写入方（F-26 对 `blocked` 留空 / 执行体 `catch` 落时刻）口径不一，不清空则恢复后成「`running` + `ended_at` 非空」脏态。
  * 不变量：运行失败**不作为否定 HVA 的依据**——F-06 只动 PD-01/PD-03（任务态与受阻留痕），绝不触碰 `MD-07 research` 结论或 `EXT-02 evidence`；
  *   此不变量由 `test-f06.mjs` 静态断言（本文件不 `import` shared-context 研究写面／tool-executor 证据写面、无 `fetch`／裸 SQL）共同证明。
  *
@@ -147,7 +149,10 @@ export async function resumeTask(db, { task_id } = {}) {
       { reason_code: "resume_requires_blocked" },
     );
   }
-  const updated = await setTaskStatus(db, task_id, "running");
+  // 「进行中为空」（schema PD-01 `ended_at` 列口径）：恢复即回到进行中，故**显式清空**旧值——
+  // 受阻时的写入方有两个（F-26 对 `blocked` 留空、执行体 `catch` 落时刻），不清空则恢复后成
+  // 「`running` + `ended_at` 非空」的脏态（线上 T-0026 即此形；修法方向经用户裁决＝「resume 清空」）。
+  const updated = await setTaskStatus(db, task_id, "running", { clear_ended_at: true });
   const open = await listTaskBlocks(db, { task_id, is_resolved: 0 });
   return { task: updated, open_blocks: open || [] };
 }

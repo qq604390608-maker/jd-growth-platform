@@ -45,6 +45,10 @@
  *     **不硬造结论也不硬做**；`analysis_input` 形态非法一律报错（不静默忽略）；
  *   · **失败不否定结论**：非 ok 的查询只留痕、不进证据；失败条目经 F-21 `failure_induced` 转缺口并保留 warning；
  *   · **中断即停手**：任务被 F-26 处置为非 running 后不再向下一个源发起查询（剩余源暂停，等恢复）；
+ *   · **计划避开未启用来源**（F-38）：查证计划按「已声明 且 `CFG-02 is_enabled=1` 的工具所属来源」**逐步骤收窄 `data_sources`**，
+ *     被排除的来源与整步检查**如实登记**（F-19 输出 `plan_excluded_sources` / `plan_excluded_checks`），不静默丢弃——
+ *     否则任一计划源未接入，M4 一动手就被 F-26 判 `source_unavailable` 而停在步 ②（线上 T-0031 即此形）；
+ *     边界：此处只判「该来源有无已启用工具」，更细的权限 / 接入态仍由 M5 前置守卫兜底；
  *   · **不覆盖既有报告**：F-21 `saveResearchReport` 前置守卫拦截「已出过报告」（幂等，如实回报）。
  *   受阻原因码映射（步 ⑤ 产出不合规时，`dict:BLOCK_REASON` 六项内选并写进 `PD-03` 备注）：
  *     `incomplete`→`no_data_returned`（研究所需信息未取得）；`boundary_violation`／`action_finding_mismatch`→`target_unclear`
@@ -54,7 +58,7 @@
  */
 import { getTask, listTaskSteps, advanceStep, appendDonePart, recordBlock, setTaskStatus, listTaskObjects, BLOCK_REASON_CODE, TYPE_STEPS } from "./step-plan.js";
 import { getGoalVersion } from "./goal.js";
-import { listQueryRecords } from "../tool-executor/index.js";
+import { listQueryRecords, listTools } from "../tool-executor/index.js";
 import { loadResearchStartContext, assembleResearchStart, STOP_CONDITION as START_STOP_CONDITION } from "../agent-orchestrator/research-start.js";
 import { queryForBehaviorCheck, formCandidateBehavior, assembleBehaviorVerification, ALTERNATIVE_DIMENSIONS, BEHAVIOR_POINT_TYPE } from "../agent-orchestrator/behavior.js";
 import { listCandidateBehaviors, listBehaviorPoints } from "../agent-orchestrator/behavior-store.js";
@@ -134,6 +138,17 @@ function blockedError(message, block_reason_code) {
 }
 
 /**
+ * 当前**可用来源**（F-38）：`CFG-02 tool_registry` 里 `is_enabled = 1` 的工具所属来源，去重。
+ * 只读（经 M5 `listTools` 读面，本文件不写 SQL——`test-f33` ① 的「零裸 SQL」断言仍成立）。
+ * 口径＝「该来源至少有一个已启用工具」；边界：不判权限 / 接入态（那由 M5 前置守卫兜底），
+ * 此处只用于让查证计划避开必然被拒的来源。
+ */
+async function enabledSourceCodes(db) {
+  const tools = (await listTools(db, { is_enabled: 1 })) || [];
+  return [...new Set(tools.map((t) => t.source_id).filter(Boolean))];
+}
+
+/**
  * 步 ①/②/③/④/⑤ 共用：薄读二阶段注入清单 → F-19 研究起点（路径 + 比较条件 + 查证顺序）。
  * 研究问题缺失 / 目标版本缺失 → 抛结构性受阻（非查询失败，不擅自代拟口径）。
  */
@@ -161,6 +176,9 @@ async function loadStartAndPlan(db, task, opts = {}) {
     evidence: injection.evidence,
     history: injection.history,
     sources: injection.sources,
+    // F-38：现读可用来源（`is_enabled=1` 的工具所属来源），让查证计划避开必然被 M5 判 `source_unavailable` 的来源。
+    // `opts.available_sources` 可覆盖（用例注入夹具用）——门禁开闭同一套代码，判定逻辑不复制第二份。
+    available_sources: opts.available_sources || (await enabledSourceCodes(db)),
     focus_period: version.focus_period ?? null,
     metric_definition: version.metric_definition ?? null,
     suitability: opts.suitability,
@@ -497,11 +515,20 @@ export async function runResearchStep(db, task_id, step_no, opts = {}) {
   try {
     if (step_no === 1) {
       const { start } = await loadStartAndPlan(db, task, opts);
+      // 来源排除项**如实写进「已完成部分」**（F-38，仅在确有排除时）：计划避开未启用来源后，
+      // 依据缺口在任务记录里可回查，不静默丢弃；五源齐备时本段不产生任何多余文本（既有口径不变）。
+      const excludedNote = start.plan_excluded_sources.length > 0
+        ? `本轮排除来源 ${start.plan_excluded_sources.map((x) => `${x.source_id}（${x.reason}）`).join("、")}；`
+        : "";
       await appendDonePart(db, task_id,
         `① 载入机会与目标口径：研究问题「${start.research_question}」；起点路径 ${start.path}（${start.path_reason}）；` +
         `比较条件 ${start.comparison_conditions_declared ? "三项已定" : `缺 ${start.comparison_conditions_missing.join("、")}（如实登记，不编造）`}；` +
+        excludedNote +
         `查证顺序 ${start.plan.map((s) => s.check_key).join(" > ")}；${START_STOP_CONDITION}。`);
-      return { outcome: "done", step_no, path: start.path, plan_step_count: start.plan_step_count };
+      return {
+        outcome: "done", step_no, path: start.path, plan_step_count: start.plan_step_count,
+        sources_available: start.sources_available, plan_excluded_sources: start.plan_excluded_sources,
+      };
     }
 
     if (step_no === 2) {

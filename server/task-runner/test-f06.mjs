@@ -184,13 +184,28 @@ console.log("\n④ handleTaskFailure · 处理调用失败的便捷编排（call
 // ==================================================== ⑤ 恢复：blocked → running（状态流「检查继续条件满足 → 恢复原任务」）
 console.log("\n⑤ TC-I-M1-006 · 恢复：blocked → running，状态跃迁可查");
 {
-  const { db } = freshDb();
+  const { sqlite, db } = freshDb();
   await recordTaskBlock(db, { task_id: RUNNING, block_reason_code: BLOCK_REASON.call_failed, done_part_fragment: FRAG });
+  // 脏态夹具（F-37）：受阻有两个写入方——F-26 对 `blocked` 留空、执行体 `catch` 落时刻。
+  // 这里造出后者的同形脏态（线上 T-0026 即此形），再 resume，验证「进行中为空」被恢复。
+  const DIRTY = "2026-09-21 16:00";
+  sqlite.prepare("UPDATE task SET ended_at = ? WHERE task_id = ?").run(DIRTY, RUNNING);
+  assert((await getTask(db, RUNNING)).ended_at === DIRTY, "前置：造出「blocked + ended_at 非空」同形脏态（执行体 catch 口径）");
+
   const res = await resumeTask(db, { task_id: RUNNING });
   assert(res.task.task_status === "running", `任务态 blocked → running（实测 ${res.task.task_status}）`);
+  assert(res.task.ended_at === null, `恢复后 ended_at 清空（锁定列口径「任务结束时点；进行中为空」；实测 ${String(res.task.ended_at)}）`);
   // 受阻记录为追加式历史缺口日志，恢复不改写它（仍留作审计）
   const blocks = await listTaskBlocks(db, { task_id: RUNNING, is_resolved: 0 });
   assert(blocks.length === 1, "恢复后受阻记录仍在（历史缺口日志，不抹除）");
+
+  // 反例（不误伤）：**清空只发生在 resume 这一处**——未显式声明清空的跃迁仍走 `COALESCE(?, ended_at)` 保留旧值，
+  // 否则 `done` / `stopped` 落下的结束时点会被后续普通跃迁抹掉。
+  const other = freshDb();
+  await recordTaskBlock(other.db, { task_id: RUNNING, block_reason_code: BLOCK_REASON.call_failed });
+  other.sqlite.prepare("UPDATE task SET ended_at = ? WHERE task_id = ?").run(DIRTY, RUNNING);
+  const kept = await setTaskStatus(other.db, RUNNING, "running");
+  assert(kept.ended_at === DIRTY, "反例：未显式声明清空时沿用 COALESCE 保留旧值（清空只发生在 resume 一处）");
 }
 
 // ==================================================== ⑥ 停止：达到运行限制或人工取消 → stopped，停止状态不自动重启
@@ -254,6 +269,7 @@ console.log("\n⑩ 生产零写：F-06 复用 F-26 写入面，本文件零裸 S
   // 不变量：导入的函数均来自 task-state（不出现其它写入面 import）
   const imports = [...src.matchAll(/import\s*\{[^}]*\}\s*from\s*["']([^"']+)["']/g)].map((m) => m[1]);
   assert(imports.length === 1 && imports[0] === "../tool-executor/task-state.js", `import 仅 1 个且为 task-state.js（实测 ${imports.length} 个：${imports.join(", ")}）`);
+  assert(/clear_ended_at:\s*true/.test(src), "resumeTask 显式声明 clear_ended_at: true（F-37：恢复即清空 ended_at，锁住不回归）");
 }
 
 finish();

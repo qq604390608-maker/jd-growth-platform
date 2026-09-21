@@ -3,7 +3,8 @@
  * 上游：`../../AGENTS.md`（宪法：一条硬红线｜编号体系｜双向引用）
  *   ｜ `../../docs/03-locks/schema.md` PD-01 `task`（`task_status` 走 `dict:TASK_STATUS`＝running/blocked/stopped/done；
  *        `done_part` 已完成部分，**受阻或停止时保留的已有工作**；`retry_count` 本任务已重试次数；
- *        `is_auto_restart` **停止状态一律 0**；`ended_at` 任务结束时点、进行中为空）｜
+ *        `is_auto_restart` **停止状态一律 0**；`ended_at` 任务结束时点、进行中为空——故恢复为进行中时须
+ *        **显式清空**（`clear_ended_at`，F-37））｜
  *        PD-03 `task_block`（`block_id` PK 形如 `BL-001`、`block_reason_code` 走 `dict:BLOCK_REASON` 六项、
  *        `block_note` 受阻具体说明、`resume_condition` 继续研究的条件、`is_resolved` 0/1）｜§12 Q-12（卡死门槛待裁决）
  *   ｜ `../../docs/01-brd/BRD.md` §4 F-06 **任务受阻处理矩阵 + 状态流**（F-26 与之共用状态机口径：
@@ -129,8 +130,12 @@ export async function recordBlock(db, { task_id, block_reason_code, block_note, 
  * ① **停止状态不自动重启**——`task_status='stopped'` 的任务不允许被改回运行中 / 受阻；
  * ② 已完成任务不改写——`done` 不允许被改回受阻（不改写已结束的任务态）。
  * `is_auto_restart` 一律写 0（schema PD-01 口径：停止状态一律 0）。
+ * `ended_at` 默认**只增不减**（`COALESCE(?, ended_at)`——`done` / `stopped` 落下的结束时点不会被后续普通跃迁抹掉）；
+ * `clear_ended_at: true` 是**唯一的显式清空口**，供恢复为进行中时使用（`resumeTask`，F-37）：
+ * 锁定列口径是「任务结束时点；**进行中为空**」，而受阻侧有两个写入方（F-26 对 `blocked` 留空 / 执行体 `catch` 落时刻），
+ * 不清空则恢复后成「`running` + `ended_at` 非空」脏态。**只有 `CASE` 一个 SQL 语句**（不新增第二条改行语句）。
  */
-export async function setTaskStatus(db, task_id, status, { ended_at = null } = {}) {
+export async function setTaskStatus(db, task_id, status, { ended_at = null, clear_ended_at = false } = {}) {
   const statuses = await dictCodes(db, "TASK_STATUS");
   if (!statuses.includes(status)) {
     throw new Error(`task_status '${String(status)}' 不在 dict:TASK_STATUS 值域内（${statuses.join(" / ")}）`);
@@ -149,8 +154,13 @@ export async function setTaskStatus(db, task_id, status, { ended_at = null } = {
     });
   }
   const r = await db
-    .prepare("UPDATE task SET task_status = ?, is_auto_restart = 0, ended_at = COALESCE(?, ended_at) WHERE task_id = ?")
-    .bind(status, ended_at, task_id)
+    // 单条语句、`CASE` 分流：`clear_ended_at` 为真才置 NULL，否则沿用 `COALESCE` 保留旧值
+    // （不新增第二条改行语句——`test-f26.mjs` 的「`UPDATE task` 恰 2 条」静态断言逐字不动）。
+    .prepare(
+      "UPDATE task SET task_status = ?, is_auto_restart = 0, " +
+        "ended_at = CASE WHEN ? = 1 THEN NULL ELSE COALESCE(?, ended_at) END WHERE task_id = ?",
+    )
+    .bind(status, clear_ended_at ? 1 : 0, ended_at, task_id)
     .run();
   if (r && r.success === false) throw new Error(r.error || "task 状态更新失败");
   return getTask(db, task_id);

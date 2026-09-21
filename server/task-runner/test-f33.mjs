@@ -166,6 +166,8 @@ console.log("① 静态扫描 · research.js 零裸 SQL、self-heal.js 改行只
 console.log("\n② 步 ① 载入机会与目标口径 · 有假设 → verify_hypothesis、路径确定即停止");
 {
   const { sqlite, db } = freshDb();
+  // F-38 起「可用来源」参与计划：本段断言「路径首步 + 五查＝6」，故须五源均可用（否则计划会按启用面收窄）
+  enableResearchTools(sqlite);
   const tk = await researchTaskOf(db);
   const tid = tk.task.task_id;
   assert(tk.research_created === true && typeof tk.research_no === "string", `F-04 已建 MD-07 研究壳（实测 ${tk.research_no}）`);
@@ -173,6 +175,9 @@ console.log("\n② 步 ① 载入机会与目标口径 · 有假设 → verify_h
   const r = await runResearchStep(db, tid, 1, { at: "2026-09-21 10:01" });
   assert(r.outcome === "done" && r.path === "verify_hypothesis", `步 1 done、路径＝verify_hypothesis（实测 ${r.outcome}/${r.path}）`);
   assert(r.plan_step_count === 6, `计划＝路径首步 + 五查＝6（实测 ${r.plan_step_count}）`);
+  assert(Array.isArray(r.plan_excluded_sources) && r.plan_excluded_sources.length === 0,
+    "五源均可用 → 零排除项（计划不被收窄、done_part 不出现排除说明）");
+  assert(!/本轮排除来源/.test(getTaskPending(sqlite, tid).done_part), "无排除项时 done_part 不产生多余文本（既有口径不变）");
   const t = getTaskPending(sqlite, tid);
   assert(/① 载入机会与目标口径/.test(t.done_part), "done_part 含「① 载入机会与目标口径」");
   assert(/比较条件 三项已定/.test(t.done_part), "比较条件三项已定（population_limit + focus_period + metric_definition）");
@@ -443,6 +448,37 @@ console.log("\n⑪ 查询全失败 · 失败留痕 EXT-01、不当证据、任�
   const blocks = sqlite.prepare("SELECT * FROM task_block WHERE task_id = ?").all(tid);
   assert(blocks.length >= 1, `PD-03 留痕（实测 ${blocks.length} 行）`);
   assert(!/已确认|已证实|必然/.test(t.done_part || ""), "done_part 不含结论性措辞（失败不下 HVA 判断）");
+}
+
+// ==================================================== ⑫ 未启用来源不进计划（F-38，生产同形）
+console.log("\n⑫ 生产同形 · PIM 未启用 → 计划不含 PIM，全链路仍跑到报告落库（不再被 F-26 阻止）");
+{
+  const { sqlite, db } = freshDb();
+  // 与线上一致的启用面：TOL-01/04/09/11（**TOL-07 PIM 保持未启用**——线上正是这一条把 M4 卡在步 ②）
+  sqlite.exec("UPDATE tool_registry SET is_enabled = 1 WHERE tool_id IN ('TOL-01','TOL-04','TOL-09','TOL-11')");
+  sqlite.exec("UPDATE source_registry SET availability_status = 'ok', is_mcp_ready = 1 WHERE source_id IN ('MKT','ACT')");
+  const blocksBefore = countRows(sqlite, "task_block");
+  const evBefore = countRows(sqlite, "evidence");
+  const tk = await researchTaskOf(db);
+  const tid = tk.task.task_id;
+
+  const tr = transportOf((c) => okBody(c));
+  await runPendingWork(db, { transport: tr, at: "2026-09-21 10:01" });
+
+  const srcs = sqlite.prepare("SELECT DISTINCT source_id FROM query_record WHERE task_id = ?").all(tid).map((x) => x.source_id);
+  assert(!srcs.includes("PIM"), `未启用来源 PIM 未被查询（实测查询来源 ${srcs.slice().sort().join(">")}）`);
+  assert(!tr.calls.includes("pim.category.query"), "transport 未被要求调 PIM 工具码");
+  assert(srcs.slice().sort().join(">") === "ACT>CDP>HJE>MKT", `计划内可用来源全跑到（实测 ${srcs.slice().sort().join(">")}）`);
+
+  const t = getTaskPending(sqlite, tid);
+  assert(t.task_status === "done", `任务跑到 done（不再因来源未接入被 F-26 受阻，实测 ${t.task_status}）`);
+  assert(t.progress_text === "5 / 5 步", `五步全 done（实测「${t.progress_text}」）`);
+  assert(countRows(sqlite, "task_block") === blocksBefore, "零 PD-03 留痕（未启用来源不再触发受阻）");
+  const research = sqlite.prepare("SELECT * FROM research WHERE start_task_id = ?").get(tid);
+  assert(research.research_status === "done", `报告落库（MD-07 research_status=done，实测 ${research.research_status}）`);
+  assert(/本轮排除来源 PIM/.test(t.done_part), "done_part 如实写明本轮排除的来源（依据缺口可回查，不静默丢弃）");
+  assert(countRows(sqlite, "evidence") - evBefore === 4,
+    `证据按可用来源落 4 行（PIM 不落库，实测 ${countRows(sqlite, "evidence") - evBefore}）；边界：报告正文的限制段归 F-21 口径，本轮不擅改`);
 }
 
 finish();

@@ -318,8 +318,46 @@ console.log("\n⑤ TC-D-M4-006 · `MD-12 research_proposal.opportunity_id` 外�
     "写入面：机会不存在 → 报错（应用层守卫）", "机会不存在");
 }
 
-// ==================================================== ⑥ 静态核验（零外部调用 / 零写库 / 零裸 SQL / 依赖面）
-console.log("\n⑥ 静态核验 · research-start.js 零外部调用 / 零写语句 / 零裸 SQL / 复用 F-18 口径与 shared-context 读面");
+// ==================================================== ⑥ 来源可用性过滤（F-38：计划避开未启用来源）
+console.log("\n⑥ 来源可用性过滤 · 未启用来源不进计划（逐步骤收窄 data_sources）＋排除项如实登记");
+{
+  const base = { research_question: "q", behavior_hypothesis: "假设" }; // 起点① → 计划＝首步 + 五查
+
+  // ① 未注入可用清单 → 口径不变（不过滤）
+  const all = assembleResearchStart({ ...base });
+  assert(all.sources_available === null && all.plan_excluded_sources.length === 0,
+    "未注入 available_sources → 不按启用面过滤（口径不变、零排除项）");
+  assert(all.plan.length === 1 + RESEARCH_CHECK_SEQUENCE.length, `未注入时计划仍为 1+5 步（实测 ${all.plan.length}）`);
+
+  // ② 生产同形：CDP/HJE/MKT/ACT 可用、PIM 未启用
+  const AVAIL = ["CDP", "HJE", "MKT", "ACT"];
+  const filtered = assembleResearchStart({ ...base, available_sources: AVAIL });
+  const alt = filtered.plan.find((s) => s.check_key === "alternative_explanations");
+  assert(alt && alt.data_sources.join(">") === "MKT>ACT", `「其他解释」只留可用来源（实测 ${alt && alt.data_sources.join(">")}）`);
+  assert(alt && alt.excluded_sources.join(">") === "PIM", "被收窄掉的来源同时登记在步骤上（不静默丢）");
+  assert(filtered.plan_excluded_sources.map((x) => x.source_id).join(">") === "PIM", "计划级排除清单＝PIM");
+  assert(/未启用/.test(filtered.plan_excluded_sources[0].reason), "排除原因明示「来源未启用」");
+  assert(filtered.plan.every((s) => s.data_sources.every((d) => AVAIL.includes(d))),
+    "计划内不残留未启用来源（执行体照计划取数即不会打到未接入来源）");
+  assert(filtered.plan_excluded_checks.length === 0, "四源可用 → 五查全在（无整步被排除）");
+  assert(/排除/.test(filtered.availability_note), "可用清单已注入时如实说明本次做了过滤");
+
+  // ③ 可用清单为空 → 只剩无来源步骤，且三个来源步骤全部如实登记
+  const none = assembleResearchStart({ ...base, available_sources: [] });
+  assert(none.plan.filter((s) => s.data_sources.length > 0).length === 0, "可用清单为空 → 计划内无任何来源步骤");
+  assert(none.plan_excluded_checks.length === 3, `三个来源步骤全部登记「本轮不安排取数」（实测 ${none.plan_excluded_checks.length}）`);
+  // 既有口径不回归：`[]` 在 assembleResearchCheckSequence 里仍＝不过滤（除非调用方显式 allowEmpty）
+  assert(assembleResearchCheckSequence([]).length === RESEARCH_CHECK_SEQUENCE.length, "既有口径不变：[] ＝ 不过滤（未开 allowEmpty）");
+
+  // ④ 与「注入清单声明」叠加 → 取交集（声明口径不变，只再收窄到可用）
+  const both = assembleResearchStart({ ...base, sources: ["MKT"], available_sources: AVAIL });
+  const alt2 = both.plan.find((s) => s.check_key === "alternative_explanations");
+  assert(alt2 && alt2.data_sources.join(">") === "MKT", `声明 ∩ 可用 → 交集（实测 ${alt2 && alt2.data_sources.join(">")}）`);
+  assert(both.plan_excluded_sources.length === 4, `未声明/不可用来源共 4 项如实列出（实测 ${both.plan_excluded_sources.length}）`);
+}
+
+// ==================================================== ⑦ 静态核验（零外部调用 / 零写库 / 零裸 SQL / 依赖面）
+console.log("\n⑦ 静态核验 · research-start.js 零外部调用 / 零写语句 / 零裸 SQL / 复用 F-18 口径与 shared-context 读面");
 {
   const src = stripComments(readFileSync(MODULE_SRC, "utf8"));
   assert(!/fetch\s*\(/.test(src) && !/https?:\/\//.test(src), "无外部 HTTP 调用（无 fetch / 无 http(s) 字面）");

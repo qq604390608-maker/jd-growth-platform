@@ -25,7 +25,7 @@
 | ---- | ---- | ---- |
 | `index.js` | F-23 本体：CFG-02 工具注册（登记/查询）、CFG-03 授权登记、**调用前权限判定**（判定链互斥、受限必带原因）；**F-24 编排层**：`describeTools` + `executeQuery`（先判权限→允许才发请求→映射为 EXT-01 口径信封 + 四要素）；**F-25 落痕层**：`saveQueryRecord` / `recordQuery` / `getQueryRecord` / `listQueryRecords` / `readbackQuery`；**F-26 重试与编排**：`getRunPolicy` / `retryLimitOf` / `executeQueryWithRetry` / `handleQueryFailure` / `runQueryWithRecovery` | ✅ F-23 / F-24 / F-25 / **F-26** 已建 2026-09-19 |
 | `mcp-client.js` | **F-24 传输层（DS-06 自建 MCP 客户端）**：五项协议面（工具描述格式 / 调用回传 / 超时 / 错误码映射 / 权限拒绝形态）+ 条件序列化 + 限制萃取 + 实体级隔离。**零 SQL、零写** | ✅ F-24 已建 2026-09-19 |
-| `task-state.js` | **F-26 任务态写入面**：`PD-01 task` 任务态跃迁（含「停止状态不自动重启」「已完成不改写」守卫）与 `done_part` 只追加；`PD-03 task_block` 受阻留痕（`dict:BLOCK_REASON` 值域校验）与回查；`dictCodes` 通用字典取值。**单独成文件的理由与 `mcp-client.js` 同：让写入面可静态验证** | ✅ F-26 已建 2026-09-19 |
+| `task-state.js` | **F-26 任务态写入面**：`PD-01 task` 任务态跃迁（含「停止状态不自动重启」「已完成不改写」守卫）与 `done_part` 只追加；`PD-03 task_block` 受阻留痕（`dict:BLOCK_REASON` 值域校验）与回查；`dictCodes` 通用字典取值。**单独成文件的理由与 `mcp-client.js` 同：让写入面可静态验证**；**F-37 加固**：`setTaskStatus` 增 `clear_ended_at`（**唯一的显式清空口**，供「恢复为进行中」用——锁定列口径「任务结束时点；**进行中为空**」，而受阻侧两个写入方口径不一（本侧对 `blocked` 留空 / 执行体 `catch` 落时刻），不清空则恢复后成「`running` + `ended_at` 非空」脏态）；实现仍为**单条 `CASE` SQL**，故 `test-f26` 的「`UPDATE task` 恰 2 条」静态断言**逐字未动** | ✅ F-26 已建 2026-09-19（**2026-09-22 F-37 加固，100 断言仍全绿**） |
 | `text-limit.js` | **TS-16 应用层截断**（tech-stack §8 已决 2026-09-21）：`truncateForStorage` 纯函数——超单列上限（1,000,000 字节）在**写入面落库前**截断（UTF-8 字节计量、字符边界回退）＋文末 `[TRUNCATED <列名>]` 留痕标注；未超限原样返回同一引用。被 `index.js`（EXT-01 落痕）与 `../shared-context/index.js`（EXT-02 落库）import；**分析面仍拿全量原文**，不改变「真实返回原样透传」红线 | ✅ 已建 2026-09-21（`test-ts16.mjs` 16 断言全绿） |
 | `test-f23.mjs` | F-23 用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子） | ✅ 已建（38 断言全绿） |
 | `test-f24.mjs` | F-24 用例执行器（注入式 transport + `prototype/mock/scenarios.js` 真实夹具，零外部调用） | ✅ 已建（**74 断言全绿**） |
@@ -248,7 +248,7 @@ runQueryWithRecovery（F-26 一步编排）
 
 - `../api/index.js`（F-23 路由：`/api/tools`、`/api/tool-permissions`、`/api/tool-permission/check`、`/api/tool-permission/check-batch`；F-24 路由：`/api/tool-descriptions`、`/api/query`（受限 → 403）；F-25 路由：`POST /api/query-records`（执行+落痕，未留痕 → 202）、`GET /api/query-records`（组合筛选）、`GET /api/query-records/{query_id}`（回查+四要素）；**F-26 路由：`POST /api/query-recovery`（重试+落痕+任务态处置；受限 → 403、未留痕 → 202）、`GET /api/run-policy`（生效策略与重试上限）、`GET /api/task-blocks`（受阻记录回查）、`GET /api/tasks/{task_id}`（任务态回查）**）
 - `../agent-orchestrator`（后续：M3/M4 调用工具前先查权限；发起真实查询并落痕；失败/受限后消费 `recovery` 的任务态处置结果）
-- `../task-runner`（**消费方，只取只读面与常量**：`./executor.js` 取 `listQueryRecords` 回查 EXT-01（阶段4 M3 执行体的确定性重算来源，F-33/阶段4）；**`./tick-guard.js` 取 `DEFAULT_TIMEOUT_MS` 派生单步超时（F-34，2026-09-21）**——本模块仍**不向 task-runner 提供任何写面**，跨模块写面为零）
+- `../task-runner`（**消费方，只取只读面与常量**：`./executor.js` 取 `listQueryRecords` 回查 EXT-01（阶段4 M3 执行体的确定性重算来源，F-33/阶段4）；**`./tick-guard.js` 取 `DEFAULT_TIMEOUT_MS` 派生单步超时（F-34，2026-09-21）**；**`./research.js` 取 `listTools({ is_enabled: 1 })` 现读「可用来源」（F-38，2026-09-22）** 后注入 F-19 收窄查证计划；**`./recovery.js` 经本模块 `task-state.js` 写任务态**（F-06/F-37——属**委托写面**，写入语句仍只在本模块侧）——本模块**不向 task-runner 提供任何自有写面**，跨模块写面仍为零）
 - `./mcp-client.js`（F-24 传输层，被 `./index.js` 引用）｜`./task-state.js`（**F-26 任务态写入面**，被 `./index.js` 引用并由 `./test-f26.mjs` 直接断言写入面）
 - `../../docs/03-locks/schema.md` §12（Q-09、Q-10、Q-11、**Q-12** 登记处）｜`../../prototype/mock/scenarios.js`（夹具来源）
 - `../README.md`（server 枝杈登记）｜`.github/workflows/ci.yml`（validate 步骤）｜`../../AGENTS.md`（`server/` 状态位）

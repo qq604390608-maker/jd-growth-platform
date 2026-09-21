@@ -166,22 +166,33 @@ export function resolveComparisonConditions(input) {
 }
 
 /**
- * 排查证顺序（S-B1 动作第三段）。
- * @param {Array<string|object>} only 可选：只保留命中这些来源系统的步骤——接受来源代号字符串，或 CFG-01 `source_registry` 行（取 `source_id`）；
- *   不含来源的步骤（口径校验 / 信息充分）恒保留。未传 / 空 → 不过滤。
- * @returns {Array<object>} 每项 { step_no, check_key, check_item, data_sources, reason, stop_when_enough }
+ * 来源代号归一（接受 `source_id` 字符串，或 CFG-01 `source_registry` 行取 `source_id`）——**唯一一份**：
+ * 查证顺序过滤与「按可用来源过滤」（F-38）共用它，不复制第二个解析口径。形态不认识的值一律忽略。
  */
-export function assembleResearchCheckSequence(only) {
-  const codes = Array.isArray(only)
-    ? only
+function normalizeSourceCodes(list) {
+  return Array.isArray(list)
+    ? list
         .map((s) => {
           if (typeof s === "string") return s.trim();
           if (s && typeof s === "object" && typeof s.source_id === "string") return s.source_id.trim();
-          return null; // 形态不认识的值一律忽略，不参与过滤判定
+          return null;
         })
         .filter((s) => s)
     : [];
-  const filter = codes.length > 0 ? codes : null;
+}
+
+/**
+ * 排查证顺序（S-B1 动作第三段）。
+ * @param {Array<string|object>} only 可选：只保留命中这些来源系统的步骤——接受来源代号字符串，或 CFG-01 `source_registry` 行（取 `source_id`）；
+ *   不含来源的步骤（口径校验 / 信息充分）恒保留。未传 / 空 → 不过滤。
+ * @param {object} [opts] `allowEmpty`（默认 `false`）：显式传入**空数组**时，是否视为「一个来源都不可用」。
+ *   既有口径（`[]`＝不过滤）**保持不变**；F-38 的「按可用来源过滤」需要「可用清单为空 ⇒ 只剩无来源步骤」这一语义，
+ *   故由调用方显式开启——不把既有的「空＝不过滤」静默改掉。
+ * @returns {Array<object>} 每项 { step_no, check_key, check_item, data_sources, reason, stop_when_enough }
+ */
+export function assembleResearchCheckSequence(only, { allowEmpty = false } = {}) {
+  const codes = normalizeSourceCodes(only);
+  const filter = codes.length > 0 ? codes : (allowEmpty && Array.isArray(only) ? [] : null);
   const steps = RESEARCH_CHECK_SEQUENCE.filter((s) => {
     if (!filter) return true;
     if (s.data_sources.length === 0) return true;
@@ -243,7 +254,46 @@ export function assembleResearchStart(injection) {
     research_question: question,
   });
 
-  const checks = assembleResearchCheckSequence(p.sources);
+  // —— 来源可用性过滤（F-38）：计划只用「已声明 且 当前可用」的来源 ——
+  // `available_sources` 由调用方注入（读面：`CFG-02 tool_registry.is_enabled=1` 的工具所属来源）；未注入 → 口径不变（不过滤）。
+  // 硬边界（如实登记）：此处只按「该来源有无已启用工具」判可用；更细的权限 / 接入态仍由 M5 前置守卫兜底。
+  const sources_declared = normalizeSourceCodes(p.sources);
+  const sources_available = Array.isArray(p.available_sources) ? normalizeSourceCodes(p.available_sources) : null;
+  const baseFilter = sources_declared.length > 0 ? sources_declared : null;
+  const filter = sources_available === null
+    ? baseFilter
+    : (baseFilter === null ? sources_available : baseFilter.filter((c) => sources_available.includes(c)));
+  const allowed = filter === null ? null : new Set(filter);
+  // **逐步骤收窄 `data_sources`**（不只是丢步骤）：某步只要还剩可用来源就保留，但计划里不得残留不可用来源——
+  // 否则执行体按 `step.data_sources` 取数时仍会打到未接入的来源，M4 一动手就被 F-26 受阻。
+  const checks = assembleResearchCheckSequence(filter, { allowEmpty: sources_available !== null }).map((s) => ({
+    ...s,
+    data_sources: allowed ? s.data_sources.filter((d) => allowed.has(d)) : s.data_sources.slice(),
+    excluded_sources: allowed ? s.data_sources.filter((d) => !allowed.has(d)) : [],
+  }));
+  const usedSources = new Set(checks.flatMap((s) => s.data_sources));
+  const plan_excluded_sources = [...new Set(RESEARCH_CHECK_SEQUENCE.flatMap((s) => s.data_sources))]
+    .filter((c) => !usedSources.has(c))
+    .map((c) => ({
+      source_id: c,
+      reason: [
+        sources_available !== null && !sources_available.includes(c)
+          ? "来源未启用（该来源无任何已启用工具；M5 前置守卫会判 source_unavailable）"
+          : null,
+        baseFilter !== null && !baseFilter.includes(c) ? "未在注入清单声明" : null,
+      ].filter(Boolean).join("；"),
+    }));
+  const keptChecks = new Set(checks.map((s) => s.check_key));
+  const plan_excluded_checks = RESEARCH_CHECK_SEQUENCE.filter((s) => !keptChecks.has(s.check_key)).map((s) => ({
+    check_key: s.check_key,
+    check_item: s.check_item,
+    reason: "该步的来源全部不可用（未启用或未声明），本轮不安排取数；缺口如实登记，不静默丢弃",
+  }));
+  const availability_note = sources_available === null
+    ? "未提供可用来源清单 → 计划不按启用面过滤（口径不变）；实际取数时若来源未启用，仍由 M5 前置守卫处置并留痕。"
+    : (plan_excluded_sources.length === 0
+        ? "计划内每一步的来源均在可用清单内。"
+        : `已按可用来源过滤，排除 ${plan_excluded_sources.map((x) => x.source_id).join("、")}（原因见 plan_excluded_sources）——排除项如实登记、不静默丢弃；更细的权限 / 接入态仍由 M5 前置守卫兜底。`);
 
   // 路径专属首步（把起点差异落到计划里，而不是只写在 reason 里）
   const leadSteps = [];
@@ -315,6 +365,13 @@ export function assembleResearchStart(injection) {
     comparison_conditions_missing: comparison.missing,
     comparison_conditions_declared: comparison.declared,
     comparison_conditions_note: comparison.note,
+    // —— 来源可用性（F-38）：计划只用「已声明 且 可用」的来源，排除项如实登记 ——
+    sources_declared,
+    sources_available,
+    plan_source_filter: filter === null ? null : filter.slice(),
+    plan_excluded_sources,
+    plan_excluded_checks,
+    availability_note,
     evidence_order: checks.map((s) => s.check_key),
     plan,
     plan_step_count: plan.length,
