@@ -44,9 +44,9 @@
 | 编号 | Skill | 服务功能点 | 落位 |
 | ---- | ---- | ---- | ---- |
 | S-A1 | 发现任务调度（clue-scan，MD-14 已种） | F-14 | `agent-runtime/discovery/skills/S-A1.md` |
-| S-A2 | 基础查证 | F-15 | `agent-runtime/discovery/skills/S-A2.md`（建壳，`skill_code` 待 T-24） |
-| S-A3 | 旅程线索归纳 | F-14 | `agent-runtime/discovery/skills/S-A3.md`（建壳，`skill_code` 待 T-24） |
-| S-A4 | 机会形成与去重 | F-16 | `agent-runtime/discovery/skills/S-A4.md`（建壳，`skill_code` 待 T-24） |
+| S-A2 | 基础查证（basic-verify） | F-15 | `agent-runtime/discovery/skills/S-A2.md`（建壳，T-24 已决 2026-09-21） |
+| S-A3 | 旅程线索归纳（journey-insight） | F-14 | `agent-runtime/discovery/skills/S-A3.md`（建壳，T-24 已决 2026-09-21） |
+| S-A4 | 机会形成与去重（opportunity-form） | F-16 | `agent-runtime/discovery/skills/S-A4.md`（建壳，T-24 已决 2026-09-21） |
 
 ## 反向清单
 - 本文件被下列文件引用：`server/agent-orchestrator/role.js`（F-13/F-18 装载角色指令）、`agent-runtime/VERSIONS.md` §2.1（登记载体）、`agent-runtime/README.md`（目录树）、`docs/02-prd/PRD-M3-机会发现Agent.md` §1.1.1、`docs/05-test-cases/test-M3.md`（F-13~F-17 oracle）。

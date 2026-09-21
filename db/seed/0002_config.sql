@@ -204,9 +204,15 @@ INSERT INTO tool_registry (tool_id, tool_code, tool_name, source_id, tool_purpos
 -- ---- run_policy (1 行) ----
 INSERT INTO run_policy (policy_id, policy_scope, goal_id, run_frequency, max_duration_min, call_limit, retry_limit, is_active) VALUES ('POL-PLAT', 'platform', NULL, '每日 02:00', 120, 50, 3, 1);
 
--- ---- skill_registry (2 行) ----
+-- ---- skill_registry (8 行) ----
 INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A1', 'clue-scan', '线索扫描', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A2', 'basic-verify', '基础查证', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A3', 'journey-insight', '旅程线索归纳', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A4', 'opportunity-form', '机会形成与去重', 'v1.0', 'discovery-agent', 1);
 INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B1', 'hva-five-checks', 'HVA 五查', 'v1.1', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B2', 'crowd-compare', '人群可比性检查', 'v1.0', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B3', 'behavior-check', '候选行为检验', 'v1.0', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B4', 'result-assembly', '研究结果组装', 'v1.0', 'hva-agent', 1);
 
 -- ---- tool_permission (24 行) ----
 INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-01', 'agent', 'discovery-agent', 'TOL-01', 1, NULL, '2026-07-01 00:00', NULL);

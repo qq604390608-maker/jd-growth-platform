@@ -49,7 +49,7 @@ parts.append("-- ============================================================")
 parts.append("-- 0001_mock.sql · 全 mock 种子数据（仅 INSERT，不含 DDL）")
 parts.append("-- 数据来源：prototype/assets/data.js（全站唯一 mock 源）+ external-deps.md §5 工具清单")
 parts.append("-- 外键顺序：由生成器按 0001_init.sql 外键依赖做拓扑排序自动保证（父表先于子表）")
-parts.append("-- 注：MD-14 skill_registry 按 Q-07 已决映射补 2 行；MD-12/PD-02/PD-04/PD-06/EXT-03 原型无数据留空")
+parts.append("-- 注：MD-14 skill_registry 按 Q-07＋T-24 裁决补 8 行；MD-12/PD-02/PD-04/PD-06/EXT-03 原型无数据留空")
 parts.append("-- ============================================================")
 parts.append("")
 parts.append("PRAGMA foreign_keys = ON;")
@@ -371,10 +371,17 @@ emit("improvement_action", ["action_id", "research_no", "target_for", "problem_w
 # ---------------- MD-12 研究建议（原型无数据，留空） ----------------
 emit("research_proposal", ["proposal_id", "opportunity_id", "goal_version_no", "research_question", "behavior_hypothesis", "population_limit", "idempotency_key", "submitted_at", "submitted_by", "triggered_task_id"], [])
 
-# ---------------- MD-14 Skill 登记（Q-07 已决 2026-09-19：clue-scan→S-A1/discovery-agent、hva-five-checks→S-B1/hva-agent） ----------------
+# ---------------- MD-14 Skill 登记（Q-07 已决 2026-09-19：clue-scan→S-A1/discovery-agent、hva-five-checks→S-B1/hva-agent；
+#                  T-24 已决 2026-09-21 依用户裁决补齐六 code 名：basic-verify/journey-insight/opportunity-form/crowd-compare/behavior-check/result-assembly） ----------------
 skills = [
     ("S-A1", "clue-scan", "线索扫描", "v1.0", "discovery-agent", 1),
+    ("S-A2", "basic-verify", "基础查证", "v1.0", "discovery-agent", 1),
+    ("S-A3", "journey-insight", "旅程线索归纳", "v1.0", "discovery-agent", 1),
+    ("S-A4", "opportunity-form", "机会形成与去重", "v1.0", "discovery-agent", 1),
     ("S-B1", "hva-five-checks", "HVA 五查", "v1.1", "hva-agent", 1),
+    ("S-B2", "crowd-compare", "人群可比性检查", "v1.0", "hva-agent", 1),
+    ("S-B3", "behavior-check", "候选行为检验", "v1.0", "hva-agent", 1),
+    ("S-B4", "result-assembly", "研究结果组装", "v1.0", "hva-agent", 1),
 ]
 emit("skill_registry", ["skill_no", "skill_code", "skill_name", "version", "bound_agent_code", "is_active"], skills)
 

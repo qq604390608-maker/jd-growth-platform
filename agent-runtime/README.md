@@ -19,24 +19,24 @@ agent-runtime/
 │   ├── agent.md              # 角色指令（✅ 本体 2026-09-20）
 │   └── skills/
 │       ├── S-A1.md           # 线索扫描（MD-14 已种：clue-scan）
-│       ├── S-A2.md           # （建壳，code 名待 T-24）
-│       ├── S-A3.md           # （建壳，code 名待 T-24）
-│       └── S-A4.md           # （建壳，code 名待 T-24）
+│       ├── S-A2.md           # 基础查证（MD-14 已种：basic-verify，T-24 已决 2026-09-21）
+│       ├── S-A3.md           # 旅程线索归纳（MD-14 已种：journey-insight）
+│       └── S-A4.md           # 机会形成与去重（MD-14 已种：opportunity-form）
 └── hva/                      # HVA 分析 Agent（M4）
     ├── agent.md              # 角色指令（✅ 本体 F-18 2026-09-20）
     └── skills/
         ├── S-B1.md           # HVA 五查（MD-14 已种：hva-five-checks）
-        ├── S-B2.md           # （建壳，code 名待 T-24）
-        ├── S-B3.md           # （建壳，code 名待 T-24）
-        └── S-B4.md           # （建壳，code 名待 T-24）
+        ├── S-B2.md           # 人群可比性检查（MD-14 已种：crowd-compare）
+        ├── S-B3.md           # 候选行为检验（MD-14 已种：behavior-check）
+        └── S-B4.md           # 研究结果组装（MD-14 已种：result-assembly）
 ```
 
 ## 状态
 - **阶段0 骨架已建（2026-09-19）**：目录 + 版本管理机制 `VERSIONS.md` + `agent.md`/`business-rules.md`/`S-A1~S-A4`/`S-B1~S-B4` 建壳（仅文件与文档卡）。
 - **阶段4 落地（进行中）**：`business-rules.md`（公共业务指令 8 条）与 `hva/agent.md`（角色指令五段）本体已由 **F-18** 落地（2026-09-20；服务端装载见 `server/agent-orchestrator/role.js`）。
-- **待阶段4**：`discovery/agent.md` 与 skills 本体内容（`S-A2~S-A4`/`S-B2~S-B4` 的 `skill_code` 受 T-24 阻塞）。
+- **待阶段4**：skills 本体内容（`S-A2~S-A4`/`S-B2~S-B4` 的 `skill_code` 已随 T-24 关闭定名，2026-09-21；MD-14 八行已种）。
 - **已登记未擅自改（F-18 实施发现）**：`discovery/agent.md` 仍为建壳，其建壳声明写「待阶段4 落地」，而 M3（F-13~F-17）已于 2026-09-20 收口——**F-13 只落了服务端 MD-13/MD-14 登记与版本管理，未落 agent.md 本体**，故 M3 侧角色指令本体形成缺口。本文件只如实登记，**不擅自补写**（等用户裁决）。
-- **未决项**：✅ ~~T-23~~（已决 2026-09-20，依用户裁决：版本机制即真实形态，随 F-13/F-18 收口）；🟡 T-24 改窄（2026-09-20，依用户裁决）：加载方式 ✅（A-4）、主技能映射 ✅（Q-07），剩余仅 S-A2~S-A4/S-B2~S-B4 code 名待 PM（external-deps §7）。
+- **未决项**：✅ ~~T-23~~（已决 2026-09-20，依用户裁决：版本机制即真实形态，随 F-13/F-18 收口）；✅ ~~T-24~~（2026-09-21 全关闭：加载方式 ✅ A-4、主技能映射 ✅ Q-07、六 code 名已决——`basic-verify`/`journey-insight`/`opportunity-form`/`crowd-compare`/`behavior-check`/`result-assembly`，MD-14 已种 8 行）。
 
 ## 反向清单
 - 本目录被下列文件引用（预计）：`server/agent-orchestrator/`（阶段4 加载）｜ `docs/04-plan/dev-plan.md`（阶段0 L69 / 阶段4 L126）｜ `docs/02-prd/PRD-M3-机会发现Agent.md` §1.1（L21/L65/L122）｜ `docs/02-prd/PRD-M4-HVA分析Agent.md` §1.1（L19/L121）｜ `docs/05-test-cases/test-M3.md` / `test-M4.md`（F-13~F-22 oracle）。

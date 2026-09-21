@@ -33,9 +33,9 @@ HVA 分析 Agent（M4）角色指令：定义第二阶段职责、输入、工�
 | 编号 | Skill | 服务功能点 | 落位 |
 | ---- | ---- | ---- | ---- |
 | S-B1 | 研究任务调度（`hva-five-checks`，MD-14 已种） | F-19 | `agent-runtime/hva/skills/S-B1.md` |
-| S-B2 | 人群可比性检查 | F-20① | `agent-runtime/hva/skills/S-B2.md`（建壳，`skill_code` 待 T-24） |
-| S-B3 | 候选行为检验 | F-20②③④⑤ | `agent-runtime/hva/skills/S-B3.md`（建壳，`skill_code` 待 T-24） |
-| S-B4 | 研究结果组装 | F-21 | `agent-runtime/hva/skills/S-B4.md`（建壳，`skill_code` 待 T-24） |
+| S-B2 | 人群可比性检查（crowd-compare） | F-20① | `agent-runtime/hva/skills/S-B2.md`（建壳，T-24 已决 2026-09-21） |
+| S-B3 | 候选行为检验（behavior-check） | F-20②③④⑤ | `agent-runtime/hva/skills/S-B3.md`（建壳，T-24 已决 2026-09-21） |
+| S-B4 | 研究结果组装（result-assembly） | F-21 | `agent-runtime/hva/skills/S-B4.md`（建壳，T-24 已决 2026-09-21） |
 
 ## 反向清单
 - 本文件被下列文件引用：`server/agent-orchestrator/role.js`（F-18 装载角色指令）、`agent-runtime/VERSIONS.md` §2.1（登记载体）、`agent-runtime/README.md`（目录树）、`docs/02-prd/PRD-M4-HVA分析Agent.md` §1.1.1、`docs/05-test-cases/test-M4.md`（F-18~F-22 oracle）。

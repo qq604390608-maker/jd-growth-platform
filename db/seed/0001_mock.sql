@@ -2,7 +2,7 @@
 -- 0001_mock.sql · 全 mock 种子数据（仅 INSERT，不含 DDL）
 -- 数据来源：prototype/assets/data.js（全站唯一 mock 源）+ external-deps.md §5 工具清单
 -- 外键顺序：由生成器按 0001_init.sql 外键依赖做拓扑排序自动保证（父表先于子表）
--- 注：MD-14 skill_registry 按 Q-07 已决映射补 2 行；MD-12/PD-02/PD-04/PD-06/EXT-03 原型无数据留空
+-- 注：MD-14 skill_registry 按 Q-07＋T-24 裁决补 8 行；MD-12/PD-02/PD-04/PD-06/EXT-03 原型无数据留空
 -- ============================================================
 
 PRAGMA foreign_keys = ON;
@@ -217,9 +217,15 @@ INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1018', 'discovery', 'M3', 'GOAL-2026Q3-01', 2, 'done', '按运行频率自动创建', 'AGP-DISC', 'discovery-agent v1.2 / agent.md r9', '5 / 5 步', '产出 OPP-011、OPP-009', '2026-09-13 02:00', '2026-09-13 03:20', NULL, 0, 0, '2026-09-13 02:00');
 INSERT INTO task (task_id, task_type, task_stage, goal_id, goal_version_no, task_status, trigger_basis, agent_profile_id, agent_version_snapshot, progress_text, done_part, started_at, ended_at, parent_task_id, retry_count, is_auto_restart, created_at) VALUES ('T-1008', 'discovery', 'M3', 'GOAL-2026Q2-01', 2, 'done', '按运行频率自动创建', 'AGP-DISC', 'discovery-agent v1.1 / agent.md r7', '5 / 5 步', '产出 OPP-006、OPP-005', '2026-06-28 02:00', '2026-06-28 03:40', NULL, 0, 0, '2026-06-28 02:00');
 
--- ---- skill_registry (2 行) ----
+-- ---- skill_registry (8 行) ----
 INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A1', 'clue-scan', '线索扫描', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A2', 'basic-verify', '基础查证', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A3', 'journey-insight', '旅程线索归纳', 'v1.0', 'discovery-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-A4', 'opportunity-form', '机会形成与去重', 'v1.0', 'discovery-agent', 1);
 INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B1', 'hva-five-checks', 'HVA 五查', 'v1.1', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B2', 'crowd-compare', '人群可比性检查', 'v1.0', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B3', 'behavior-check', '候选行为检验', 'v1.0', 'hva-agent', 1);
+INSERT INTO skill_registry (skill_no, skill_code, skill_name, version, bound_agent_code, is_active) VALUES ('S-B4', 'result-assembly', '研究结果组装', 'v1.0', 'hva-agent', 1);
 
 -- ---- tool_permission (24 行) ----
 INSERT INTO tool_permission (permission_id, grantee_type, grantee_ref, tool_id, allow_flag, restrict_reason, effective_from, effective_until) VALUES ('PERM-D-01', 'agent', 'discovery-agent', 'TOL-01', 1, NULL, '2026-07-01 00:00', NULL);

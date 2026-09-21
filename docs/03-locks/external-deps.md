@@ -458,7 +458,7 @@
 | T-21 | ~~LLM 推理服务：模型、上下文窗口、并发上限~~ → **✅ 已决（2026-09-21，随 TS-10 收口同步关闭）** | 收口依据：`tech-stack.md` §8 TS-10——Workers AI Free 池三档（默认 `@cf/qwen/qwen3-30b-a3b-fp8` 实测 23/0 满分），探针实测证据 `server/probes/model-selection/` | F-14 F-15 F-19 F-20 F-21 | 选定 Cloudflare Workers AI（DS-02），模型已钉死 |
 | T-22 | MCP 工具调用协议版本与工具描述格式 | 技术方 | F-23 F-24 | ⬜ 正文留空 |
 | T-23 | ~~agent.md 的版本管理方式（原型为 `agent.md r12`，真实形态待定）~~ → **✅ 已决（2026-09-20，依用户裁决）**：真实形态已落地，随 F-13/F-18 收口 | 收口依据：`agent_version_snapshot` 快照 + `agent-runtime/VERSIONS.md` 机制 + agent.md 文档卡版本号（F-13/F-18 用例锁死） | F-06「指令与能力版本」留痕 | `agent.md r12`，机制已兑现 |
-| T-24 | ~~Skill 加载方式与 Skill 编号映射~~ → **✅ 已决（2026-09-21，依用户裁决）**：加载方式 ✅（A-4 落地）、主技能映射 ✅（Q-07）、**六个 code 名已定**——S-A2=`basic-verify`、S-A3=`journey-insight`、S-A4=`opportunity-form`、S-B2=`crowd-compare`、S-B3=`behavior-check`、S-B4=`result-assembly`（与 clue-scan/hva-five-checks 同风格） | PM | F-13 F-18 | **MD-14 种子回填与 skill 壳文件 code 名落地在下一轮 PR**（裁决不先行改代码） |
+| T-24 | ~~Skill 加载方式与 Skill 编号映射~~ → **✅ 已决（2026-09-21，依用户裁决）**：加载方式 ✅（A-4 落地）、主技能映射 ✅（Q-07）、**六个 code 名已定**——S-A2=`basic-verify`、S-A3=`journey-insight`、S-A4=`opportunity-form`、S-B2=`crowd-compare`、S-B3=`behavior-check`、S-B4=`result-assembly`（与 clue-scan/hva-five-checks 同风格） | PM | F-13 F-18 | **MD-14 已种 8 行**（2026-09-21 回填：0001 重生成→0002 重提取→34/34 回归全绿→壳文件/agent.md/VERSIONS/README 同步） |
 
 > **技术侧已有回答**（2026-09-18，依据 `tech-stack.md`）：T-21 → 选定 **Cloudflare Workers AI**（DS-02），**模型已于 2026-09-21 实机验证收口**（TS-10 关闭：默认 `@cf/qwen/qwen3-30b-a3b-fp8`，Free 池，实测 23/0 满分；T-21 同步关闭）；T-22 → 选定**自建 MCP 客户端**（DS-06），协议细节仍取决于 T-01/T-02 的真实契约；T-23 → `agent.md` 本体为仓库文件（`agent-runtime/`），D1 的 `MD-13` 存登记与版本引用（`tech-stack.md` §2.5）。**T-20（§3 分类框架是否成立）仍待 PM 确认。**
 

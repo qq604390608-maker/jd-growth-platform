@@ -31,15 +31,15 @@
 | `skill_no` | `skill_code` | `bound_agent_code` | `version` | 落位 | MD-14 状态 |
 | --- | --- | --- | --- | --- | --- |
 | `S-A1` | `clue-scan` | `discovery-agent` | `v1.0` | `agent-runtime/discovery/skills/S-A1.md` | ✅ 已种（Q-07 已决 2026-09-19） |
-| `S-A2` | 待 T-24 关闭后定 code 名 | `discovery-agent` | — | `agent-runtime/discovery/skills/S-A2.md` | ⏳ 待种 |
-| `S-A3` | 同上 | `discovery-agent` | — | `agent-runtime/discovery/skills/S-A3.md` | ⏳ 待种 |
-| `S-A4` | 同上 | `discovery-agent` | — | `agent-runtime/discovery/skills/S-A4.md` | ⏳ 待种 |
+| `S-A2` | `basic-verify` | `discovery-agent` | `v1.0` | `agent-runtime/discovery/skills/S-A2.md` | ✅ 已种（T-24 已决 2026-09-21） |
+| `S-A3` | `journey-insight` | `discovery-agent` | `v1.0` | `agent-runtime/discovery/skills/S-A3.md` | ✅ 已种（T-24 已决 2026-09-21） |
+| `S-A4` | `opportunity-form` | `discovery-agent` | `v1.0` | `agent-runtime/discovery/skills/S-A4.md` | ✅ 已种（T-24 已决 2026-09-21） |
 | `S-B1` | `hva-five-checks` | `hva-agent` | `v1.1` | `agent-runtime/hva/skills/S-B1.md` | ✅ 已种（Q-07 已决 2026-09-19） |
-| `S-B2` | 待 T-24 关闭后定 code 名 | `hva-agent` | — | `agent-runtime/hva/skills/S-B2.md` | ⏳ 待种 |
-| `S-B3` | 同上 | `hva-agent` | — | `agent-runtime/hva/skills/S-B3.md` | ⏳ 待种 |
-| `S-B4` | 同上 | `hva-agent` | — | `agent-runtime/hva/skills/S-B4.md` | ⏳ 待种 |
+| `S-B2` | `crowd-compare` | `hva-agent` | `v1.0` | `agent-runtime/hva/skills/S-B2.md` | ✅ 已种（T-24 已决 2026-09-21） |
+| `S-B3` | `behavior-check` | `hva-agent` | `v1.0` | `agent-runtime/hva/skills/S-B3.md` | ✅ 已种（T-24 已决 2026-09-21） |
+| `S-B4` | `result-assembly` | `hva-agent` | `v1.0` | `agent-runtime/hva/skills/S-B4.md` | ✅ 已种（T-24 已决 2026-09-21） |
 
-> 注：Q-07 仅裁决 `S-A1`/`S-B1` 映射（`clue-scan`/`hva-five-checks`）；T-24 经 2026-09-20 用户裁决**改窄**——加载方式已落地（A-4 ✅）、主技能映射已决（Q-07），**剩余仅 `S-A2~S-A4`/`S-B2~S-B4` 的 code 名待 PM**。
+> 注：Q-07 裁决 `S-A1`/`S-B1` 映射（`clue-scan`/`hva-five-checks`）；T-24 经 2026-09-21 用户裁决补齐六 code 名并已种入 MD-14（`0001_mock.sql` 8 行）。
 
 ## 反向清单
 - 本文件被下列文件引用（预计）：`server/agent-orchestrator/`（阶段4 启动加载，组装 `agent_version_snapshot`）｜ `docs/04-plan/dev-plan.md`（阶段0 L69 / 阶段4 L126）｜ `docs/05-test-cases/test-M3.md` / `test-M4.md`（F-13~F-22 oracle）｜ `docs/02-prd/PRD-M3-机会发现Agent.md` §1.1 / `docs/02-prd/PRD-M4-HVA分析Agent.md` §1.1。

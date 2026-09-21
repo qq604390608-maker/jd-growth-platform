@@ -123,20 +123,21 @@ console.log("\n② 版本管理 · `bumpAgentProfileVersion` 推进同 agent_cod
 }
 
 // ==================================================== ③ 注册 Skill（MD-14 新行成功）
-console.log("\n③ 注册 Skill · `registerSkill` 插新 S-A2 绑 discovery-agent → 成功");
+console.log("\n③ 注册 Skill · `registerSkill` 插新 S-A9 绑 discovery-agent → 成功（种子经 T-24 裁决已有 S-A1~S-A4/S-B1~S-B4 八行）");
 {
   const { sqlite, db } = freshDb();
   const before = countRows(sqlite, "skill_registry");
+  assert(before === 8, `种子 skill_registry 实测 ${before} 行（T-24 裁决后应为 8 行）`);
   const r = await registerSkill(db, {
-    skill_no: "S-A2", skill_code: "journey-clue", skill_name: "旅程线索归纳", version: "v1.0", bound_agent_code: "discovery-agent",
+    skill_no: "S-A9", skill_code: "x-verify", skill_name: "扩展查证", version: "v1.0", bound_agent_code: "discovery-agent",
   });
   assert(r.success === true, "注册成功");
   assert(countRows(sqlite, "skill_registry") === before + 1, "skill_registry 行数 +1");
   const skills = await listAgentSkills(db, "discovery-agent");
-  assert(skills.length === 2 && skills.some((s) => s.skill_no === "S-A2" && s.skill_code === "journey-clue"), "discovery-agent 现有 2 个生效 Skill（含 S-A2）");
+  assert(skills.length === 5 && skills.some((s) => s.skill_no === "S-A9" && s.skill_code === "x-verify"), "discovery-agent 现有 5 个生效 Skill（S-A1~S-A4 + 新增 S-A9，实测 " + skills.length + "）");
   // 生效 Skill 仅含 is_active=1
   const hvaSkills = await listAgentSkills(db, "hva-agent");
-  assert(hvaSkills.length === 1 && hvaSkills[0].skill_no === "S-B1", "hva-agent 仅 S-B1 生效");
+  assert(hvaSkills.length === 4 && hvaSkills.some((s) => s.skill_no === "S-B2" && s.skill_code === "crowd-compare"), "hva-agent 现有 4 个生效 Skill（S-B1~S-B4，实测 " + hvaSkills.length + "）");
 }
 
 // ==================================================== ④ MD-14 三反例（TC-D-M3-002）
@@ -180,13 +181,13 @@ console.log("\n⑤ TC-D-M3-001 · MD-13 `agent_code='discovery-agent'` 重复 �
 }
 
 // ==================================================== ⑥ 组装指令与能力版本快照（供 F-06 冻结落库）
-console.log("\n⑥ `composeAgentVersionSnapshot` 输出形态对齐种子 task.agent_version_snapshot");
+console.log("\n⑥ `composeAgentVersionSnapshot` 输出形态对齐种子 task.agent_version_snapshot（T-24 裁决后 skills 列表随 MD-14 扩为 4+4）");
 {
   const { db } = freshDb();
   const snap = await composeAgentVersionSnapshot(db, "discovery-agent");
-  assert(snap === "discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0", `快照串与种子一致：「${snap}」`);
+  assert(snap === "discovery-agent v1.2 / agent.md r9 / skills: clue-scan v1.0, basic-verify v1.0, journey-insight v1.0, opportunity-form v1.0", `快照串与 MD-13/MD-14 现值一致：「${snap}」`);
   const snapHva = await composeAgentVersionSnapshot(db, "hva-agent");
-  assert(snapHva === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1", `HVA 快照串正确：「${snapHva}」`);
+  assert(snapHva === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1, crowd-compare v1.0, behavior-check v1.0, result-assembly v1.0", `HVA 快照串正确：「${snapHva}」`);
   const snapNone = await composeAgentVersionSnapshot(db, "no-such-agent");
   assert(snapNone === null, "找不到 profile → null（不报错）");
 }

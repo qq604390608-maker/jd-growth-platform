@@ -104,10 +104,10 @@ console.log("① 装载角色指令 · `loadAgentRole(db,'hva-agent')`（复用 
   assert(role.agent_name === "HVA 分析 Agent", `agent_name 取自 MD-13（实测 ${role.agent_name}）`);
   assert(role.agent_stage === "M4", `agent_stage=M4（实测 ${role.agent_stage}）`);
   assert(role.current_version === "v1.3" && role.doc_revision === "r12", "版本号从 MD-13 现读（v1.3 / r12，种子值）");
-  assert(role.agent_version_snapshot === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1",
-    `版本快照串与 F-13/种子一致（实测「${role.agent_version_snapshot}」）`);
-  assert(role.skills.length === 1 && role.skills[0].skill_no === "S-B1" && role.skills[0].skill_code === "hva-five-checks",
-    `生效 Skill 取自 MD-14（实测 ${role.skills.map((s) => s.skill_no).join(",") || "无"}）`);
+  assert(role.agent_version_snapshot === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1, crowd-compare v1.0, behavior-check v1.0, result-assembly v1.0",
+    `版本快照串与 F-13/MD-14 一致（T-24 裁决后 4 Skill，实测「${role.agent_version_snapshot}」）`);
+  assert(role.skills.length === 4 && role.skills[0].skill_no === "S-B1" && role.skills[0].skill_code === "hva-five-checks" && role.skills[3].skill_code === "result-assembly",
+    `生效 Skill 取自 MD-14（T-24 裁决后 S-B1~S-B4，实测 ${role.skills.map((s) => s.skill_no).join(",") || "无"}）`);
   assert(role.role_sections.length === 5, `agent.md 段落骨架 5 段（实测 ${role.role_sections.length}）`);
   assert(role.role_sections.map((s) => s.key).join(",") === "responsibility,input,method,output,closure",
     `段落顺序＝职责→输入→工作方式→输出→结束条件（实测 ${role.role_sections.map((s) => s.key).join(",")}）`);

@@ -78,7 +78,7 @@
 | T-21 | ✅ | 已选定 **Cloudflare Workers AI**（DS-02），**模型已于 2026-09-21 实机验证收口**（TS-10 关闭：默认 qwen3-30b，Free 池，实测 23/0 满分） |
 | T-22 | ✅ | 选定自建 MCP 客户端（DS-06）；协议细节仍取决于 T-01 / T-02 的真实契约 |
 | T-23 | ✅ | `agent.md` 本体为仓库文件（`agent-runtime/`），D1 的 MD-13 存登记与版本引用 |
-| T-24 | ✅ | 已决（2026-09-21）：加载方式（A-4）、主技能映射（Q-07）、六个 code 名（basic-verify / journey-insight / opportunity-form / crowd-compare / behavior-check / result-assembly）全部落定；MD-14 种子回填在下一轮 PR |
+| T-24 | ✅ | 已决（2026-09-21）：加载方式（A-4）、主技能映射（Q-07）、六个 code 名全部落定；**MD-14 已种 8 行**（2026-09-21 回填，回归 34/34 全绿） |
 
 ### 3.3 交付基础设施类（`T-25`~`T-27`）
 

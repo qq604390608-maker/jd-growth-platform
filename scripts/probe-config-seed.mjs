@@ -24,7 +24,7 @@ db.exec(readFileSync(path.join(ROOT, 'db/seed/0002_config.sql'), 'utf8'));
 const configCounts = {
   dict_type: 26, source_registry: 5, gap_rule: 4, context_template: 20,
   agent_profile: 2, touchpoint: 3, dict_item: 84, tool_registry: 12,
-  run_policy: 1, skill_registry: 2, tool_permission: 24,
+  run_policy: 1, skill_registry: 8, tool_permission: 24,
 };
 for (const [t, want] of Object.entries(configCounts)) {
   const got = db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;

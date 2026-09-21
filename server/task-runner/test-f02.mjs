@@ -298,8 +298,8 @@ console.log("⑥ TC-I-M1-001 调用守卫：Agent 只在任务内被调用（须
   await assertThrows(() => delegateToAgent(db, { task_id: out.task.task_id, step_no: 9 }), "步骤不存在 → 报错", "步骤不存在");
 
   const snap = await agentSnapshotOf(db, "AGP-HVA");
-  assert(snap.snapshot === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1",
-    `能力版本快照 = MD-13 版本 + 修订 + MD-14 skills（实测 ${snap.snapshot}）`);
+  assert(snap.snapshot === "hva-agent v1.3 / agent.md r12 / skills: hva-five-checks v1.1, crowd-compare v1.0, behavior-check v1.0, result-assembly v1.0",
+    `能力版本快照 = MD-13 版本 + 修订 + MD-14 skills（T-24 裁决后 4 Skill，实测 ${snap.snapshot}）`);
   await assertThrows(() => agentSnapshotOf(db, "AGP-NOPE"), "角色指令不存在 → 报错", "Agent 角色指令不存在");
 }
 
