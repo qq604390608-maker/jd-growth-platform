@@ -165,6 +165,15 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx -y wrangler@4.135.0 deploy -c wrangler.runner.toml
-      - name: 远程业务闭环冒烟（go-live §2 验证项；commit message 含 [e2e] 才运行——建真实发现任务并轮询到机会落库）
-        if: contains(github.event.head_commit.message, '[e2e]')
+
+  e2e:
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[e2e]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 远程业务闭环冒烟（go-live §2 验证项，[e2e] 门控；建真实发现任务并轮询到机会落库；失败根因写入 Actions 摘要）
         run: node scripts/remote-e2e-smoke.mjs
