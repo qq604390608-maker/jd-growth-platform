@@ -310,8 +310,8 @@ export async function describeTools(db, { source_id, is_enabled, grantee_type, g
  * `transport` 可注入（测试用）；不注入时按以下优先级选传输层：
  *   ① 配了 `MOCK_ENDPOINT` → `createHttpTransport`（HTTP POST，只读，打该端点，本地 dev 跑 mock server 用）；
  *   ② 未配 `MOCK_ENDPOINT` → `baselineV1Transport`（进程内返回 external-deps 冻结的契约基准 v1「正常」响应，
- *      替代 `createHttpTransport` 在 Cloudflare 边缘**不可达**的本地默认 `http://127.0.0.1:8788/query`——
- *      否则生产环境每次工具调用都连接失败 → F-26 把任务处置为 blocked → 机会为 0）。
+ *      替代 `createHttpTransport` 在 Cloudflare 边缘**不可达**的本地兜底端点（本机回环 8788 端口，见
+ *      `mcp-client.js` 默认值）——否则生产环境每次工具调用都连接失败 → F-26 把任务处置为 blocked → 机会为 0）。
  */
 export async function executeQuery(db, {
   tool_id,

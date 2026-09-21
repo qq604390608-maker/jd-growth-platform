@@ -5,7 +5,7 @@
  *        `../../docs/03-locks/schema.md` EXT-01（返回体须能映射到 `result_status` / `result_summary` /
  *        `returned_rows` / `fail_reason` / `retry_count` / `restricted_flag`）｜
  *        `prototype/mock/scenarios.js`（基准 v1 的可运行实现——本文件是它的**进程内等价副本**，避免生产态反向依赖 `prototype/` 研发设施）｜
- *        `./mcp-client.js`（传输层：`createHttpTransport` 默认打 `http://127.0.0.1:8788/query`，那是**本地 dev** mock，
+ *        `./mcp-client.js`（传输层：`createHttpTransport` 默认打本机回环 8788 端口的 dev mock，
  *        在 Cloudflare 边缘不可达——本文件即「无真实端点时」的生产默认，替代那个不可达默认）
  * 职责：**生产态内置 baseline-v1 响应器**。当 `executeQuery` 未注入 transport 且未配置 `MOCK_ENDPOINT`
  *        （即不是本地 dev 跑 mock server）时，返回 external-deps 冻结的契约基准 v1 的「正常」响应，
