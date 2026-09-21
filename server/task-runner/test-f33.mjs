@@ -29,7 +29,7 @@ import runner from "./index.js";
 import { submitProposal } from "./proposal.js";
 import { createHvaResearchTask } from "./hva.js";
 import { createTask, planTaskSteps, listTaskSteps, advanceStep, linkTaskObject } from "./step-plan.js";
-import { runResearchStep, WIRED_TASK_TYPES, RESEARCH_TASK_TYPE, RESEARCH_STEP_COUNT, deriveAnalysisFallback, resolveAnalysisInput } from "./research.js";
+import { runResearchStep, WIRED_TASK_TYPES, RESEARCH_TASK_TYPE, RESEARCH_TASK_TYPES, RESEARCH_STEP_COUNT, deriveAnalysisFallback, resolveAnalysisInput } from "./research.js";
 import { runSelfHealScan } from "./self-heal.js";
 import { runStepMessage, runPendingWork } from "./executor.js";
 import { ALTERNATIVE_DIMENSIONS } from "../agent-orchestrator/behavior.js";
@@ -158,8 +158,8 @@ console.log("① 静态扫描 · research.js 零裸 SQL、self-heal.js 改行只
   }
   assert(!/\bdb\s*\.\s*prepare\s*\(/.test(res), "research.js 零裸 SQL（连 SELECT 都不写，全经既有读写面）");
   assert(/advanceStep/.test(heal), "self-heal.js 的步骤跃迁确实委托给 step-plan.js `advanceStep`（非自写 SQL）");
-  assert(WIRED_TASK_TYPES.join(">") === `discovery>${RESEARCH_TASK_TYPE}`,
-    `已接线类型清单＝discovery/hva_research（实测 ${WIRED_TASK_TYPES.join(">")}）`);
+  assert(WIRED_TASK_TYPES.join(">") === `discovery>${RESEARCH_TASK_TYPES.join(">")}`,
+    `已接线类型清单＝discovery/${RESEARCH_TASK_TYPES.join("/")}（实测 ${WIRED_TASK_TYPES.join(">")}；F-41 起 hva_followup 已接线）`);
 }
 
 // ==================================================== ② 步 ① 单跑：F-19 三分支 + 停止条件
@@ -259,7 +259,7 @@ let CHAIN_TASK;
 }
 
 // ==================================================== ④ 按 task_type 分派
-console.log("\n④ 分派 · hva_research 走 M4 体；hva_followup 拒入执行体；discovery 任务不入 M4 体");
+console.log("\n④ 分派 · hva_research / hva_followup 走 M4 体；discovery 任务不入 M4 体");
 {
   const { sqlite, db } = freshDb();
   enableResearchTools(sqlite);
@@ -270,16 +270,19 @@ console.log("\n④ 分派 · hva_research 走 M4 体；hva_followup 拒入执行
 
   await assertThrows(() => runResearchStep(db, tid, 0, {}), "M4 体收到未知步号 0 即报错", "未知步骤号");
   const disc = sqlite.prepare("SELECT task_id FROM task WHERE task_type='discovery' LIMIT 1").get();
-  await assertThrows(() => runResearchStep(db, disc.task_id, 1, {}), "M4 体拒入 discovery 任务（不误用）", `${RESEARCH_TASK_TYPE} 任务`);
+  await assertThrows(() => runResearchStep(db, disc.task_id, 1, {}), "M4 体拒入 discovery 任务（不误用）", "只处理");
 
-  // 未接线类型：hva_followup 的步骤消息仍走占位（不误入执行体）
+  // F-41：hva_followup **已接线**——步骤消息走 M4 执行体（不再走 delegateToAgent 占位）。
+  // 该夹具是「裸追问任务」（无研究壳 / 无 PD-06），步 ① 会因取不到研究问题而**结构性受阻**——
+  // 正是「不擅自代拟口径」的既有口径，此处只断言**分派到了执行体**（回带 outcome 而非 delegated）。
   const fu = await createTask(db, {
     task_type: "hva_followup", goal_id: GOAL, goal_version_no: 3,
-    trigger_basis: "test-f33 ④ 未接线类型", agent_version_snapshot: "snap", task_status: "running", started_at: "2026-09-21 10:02",
+    trigger_basis: "test-f33 ④ 已接线类型", agent_version_snapshot: "snap", task_status: "running", started_at: "2026-09-21 10:02",
   });
   await planTaskSteps(db, fu.task_id, "hva_followup");
   const q = await runner.queue({ messages: [{ body: { task_id: fu.task_id, step_no: 1 }, ack() {} }] }, { DB: db });
-  assert(q[0].delegated === true && !q[0].outcome, "queue：hva_followup 仍走 delegateToAgent 占位（未接线类型不受影响）");
+  assert(q[0].delegated === undefined && q[0].outcome === "blocked",
+    `queue：hva_followup 分派到 M4 执行体（实测 outcome=${q[0].outcome}；裸追问任务步 ① 结构性受阻，不擅自代拟口径）`);
 }
 
 // ==================================================== ⑤ 幂等：重复驱动 no-op
@@ -412,20 +415,33 @@ console.log("\n⑨ 自愈补扫 · 补回丢失的 active 步；缺研究壳者*
   assert(!again.healed.some((h) => h.task_id === stuck.task_id), "补扫幂等：已有 active 步的任务不再被重复补");
 }
 
-// ==================================================== ⑩ 未接线类型不被选取
-console.log("\n⑩ 选取范围 · hva_followup 不在已接线类型内，不被 cron 驱动");
+// ==================================================== ⑩ 选取范围（F-41 后 hva_followup 已接线）
+console.log("\n⑩ 选取范围 · hva_followup 已接线（F-41）→ 被 cron 驱动；`goal_check` 仍未接线不被选取");
 {
   const { sqlite, db } = freshDb();
   const fu = await createTask(db, {
     task_type: "hva_followup", goal_id: GOAL, goal_version_no: 3,
-    trigger_basis: "test-f33 ⑩ 未接线类型", agent_version_snapshot: "snap", task_status: "running", started_at: "2026-09-21 12:00",
+    trigger_basis: "test-f33 ⑩ 已接线类型", agent_version_snapshot: "snap", task_status: "running", started_at: "2026-09-21 12:00",
   });
   await planTaskSteps(db, fu.task_id, "hva_followup");
   await advanceStep(db, { task_id: fu.task_id, step_no: 1, step_state: "active" });
   const r = await runPendingWork(db, {});
-  assert(!r.executed.some((e) => e.task_id === fu.task_id),
-    `hva_followup 未被选取（实测 executed=${JSON.stringify(r.executed)}）`);
-  assert(stepRow(sqlite, fu.task_id, 1).step_state === "active", "其 active 步原样保留（等接线后再消费）");
+  assert(r.executed.some((e) => e.task_id === fu.task_id),
+    `hva_followup 已被选取并执行（实测 executed=${JSON.stringify(r.executed)}）`);
+  assert(stepRow(sqlite, fu.task_id, 1).step_state === "blocked",
+    "裸追问任务步 ① 结构性受阻后落 blocked（口径不清不擅自代拟，等人工恢复）");
+
+  // 仍未接线者（goal_check）保持原样：不被选取、active 步原样保留
+  const gc = await createTask(db, {
+    task_type: "goal_check", goal_id: GOAL, goal_version_no: 3,
+    trigger_basis: "test-f33 ⑩ 未接线类型", agent_version_snapshot: "snap", task_status: "running", started_at: "2026-09-21 12:01",
+  });
+  await planTaskSteps(db, gc.task_id, "goal_check");
+  await advanceStep(db, { task_id: gc.task_id, step_no: 1, step_state: "active" });
+  const r2 = await runPendingWork(db, {});
+  assert(!r2.executed.some((e) => e.task_id === gc.task_id),
+    `goal_check 未被选取（实测 executed=${JSON.stringify(r2.executed)}）`);
+  assert(stepRow(sqlite, gc.task_id, 1).step_state === "active", "其 active 步原样保留（等接线后再消费）");
 }
 
 // ==================================================== ⑪ 失败路径（不否定结论）

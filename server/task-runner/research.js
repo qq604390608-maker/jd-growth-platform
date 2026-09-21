@@ -34,7 +34,10 @@
  *   ④ 形成结论与适用范围（F-20 `assembleBehaviorVerification` 重算五查 → F-18 `evaluateResearchClosure` 结束条件；
  *      **零写库**，结论与范围在步 ⑤ 随报告一并落 MD-07）
  *   ⑤ 产出研究结果与依据（F-21 `assembleResearchResult` 组装七要素 → `saveResearchReport` 落库）
- * 边界：本文件**只处理 `task_type='hva_research'`**；`hva_followup` 与 `goal_check` 仍走 `delegateToAgent` 占位（另登记）。
+ * 边界：本文件处理**研究类两种**（`hva_research` / `hva_followup`）——**F-41（2026-09-22）**起追问亦接线，
+ *   二者同构、共用五步体，差别只在步 ①：追问额外走一次 **F-22 `intakeFollowup`** 承接判定（沿用 / 补查）并
+ *   如实写进「已完成部分」；`hva_research` **完全不走**该路径，既有口径逐字不变（用例有正反两侧）。
+ *   仍未接线者只剩 `goal_check`（仍走 `delegateToAgent` 占位，另登记）。
  *   步间不落新表——步 ③/④/⑤ 以 **EXT-01/EXT-02/MD-09/MD-10 已落库事实做确定性重算**（编排无随机，重算结果一致），不改 schema。
  *   查询条件与适用范围的口径与 M3 同形（由目标六要素派生），**保留 M5 信封原样**。
  * 硬红线落实（可运行判据，不写在注释里）：
@@ -66,6 +69,8 @@ import { buildEvidenceDraft, recordVerificationEvidence, verifyFiveChecks } from
 import { saveResearchReport } from "../agent-orchestrator/result.js";
 import { evaluateResearchClosure, FORBIDDEN_PRODUCTION_PATTERNS, ANSWER_STANCES, STATEMENT_NATURES } from "../agent-orchestrator/role.js";
 import { getResearch, getEvidence } from "../shared-context/index.js";
+// F-41：`hva_followup` 追问执行体接线——类型常量与承接面**复用 F-22 的既有导出**，不在本文件复制第二份。
+import { FOLLOWUP_TASK_TYPE, intakeFollowup } from "../agent-orchestrator/followup-intake.js";
 
 /**
  * 查证顺序里的**来源系统代号 → 实际调度的工具码**（取 `CFG-02 tool_registry` 已注册码，契约基准 v1）。
@@ -94,9 +99,25 @@ export const RESEARCH_TASK_TYPE = "hva_research";
 /**
  * **已接线任务类型清单**（唯一真源）——`./executor.js` 的 `runStepMessage` 分派守卫、`runPendingWork` 的
  * 选取条件、`./self-heal.js` 的补扫范围、`./index.js` 的 queue 路由**都从这里取**，不复制第二份。
- * 未列入者（`hva_followup` / `goal_check`）仍走 `delegateToAgent` 契约占位。
+ * **F-41（2026-09-22）**：`hva_followup` 由「契约占位」转为**已接线**——追问任务此前建行后五步恒 `pending`、
+ * 永不被 cron 选中（`0 / 5 步`），是全流程最后一个断点；未列入者只剩 `goal_check`。
  */
-export const WIRED_TASK_TYPES = Object.freeze(["discovery", RESEARCH_TASK_TYPE]);
+export const WIRED_TASK_TYPES = Object.freeze(["discovery", RESEARCH_TASK_TYPE, FOLLOWUP_TASK_TYPE]);
+
+/**
+ * 已接线**研究类**类型（discovery 之外的两种：`hva_research` / `hva_followup`）——
+ * 二者共用本文件的步骤体（追问与研究同构：① 载入口径 → ② 采集证据 → ③ 交叉验证 → ④ 结论范围 → ⑤ 出报告），
+ * 差别只在步 ① 追问要多做一次 **F-22 承接判定**（沿用 / 补查）。
+ */
+export const RESEARCH_TASK_TYPES = Object.freeze([RESEARCH_TASK_TYPE, FOLLOWUP_TASK_TYPE]);
+
+/**
+ * 各已接线研究类型的步数——**派生自** `TYPE_STEPS`（唯一真源，不复制第二份）；
+ * 步号越界守卫按任务实际类型取，改步骤模板即自动跟着变。
+ */
+export const RESEARCH_STEP_COUNT_OF = Object.freeze(
+  Object.fromEntries(RESEARCH_TASK_TYPES.map((t) => [t, TYPE_STEPS[t].length])),
+);
 
 /**
  * 本执行体的步数——**派生自** F-02 `./step-plan.js` 的 `TYPE_STEPS.hva_research`（唯一真源，不复制第二份）。
@@ -490,16 +511,18 @@ export function assembleSevenElements({ research, start, records, evidenceMap, c
 export async function runResearchStep(db, task_id, step_no, opts = {}) {
   const task = await getTask(db, task_id);
   if (!task) throw new Error(`任务不存在：${task_id}（不得在任务之外调用 Agent）`);
-  if (task.task_type !== RESEARCH_TASK_TYPE) {
+  // F-41：`hva_followup` 与 `hva_research` 同构，共用本执行体（步 ① 追问多做一次 F-22 承接判定）。
+  if (!RESEARCH_TASK_TYPES.includes(task.task_type)) {
     throw new Error(
-      `runResearchStep 只处理 ${RESEARCH_TASK_TYPE} 任务，收到 ${task.task_type}（其余类型仍走占位，接线另登记）`,
+      `runResearchStep 只处理 ${RESEARCH_TASK_TYPES.join(" / ")} 任务，收到 ${task.task_type}（其余类型仍走占位，接线另登记）`,
     );
   }
   // 步号越界＝**程序性错误**（不是任务受阻）：在 try 之外直接抛错——不去动 `PD-02`/`PD-03`，
   // 免得把一个不存在的步号写成幽灵步态（与 `discovery.js` 同款形态）。
+  const stepCount = RESEARCH_STEP_COUNT_OF[task.task_type];
   const n = Number(step_no);
-  if (!Number.isInteger(n) || n < 1 || n > RESEARCH_STEP_COUNT) {
-    throw new Error(`未知步骤号：${step_no}（hva_research 计划为 ${RESEARCH_STEP_COUNT} 步）`);
+  if (!Number.isInteger(n) || n < 1 || n > stepCount) {
+    throw new Error(`未知步骤号：${step_no}（${task.task_type} 计划为 ${stepCount} 步）`);
   }
   // 判据入参的形态同属**程序性错误**（调用方写错，不是任务自身受阻）：也在 try 之外挡掉。
   // 若放进 try，会把「调用方传错」说成「任务受阻」，并留一条永远无法自动恢复的 `PD-03`（含误导性的 call_failed）。
@@ -515,19 +538,38 @@ export async function runResearchStep(db, task_id, step_no, opts = {}) {
   try {
     if (step_no === 1) {
       const { start } = await loadStartAndPlan(db, task, opts);
+      // F-41 追问专属：步 ① 额外做一次 **F-22 承接判定**（既有依据是否仍适用 → 沿用 / 补查），
+      // 并**如实写进「已完成部分」**——沿用还是补查必须可回查，不能只体现在报告正文里。
+      // 非追问任务（hva_research）**完全不走这条路径**，既有口径逐字不变。
+      let intakeNote = "";
+      let reuseDecision = null;
+      if (task.task_type === FOLLOWUP_TASK_TYPE) {
+        const it = await intakeFollowup(db, { task_id: task.task_id, now: stamp });
+        const reuse = it?.evidence_reuse || {};
+        reuseDecision = reuse.decision || null;
+        const dims = (reuse.checked_dimensions || []).join("、") || "未声明";
+        intakeNote =
+          `追问承接：原研究 ${it?.intake?.original_research_no || "—"} 的结果与依据**原样保留**；` +
+          `既有依据复用判定＝${reuse.decision || "undetermined"}` +
+          `${reuse.llm_gated ? "（未声明变更 → 未决，受 A-1 门禁，不硬猜）" : ""}；` +
+          `已核对维度 ${dims}；版本口径 v${it?.version?.followup_effective_goal_version_no ?? task.goal_version_no}。`;
+      }
       // 来源排除项**如实写进「已完成部分」**（F-38，仅在确有排除时）：计划避开未启用来源后，
       // 依据缺口在任务记录里可回查，不静默丢弃；五源齐备时本段不产生任何多余文本（既有口径不变）。
       const excludedNote = start.plan_excluded_sources.length > 0
         ? `本轮排除来源 ${start.plan_excluded_sources.map((x) => `${x.source_id}（${x.reason}）`).join("、")}；`
         : "";
       await appendDonePart(db, task_id,
-        `① 载入机会与目标口径：研究问题「${start.research_question}」；起点路径 ${start.path}（${start.path_reason}）；` +
+        `① ${task.task_type === FOLLOWUP_TASK_TYPE ? "关联原研究与依据" : "载入机会与目标口径"}：` +
+        (intakeNote ? `${intakeNote}；` : "") +
+        `研究问题「${start.research_question}」；起点路径 ${start.path}（${start.path_reason}）；` +
         `比较条件 ${start.comparison_conditions_declared ? "三项已定" : `缺 ${start.comparison_conditions_missing.join("、")}（如实登记，不编造）`}；` +
         excludedNote +
         `查证顺序 ${start.plan.map((s) => s.check_key).join(" > ")}；${START_STOP_CONDITION}。`);
       return {
         outcome: "done", step_no, path: start.path, plan_step_count: start.plan_step_count,
         sources_available: start.sources_available, plan_excluded_sources: start.plan_excluded_sources,
+        ...(intakeNote ? { followup_intake: true, reuse_decision: reuseDecision } : {}),
       };
     }
 
@@ -651,7 +693,7 @@ export async function runResearchStep(db, task_id, step_no, opts = {}) {
     }
 
     // 越界步号已在函数入口（try 之外）挡掉，此处只在「模板增步但分支未同步」时兜底。
-    throw new Error(`未知步骤号：${step_no}（hva_research 计划为 ${RESEARCH_STEP_COUNT} 步）`);
+    throw new Error(`未知步骤号：${step_no}（${task.task_type} 计划为 ${stepCount} 步）`);
   } catch (err) {
     // 结构性受阻 / 意外异常：按 F-26 语义留 PD-03 + 任务 blocked，保留已完成部分（兜底尊重终态守卫）。
     // **未知步号**（程序性错误、无对应 PD-02 行）时不落任何库、原样回报——不制造幽灵步态。

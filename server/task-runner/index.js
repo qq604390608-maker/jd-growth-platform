@@ -168,9 +168,9 @@ export default {
   },
   /**
    * Queue Consumer：消息形状两键（`assertStepMessage` 保证）。
-   * 已接线类型（`WIRED_TASK_TYPES`：discovery / hva_research）→ 真实步骤执行体
+   * 已接线类型（`WIRED_TASK_TYPES`：discovery / hva_research / **hva_followup（F-41 起已接线）**）→ 真实步骤执行体
    * （`executor.js` 的 `runStepMessage`：按类型分派 → 执行 + 跃迁 + 推进）；
-   * 其余类型（hva_followup / goal_check）仍走 `delegateToAgent` 契约占位（接线归后续 PR）。
+   * 其余类型（现只剩 goal_check）仍走 `delegateToAgent` 契约占位（接线归后续 PR）。
    * 注：**逐消息隔离不在 F-36 范围**（本路径真 Queues 未接，见文件头「边界」段）。
    */
   async queue(batch, env, ctx) {

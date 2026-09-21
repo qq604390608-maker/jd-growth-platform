@@ -555,6 +555,12 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   仍只引用 `./schedule.js` / `./step-plan.js` / `./executor.js` / `./self-heal.js` / `./research.js`——
   **纯控制流改动**：既不新增表写面、也不改变目录内既有引用方向；`scheduled` 由「直接连调三相位」改为「委托 `runTick`」，
   故「入口 → 执行体 → 写入面」的单向链不变
+  **F-41 增（2026-09-22，追问执行体接线）**：`./research.js` **新增 1 条跨模块 import** ——
+  `../agent-orchestrator/followup-intake.js`（取 F-22 的 `FOLLOWUP_TASK_TYPE` 常量与 `intakeFollowup` 承接面，
+  **复用不复制**：类型常量与承接判定都只有一份）；`./executor.js` 的 import 由 `RESEARCH_TASK_TYPE` 改为
+  `RESEARCH_TASK_TYPES`（清单真源仍在 `./research.js`）。**无环**：`followup-intake.js` 不反向 import 本目录任何文件。
+  **未新增任何表写面**——追问与研究同构，落库仍走既有唯一写入面（EXT-01 归 M5、EXT-02 归 F-09、
+  MD-09/MD-10 归 F-20、MD-07/MD-08/MD-11 归 F-21）
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写；**F-04 另复用其 F-11 的 `createResearch` /

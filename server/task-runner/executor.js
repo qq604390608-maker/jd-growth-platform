@@ -47,7 +47,7 @@ import { listQueryRecords } from "../tool-executor/index.js";
 import { loadDiscoveryContext, assembleDiscoveryPlan, summarizeCluesAsJourney } from "../agent-orchestrator/discovery.js";
 import { runMetricVerification, verifyFiveChecks, buildEvidenceDraft, recordVerificationEvidence } from "../agent-orchestrator/verification.js";
 import { formOpportunityOrGap, OPPORTUNITY_OUTCOMES } from "../agent-orchestrator/opportunity.js";
-import { runResearchStep, RESEARCH_TASK_TYPE, WIRED_TASK_TYPES } from "./research.js";
+import { runResearchStep, RESEARCH_TASK_TYPE, RESEARCH_TASK_TYPES, WIRED_TASK_TYPES } from "./research.js";
 import { createTickGuard, STEP_TIMED_OUT, TICK_QUOTA, STEP_TIMEOUT_MS } from "./tick-guard.js";
 
 /** 计划数据源 → 实际调度的工具码（**取自 CFG-02 tool_registry 实际注册码**，契约基准 v1；
@@ -307,7 +307,9 @@ export async function runStepMessage(db, { task_id, step_no }, opts = {}) {
       "其余类型仍走 delegateToAgent 占位（接线另行登记）",
     );
   }
-  const r = task && task.task_type === RESEARCH_TASK_TYPE
+  // 分派（F-41 后）：`discovery` → M3 执行体（本文件）；**研究类两种**（hva_research / hva_followup）→ M4 执行体。
+  // 清单取自 `./research.js` 的 `RESEARCH_TASK_TYPES`（单一真源），不在本文件写第二个 `=== "xxx"`。
+  const r = task && RESEARCH_TASK_TYPES.includes(task.task_type)
     ? await runResearchStep(db, task_id, step_no, opts)
     : await runDiscoveryStep(db, task_id, step_no, opts);
   let finished = false;
