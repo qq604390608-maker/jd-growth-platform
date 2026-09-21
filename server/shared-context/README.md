@@ -1,13 +1,13 @@
 # server/shared-context · M2 共享上下文（信息存储中枢）
 
 > 阶段1 · M2。本目录是 dev-plan 阶段1 的落位模块（`server/shared-context`，被 `server/api` / `server/agent-orchestrator` 调用）。
-> 当前进度：**F-07 业务背景管理、F-08 可用来源与工具登记、F-09 证据管理、F-10 机会记录管理、F-11 研究结果与历史管理、F-12 上下文按任务组织注入**（阶段1 · M2 六个功能点**全部收口**）。
+> 当前进度：**F-07 业务背景管理、F-08 可用来源与工具登记、F-09 证据管理、F-10 机会记录管理、F-11 研究结果与历史管理、F-12 上下文按任务组织注入**（阶段1 · M2 六个功能点**全部收口**）；另含**接线工作项 F-35 取号原子化**（非 BRD 功能点；新增 `./id-sequence.js` ＝ **CFG-09 `id_sequence` 唯一写入面**，2026-09-22 落地）。
 
 ## 文档卡
 
 | 项 | 内容 |
 | ---- | ---- |
-| 上游约束 | `../../AGENTS.md`（宪法：白盒原则｜双向引用｜术语口径「共享上下文＝数据库」）｜ `../../docs/03-locks/schema.md`（MD-04 `business_context` / MD-05 `touchpoint`；CFG-01 `source_registry`；EXT-02 `evidence` / LNK-01 `opportunity_evidence` / LNK-02 `finding_evidence`；MD-06 `opportunity` / PD-05 `opportunity_status_log` / LNK-03 `opportunity_relation`；**MD-07 `research` / MD-08 `research_finding` / EXT-03 `external_validation`**；Q-03「背景不做定版快照」；Q-05 六要素必填见 MD-06 表尾注；§11 应用层校验）｜ `../../docs/07-decisions/ADR-003-机会六要素必填与未知项二态.md`（§3 清单与判定式 / §3.1 两件套 / §3.2 未加二态 CHECK）｜ `../../docs/03-locks/tech-stack.md`（§2.2 `shared-context` 模块 / DS-01 D1）｜ `../../docs/03-locks/external-deps.md`（§2 五系统 can/cannot/status）｜ `../../docs/04-plan/dev-plan.md`（阶段1 · M2 F-07~F-12）｜ `../../docs/02-prd/PRD-M2-共享上下文.md`（F-07~F-12）｜ `../../docs/05-test-cases/test-M2.md` |
+| 上游约束 | `../../AGENTS.md`（宪法：白盒原则｜双向引用｜术语口径「共享上下文＝数据库」）｜ `../../docs/03-locks/schema.md`（MD-04 `business_context` / MD-05 `touchpoint`；CFG-01 `source_registry`；EXT-02 `evidence` / LNK-01 `opportunity_evidence` / LNK-02 `finding_evidence`；MD-06 `opportunity` / PD-05 `opportunity_status_log` / LNK-03 `opportunity_relation`；**MD-07 `research` / MD-08 `research_finding` / EXT-03 `external_validation`**；Q-03「背景不做定版快照」；Q-05 六要素必填见 MD-06 表尾注；**v1.9 起含 CFG-09 `id_sequence`（取号序列，运行期基础设施；归属与范围见 §0.2 v1.9 说明与 §12 Q-18）**；§11 应用层校验）｜ `../../docs/07-decisions/ADR-003-机会六要素必填与未知项二态.md`（§3 清单与判定式 / §3.1 两件套 / §3.2 未加二态 CHECK）｜ `../../docs/03-locks/tech-stack.md`（§2.2 `shared-context` 模块 / DS-01 D1）｜ `../../docs/03-locks/external-deps.md`（§2 五系统 can/cannot/status）｜ `../../docs/04-plan/dev-plan.md`（阶段1 · M2 F-07~F-12）｜ `../../docs/02-prd/PRD-M2-共享上下文.md`（F-07~F-12）｜ `../../docs/05-test-cases/test-M2.md` |
 | 职责 | 共享上下文存储中枢（D1）的读写。**严格逐 F-xx 落地**，不跨功能点预实现。 |
 | 硬红线 | 只在本平台自有 D1 内增删查；**不调面向生产环境会改线上数据的接口**（BRD §5.3）；**证据一律只新增行、不覆盖**（EXT-02 头注）；暂不研究的机会**只改状态、不删除**（MD-06 头注）；**追问不覆盖原研究**（MD-07 表注 L271）；外部验证**只登记业务侧结论与来源引用**，平台不执行验证、不计算效果（EXT-03 表注 L737-738）。 |
 
@@ -16,12 +16,14 @@
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
 | `index.js` | M2 模块本体：MD-04 背景条目 + MD-05 触点清单的读写 + 背景简报（F-07）；CFG-01 来源登记 + 缺口语义 + 来源与工具说明（F-08）；EXT-02 证据登记 + 回查链路 + LNK-01/LNK-02 证据关联（F-09）；MD-06 机会记录 + PD-05 状态留痕 + LNK-03 机会关系（F-10）；MD-07 研究登记 + MD-08 发现只读 + EXT-03 外部验证引用 + `parent_research_no` 追问链追溯（F-11）；**CFG-06 注入模板登记 + PD-06 按任务装配/初始化/回读（F-12）** | ✅ F-07 / F-08 / F-09 / F-10 / F-11 / **F-12** 已建 |
+| `id-sequence.js` | **F-35 取号原子化（接线工作项）**：**CFG-09 `id_sequence` 的唯一写入面**——`issueId`（原子取号：`UPDATE ... SET next_val = next_val + 1 ... RETURNING next_val` **一条语句**完成「自增 + 取值」，取代「读全量自算最大 +1」的**读后写**，堵 **P0-3**「并发撞主键 → 任务 `blocked`」）、`healSequence`（**显式**修复计数器：旁路插入后把 `next_val` 抬到观测实际最大，**只抬不降**、幂等）、`readSequence`（回读读面）、`parseMaxSeq`（从既有 id 清单自算最大，**不写 `SELECT MAX`**）、`formatId`、`ID_NAMESPACES` / `ID_NAMESPACE_CODES`（**号形态与命名空间清单只此一份**）。**热路径刻意不回读业务表**（种子 thunk 只在冷路径调 1 次）；冷路径种子入参**必填**（省略即报错，防「按 0 起步重发已用号」）。范围＝用户裁决**选项 c**：只收敛 `task`/`research`/`opportunity` 三条最热号，其余 12 个取号面登记待办（`schema.md` §12 Q-18） | ✅ F-35 已建 2026-09-22（**26 断言全绿**） |
 | `test-f07.mjs` | F-07 用例执行器（`node:sqlite` + D1 适配层，载入真实 DDL 跑约束） | ✅ 已建 |
 | `test-f08.mjs` | F-08 用例执行器（载入真实 DDL + `0001_mock.sql` 种子，跑 CFG-01 约束与缺口语义） | ✅ 已建 |
 | `test-f09.mjs` | F-09 用例执行器（载入真实 DDL + 种子，跑 EXT-02 外键 / 四要素 / 回查链路 / 新旧依据并存 / LNK-04 复合 UK） | ✅ 已建 |
 | `test-f10.mjs` | F-10 用例执行器（载入真实 DDL + 种子，跑 MD-06 六要素 NOT NULL+CHECK / `unknown_item` 二态 / LNK-01/LNK-03 复合 UK / 自环应用层拒 / PD-05 状态链留痕） | ✅ 已建 |
 | `test-f11.mjs` | F-11 用例执行器（载入真实 DDL + 种子，跑 MD-07 `opportunity_id`/自引用 FK / EXT-03 `research_no` FK / 追问不覆盖 / `parent_research_no` 祖先与派生链追溯 / MD-08 只读与 `UK(research_no, order_no)`） | ✅ 已建 |
 | `test-f12.mjs` | F-12 用例执行器（载入真实 DDL + 种子，跑 CFG-06 复合 UK / PD-06 `task_id` FK / LNK-04 复合 UK / 类型与范围两维度装配 / **注入确定性可复现 + 幂等** / Q-08 三类不落行） | ✅ 已建 |
+| `test-f35.mjs` | F-35 用例执行器（本地内存库 + 真实 DDL + 真实种子）：静态（全仓唯一写入面 / 号形态只此一份 / 消费方零取号裸 SQL / 经再导出不新增 import / 前提「全仓无 `withSession`」）+ 运行期（冷启动自愈种子 / 种子入参冷路径必填 / 并发 6 次互不相同 / 热路径 0 次回读 / `healSequence` 只抬不降幂等 / 旁路插入须显式修 / 空表可直取 / 未登记命名空间报错 / PK 兜底）+ 端到端（`createTask` 经取号落库、连建互不撞号）+ 漂移守卫（`schema.md` 声明表数 ↔ DDL `CREATE TABLE` 实数；`0001_init.sql` 与 `db/ops/*.sql` 两处列定义一致） | ✅ 已建（**26 断言全绿**） |
 
 ## F-07 覆盖（业务背景管理）
 
@@ -116,6 +118,11 @@
 3. **种子数据口径异常（已登记，未擅自改）**：`db/seed/generate_mock.py` 的 LNK-03 种子行 `LK-OR-001` 的 `relation_kind = "related_update"` 属**值域外**——`dict:OPP_RELATION` 仅 `same_issue`（相同问题关联）/ `superseded`（被取代）两项；`related_update` 实为 `dict:EVIDENCE_LINK_KIND` 的取值（LNK-01 用）。该表无物理约束可拦（字典值域靠应用层），故种子可载入。**待用户裁定是否订正为 `same_issue`**；本模块 `linkOpportunityRelation` 不内联值域、不做域校验（值域真源在 `dict_item`）。
 4. **本地 D1 的种子是一次性的**：`wrangler d1 execute --local --file=db/seed/0001_mock.sql` 重灌会撞 `UNIQUE constraint failed: dict_type.dict_type_name`（第一次已灌入）——先 `SELECT COUNT(*)` 核对，够了就直接起 dev server。
 5. **EXT-03 种子为空**（原型无外部验证数据，`generate_mock.py` L489 `emit("external_validation", ..., [])`）：F-11 用例先证基线 0 行，再由本项登记正例；其 FK 反例与种子无关，可独立验证。
+6. **F-35 取号器的四条边界**（2026-09-22，均可复现；`test-f35.mjs` 逐条断言）：
+   ① **热路径不回读业务表**——故「旁路插入」（运维 SQL / 手工补数 / 旧代码路径）之后计数器会**落后于实际数据**，热路径**不会自己发现**；收回漂移须**显式**调 `healSequence`（或删掉计数器行让它走冷路径重种）。**不承诺**消除「旁路插入与并发取号同时发生」这个窄窗口。
+   ② **号会因失败而空号**——取号在前、建行在后，两者**不在同一事务**；建行失败（守卫拒绝 / 约束冲突）时该号作废不复用。这是计数器语义（旧「读后写」会复用号，代价正是并发撞号）。
+   ③ **冷路径种子入参必填**——省略会被当成「按 0 起步」，在已有数据的库上重发已用号；故 `issueId` 遇到非法入参**响亮报错**，空库须显式传 `[]`。
+   ④ **只保证「经本文件取号者之间」不撞号**；范围外 12 个取号面（含同目录外的 `LNK-03` 关系号）仍是读后写，见 `../../docs/03-locks/schema.md` §12 **Q-18** 待办。
 
 ## 反向清单（被谁引用）
 
@@ -123,5 +130,9 @@
 - `../agent-orchestrator`（后续：M3/M4 启动时注入背景简报与来源能力边界；引用证据时回查证据链；消费机会记录；M4 追问时按 `parent_research_no` 追溯历史研究避免重复研究；**启动时调 `initTaskContext` 按模板初始化本任务工作空间**）
 - `../task-runner`（后续：M1 创建任务后按 `CFG-06` 模板初始化上下文；注入记录与本模块共用 `recordContextInjection` 写入口）
 - `../README.md`（`server/` 枝杈登记）
-- `.github/workflows/ci.yml`（`validate` 步骤复用 `test-f07.mjs` / `test-f08.mjs` / `test-f09.mjs` / `test-f10.mjs` / `test-f11.mjs` / **`test-f12.mjs`**）
+- `.github/workflows/ci.yml`（`validate` 步骤复用 `test-f07.mjs` / `test-f08.mjs` / `test-f09.mjs` / `test-f10.mjs` / `test-f11.mjs` / **`test-f12.mjs`** / **`test-f35.mjs`**）
+- **F-35 的两个消费方（经本模块取号，不改本模块口径）**：`../task-runner/step-plan.js` 的 `nextTaskId`（`task`）/ `nextResearchNo`（`research`）与 `../agent-orchestrator/opportunity.js` 的 `nextOpportunityId`（`opportunity`）——
+  三者经 `./id-sequence.js` 取号；`opportunity.js` **经本模块 `index.js` 再导出**取用（不直连，故其「唯一 import」静态断言不动）。
+  两个消费方的**调用面与返回形态一律未变**（既有 `test-f16` / `test-f05` / `test-f01`~`test-f06` 断言逐字未改即证明这一点）。
+- `db/ops/2026-09-22-id-sequence.sql` ＋ `.github/workflows/ops-id-sequence.yml`（线上既有库补建 `id_sequence` 的一次性入口——`0001_init.sql` 已被记为已应用，D1 不重放）
 - `../../docs/02-prd/PRD-M2-共享上下文.md` 反向清单（下游 `server/（shared-context）`）

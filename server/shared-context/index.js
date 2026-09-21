@@ -31,6 +31,14 @@
  *   **F-12 上下文按任务组织注入**（CFG-06 `context_template` 模板登记 + PD-06 `context_injection` 注入留痕；
  *        两个维度——类型（模板定注入哪些类型）＋范围（只查京东超市有关触点 / 只看业务方负责品类）；
  *        **初始化是确定性程序行为**：同任务同输入 → 同工作空间，不每回随机、不退化为只传一句「继续分析」）。
+ *   **F-35 取号原子化（接线工作项，非 BRD 功能点）**：新增 `./id-sequence.js` ＝ **CFG-09 `id_sequence` 唯一写入面**
+ *        （原子取号：`UPDATE ... SET next_val = next_val + 1 ... RETURNING next_val` **一条语句**完成「自增 + 取值」，
+ *        取代原先「读全量自算最大 +1」的**读后写**取号，堵 **P0-3**「并发撞主键 → 任务 blocked」）；
+ *        本文件只**再导出**其接口（`issueId` / `formatId` / `parseMaxSeq` / `readSequence` /
+ *        `ID_NAMESPACES` / `ID_NAMESPACE_CODES`），**不重写**——既满足 F-16 用例「`opportunity.js` 唯一 import
+ *        ＝`../shared-context/index.js`」这条既有断言，也让两个消费方（`../task-runner/step-plan.js`
+ *        与 `../agent-orchestrator/opportunity.js`）走**同一个 import 口径**。表结构与归属见
+ *        `../../docs/03-locks/schema.md` v1.9 §4 CFG-09 与 §12 Q-18；本文件仍是**零自有取号 SQL**。
  * 硬红线（BRD §5.3 / tech-stack §7.2）：只在本平台自有 D1 内增删查（「共享上下文＝数据库」），
  *   **不调任何面向生产环境会改线上数据的接口**；证据一律**只新增行、不覆盖**（EXT-02 头注：新证据加入不覆盖原有依据）；
  *   暂不研究的机会**不删除**（状态置 `deferred`，记录保留后可再选）；
@@ -44,7 +52,7 @@
  *   外部验证的**执行与效果计算由业务工作完成**，本文件只登记其结论与来源引用（schema EXT-03 表注 L737-738）。
  * 反向清单：被 `../api/index.js`（F-07/F-08/F-09/F-10/F-11/**F-12** 路由）与后续 `../agent-orchestrator`（背景注入/能力边界/
  *   证据回查/机会上下文/历史研究上下文/**任务上下文初始化**）引用；登记 `../README.md`；测试 `./test-f07.mjs`、`./test-f08.mjs`、
- *   `./test-f09.mjs`、`./test-f10.mjs`、`./test-f11.mjs`、**`./test-f12.mjs`**。
+ *   `./test-f09.mjs`、`./test-f10.mjs`、`./test-f11.mjs`、**`./test-f12.mjs`**、**`./test-f35.mjs`**（F-35 取号原子化）。
  *
  * @typedef {Object} D1Like D1 绑定（`env.DB`），提供 prepare().bind().run()/all()/first()
  */
@@ -52,6 +60,19 @@
 // TS-16 应用层截断（tech-stack §8 已决 2026-09-21）：EXT-02 `result_summary` 落库前超限截断＋留痕标注。
 // 分析面拿到的仍是全量原文，截断只发生在 F-09 单一写入面落库前一刻；纯函数引自 M5 `../tool-executor/text-limit.js`。
 import { truncateForStorage } from "../tool-executor/text-limit.js";
+
+// F-35（CFG-09 取号序列）：**再导出**而不重写——`./id-sequence.js` 是该表的唯一写入面，
+// 此处只把它挂到本模块的公开面上，使消费方经 `../shared-context/index.js` 一处取用
+// （`../agent-orchestrator/opportunity.js` 的「唯一 import」静态断言据此不动）。
+export {
+  ID_NAMESPACES,
+  ID_NAMESPACE_CODES,
+  formatId,
+  parseMaxSeq,
+  readSequence,
+  issueId,
+  healSequence,
+} from "./id-sequence.js";
 
 const REQUIRED_BUSINESS_CONTEXT = ["context_id", "context_kind", "title", "content", "source_ref"];
 const REQUIRED_TOUCHPOINT = ["touchpoint_id", "touchpoint_name", "channel", "position_desc"];

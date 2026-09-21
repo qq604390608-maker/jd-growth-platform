@@ -14,7 +14,9 @@
  *   ③ 依据不足 → **返回缺口记录（检查范围 + 信息缺口 + 影响哪项判断）且不写库**——「本轮未产生新机会」是合法产出。
  * 硬红线：① **零外部调用**（不 `fetch`、不调 LLM——A-1 门禁只挡推理，本文件是确定性编排）；
  *   ② **零自有写语句**（无 INSERT/UPDATE/DELETE、无裸 SQL）：MD-06 经 `createOpportunity`、LNK-03 经 `linkOpportunityRelation`，
- *      取号与判重一律走 `../shared-context/index.js` 的读面（`listOpportunities` / `listOpportunityRelations`）；
+ *      判重走 `../shared-context/index.js` 的读面（`listOpportunities` / `listOpportunityRelations`）；
+ *      **取号（F-35 起）委托同处再导出的 `issueId`**——写入语句仍在 `shared-context/id-sequence.js`
+ *      （属**委托写面**，故「本文件零自有 `INSERT`/`UPDATE`」的口径不变）；
  *   ③ **不下 HVA 判断、不输出生产动作**（PRD-M3 §4 红线 1：止于机会＋初步依据）；
  *   ④ `unknown_item` 纯空白串 → **应用层显式拒**（ADR-003：库级 `NOT NULL` 拦不住空白串）；
  *   ⑤ **未知项写入策略前置守卫**（ADR-003 §7，2026-09-20 用户裁决）：空串态「已评估且确无」
@@ -36,6 +38,9 @@ import {
   listOpportunities,
   listOpportunityRelations,
   linkOpportunityRelation,
+  // F-35：取号改走 CFG-09 `id_sequence` 的**唯一写入面**（`../shared-context/id-sequence.js`，
+  // 经本模块既有的唯一 import 面再导出）——**不新增 import 语句**，F-16 ⑨ 的「唯一 import」断言不动。
+  issueId,
 } from "../shared-context/index.js";
 
 /** S-A4 的两种终止产出（「形成记录并保存」）。 */
@@ -98,22 +103,27 @@ export const DEFAULT_OPPORTUNITY_STATUS = "candidate";
 const TITLE_MAX = 80;
 
 /* ================================================================== *
- * 取号（确定性、可回查）：读面走 shared-context，不写裸 SQL。
+ * 取号（确定性、可回查）：**不写裸 SQL**——委托 shared-context 的 CFG-09 唯一写入面。
  * 全库口径与种子一致：机会 `OPP-NNN`、关系 `LK-OR-NNN`（均 3 位补零）。
  * ================================================================== */
 
-/** 下一个机会号：库内 `OPP-NNN` 最大 +1（种子最大 `OPP-014` → `OPP-015`）。 */
+/**
+ * 下一个机会号（`MD-06 opportunity.opportunity_id`，`OPP-NNN`）。
+ * **F-35 起改为原子取号**：委托 `issueId`（`../shared-context/id-sequence.js`，CFG-09 `id_sequence`）——
+ * `UPDATE ... RETURNING` **一条语句**完成「自增 + 取值」，取代原先「读全量 `listOpportunities` 自算最大 +1」的
+ * **读后写**（后者是 **P0-3** 的成因：并发读到同一个 `max` → 同一个号 → 撞主键）。
+ * **调用面与返回形态不变**（仍返回 `OPP-NNN`）；`listOpportunities` 只在**冷路径**（计数器行尚未建立）被 thunk 调起。
+ * 边界：取号在前、`createOpportunity` 在后，两者不在同一事务——建行失败时该号**作废不复用**（计数器语义）。
+ */
 export async function nextOpportunityId(db) {
-  const rows = (await listOpportunities(db, {})) || [];
-  let max = 0;
-  for (const r of rows) {
-    const m = /^OPP-(\d+)$/.exec(String(r.opportunity_id || "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `OPP-${String(max + 1).padStart(3, "0")}`;
+  const { id } = await issueId(db, "opportunity", async () => {
+    const all = (await listOpportunities(db, {})) || [];
+    return all.map((r) => r.opportunity_id);
+  });
+  return id;
 }
 
-/** 下一个机会关系号：库内 `LK-OR-NNN` 最大 +1（种子最大 `LK-OR-002` → `LK-OR-003`）。 */
+/** 下一个机会关系号：库内 `LK-OR-NNN` 最大 +1（种子最大 `LK-OR-002` → `LK-OR-003`）。**本轮未收敛**（见 schema §12 Q-18）。 */
 export async function nextOpportunityRelationId(db) {
   const rows = (await listOpportunityRelations(db, {})) || [];
   let max = 0;

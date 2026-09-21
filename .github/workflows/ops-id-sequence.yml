@@ -1,0 +1,48 @@
+# 文档卡（一次性运维 · 2026-09-22）
+# 上游：`db/ops/2026-09-22-id-sequence.sql`（本工作流唯一执行的 SQL）｜ `docs/03-locks/schema.md` v1.9（CFG-09 `id_sequence`）｜
+#   `.github/workflows/ci.yml`（deploy 步的凭证注入写法：CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID 仅经 Secrets）
+# 职责：把 CFG-09 `id_sequence`（取号计数器）对**远程库**补建一次——`0001_init.sql` 是单一 DDL 文件且已被
+#   线上 `d1_migrations` 记为已应用，D1 不会重放；而全仓 30+ 套用例按硬编码路径载入该文件，故不能拆出第二个迁移文件。
+# 与另一个 ops 工作流的分工：`ops-demo-reset.yml` 只跑**演示数据重置**那一支（其 paths 已收窄到自己的文件），
+#   两支互不触发；`ci.yml` 的 deploy **只重放** `db/seed/`（0002/0003），**不碰** `db/ops/`。
+# 一次性执行完即可保留失效（`CREATE TABLE IF NOT EXISTS`，重复触发幂等、空操作）。
+# 硬红线：本工作流只执行**建表**（无 DELETE / UPDATE / 业务数据写入）；凭证仅经 GitHub Secrets 注入，
+#   绝不写入本文件或仓库；不直连任何业务写接口。
+# 反向清单：被 `db/ops/2026-09-22-id-sequence.sql` 头部引用；被 `db/README.md`（一次性运维入口清单）登记。
+
+name: OPS · 补建取号序列表（CFG-09 id_sequence）
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'db/ops/2026-09-22-id-sequence.sql'
+      - '.github/workflows/ops-id-sequence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ops-id-sequence
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: 补建 CFG-09 `id_sequence`（幂等：IF NOT EXISTS，纯建表）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote --file db/ops/2026-09-22-id-sequence.sql -y
+      - name: 回读校验（表已建 + 计数器初值 + 三条命名空间的「库内实际最大」，供人工核对自愈种子的落点）
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote -y \
+            --command "SELECT (SELECT COUNT(*) FROM id_sequence) AS counter_rows, (SELECT COUNT(*) FROM task) AS tasks, (SELECT COUNT(*) FROM research) AS researches, (SELECT COUNT(*) FROM opportunity) AS opportunities"
+          npx -y wrangler@4.135.0 d1 execute jd-growth-platform --remote -y \
+            --command "SELECT MAX(CAST(substr(task_id, 3) AS INTEGER)) AS task_max FROM task WHERE task_id GLOB 'T-[0-9]*'"

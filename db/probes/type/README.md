@@ -372,7 +372,7 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | 3 | `varchar(300)` | 13 | TEXT | ❌ 不强制 | 按亲和类推广（未单独建列） |
 | 4 | `varchar(120)` | 5 | TEXT | ❌ 不强制 | 同上 |
 | 5 | `varchar(16)` | 28 | TEXT | ❌ 不强制 | 同上 |
-| 6 | `varchar(32)` | 46 | TEXT | ❌ 不强制 | 同上 |
+| 6 | `varchar(32)` | 47 | TEXT | ❌ 不强制 | 同上 |
 | 7 | `varchar(64)` | 16 | TEXT | ❌ 不强制 | 同上 |
 | 8 | `varchar(100)` | 2 | TEXT | ❌ 不强制 | 同上 |
 | 9 | `varchar(40)` | 3 | TEXT | ❌ 不强制 | 同上 |
@@ -384,14 +384,15 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | 15 | `varchar(80)` | 1 | TEXT | ❌ 不强制 | 同上 |
 | 16 | `text` | 29 | TEXT | 无长度概念 | §2.1（`c_text` 列为 TEXT 亲和） |
 | 17 | `datetime` | 32 | **NUMERIC** | — | §2.3（数字型值被转成 `integer`） |
-| 18 | `int` | 19 | INTEGER | — | §2.4（`tinyint` 同族） |
+| 18 | `int` | 20 | INTEGER | — | §2.4（`tinyint` 同族） |
 | 19 | `tinyint` | 17 | INTEGER | — | §2.4（写 300 成功） |
 | 20 | `bigint` | 1 | INTEGER | — | 同 `int` 族 |
 | 21 | `integer` | 0（你点名） | INTEGER | — | §2.1（`c_int2`） |
 | 22 | `real` | 0（你点名） | REAL | — | 未测到异常 |
 | 23 | `boolean` | 0（你点名） | **NUMERIC** | — | §2.4 |
 
-> `varchar(n)` 合计 **180 列**，`text` 29 列，非 varchar 列 98 列，共 **278 个字段行 / 36 张表**。
+> `varchar(n)` 合计 **181 列**，`text` 29 列，非 varchar 列 **99** 列，共 **280 个字段行 / 37 张表**。
+> **v1.9 增量说明（2026-09-22，F-35）**：`schema.md` 新增 CFG-09 `id_sequence` 两列——`namespace` 为 `varchar(32)`、`next_val` 为 `int`，故上表 `varchar(32)` 46 → **47**、`int` 19 → **20**；`varchar(n)` 180 → **181**、非 varchar 98 → **99**、字段行 278 → **280**、表数 36 → **37**（**业务表仍 36 张**，新增的是 1 张运行期基础设施计数器表）。
 
 ---
 
@@ -532,13 +533,14 @@ INSERT INTO probe_type (tag, c_v24) VALUES (?, ?)   -- 参数: 'len200', 'x'×20
 | ---- | ---- |
 | A 编号锚点 | 94 |
 | B 长文本 | 39 |
-| C 其余短字段 | 47 |
-| **`varchar(n)` 小计** | **180** |
+| C 其余短字段 | 48 |
+| **`varchar(n)` 小计** | **181** |
 | `text`（另类，见 §3 第 3 行） | 29 |
-| 非 varchar（`datetime`/`int`/`tinyint`/`bigint`） | 69 |
-| **`schema.md` 字段行合计** | **278** |
+| 非 varchar（`datetime`/`int`/`tinyint`/`bigint`） | 70 |
+| **`schema.md` 字段行合计** | **280** |
 
-> 校验：94+39+47 = 180 ✓；180+29+69 = 278 ✓（与 `schema.md` 实际字段行数一致，36 张表）
+> 校验：94+39+48 = 181 ✓；181+29+70 = 280 ✓（与 `schema.md` 实际字段行数一致，37 张表）
+> **v1.9 增量（2026-09-22，F-35）**：C 类 47 → **48**（新增的 `id_sequence.namespace` 是短字段，既非编号锚点、亦非长文本）、非 varchar 69 → **70**（`next_val` `int`）；A / B 两类与 `text` 计数不变。
 
 ### 5b. `--remote` 复测结论（2026-09-21 补测）
 

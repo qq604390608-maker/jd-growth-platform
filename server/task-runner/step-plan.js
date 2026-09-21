@@ -13,6 +13,9 @@
  *   另承载本模块的**取号**（`nextTaskId` ＝ `PD-01`、`nextResearchNo` ＝ `MD-07`）——两者同款形态、各只有一份；
  *   `nextResearchNo` 于 2026-09-21 由 `./followup.js` 下沉至此（F-04 建研究壳亦需取号，而 `hva.js` 引用
  *   `followup.js` 会构成环），`followup.js` 改为再导出以保持既有调用面不变。
+ *   **F-35 起两者均改走原子取号**——委托 `../shared-context/id-sequence.js`（CFG-09 `id_sequence`，
+ *   `UPDATE ... RETURNING` **一条语句**完成「自增 + 取值」），本文件**不再含取号类裸 SQL**；
+ *   原「读全量自算最大 +1」的**读后写**正是 P0-3 的成因（并发撞主键 → 任务 `blocked`）。调用面与形态不变。
  * 边界：本文件只管「步骤与进度」这两件事；任务态跃迁（`task_status`）、受阻留痕（`PD-03`）、
  *   已完成部分（`done_part`）的写入面在 `../tool-executor/task-state.js`，本文件**再导出**而不重写。
  *   改行语句一律带 `WHERE task_id = ?`（**禁全表更新**）；本文件**不含删行语句**。
@@ -22,6 +25,9 @@
  *   登记 `./README.md` 与 `../README.md`；测试 `./test-f01.mjs`。
  */
 import { dictCodes } from "../tool-executor/task-state.js";
+// F-35：取号改走 CFG-09 `id_sequence` 的**唯一写入面**（原子取号）——本文件不再自己「读全量自算最大 +1」。
+// 依赖方向安全：`../shared-context` 只 import `../tool-executor/text-limit.js`，不反向依赖 task-runner，无环。
+import { issueId } from "../shared-context/id-sequence.js";
 
 /**
  * 四类任务的步骤名。**逐字照抄** `prototype/pages/tasks.html` 的 `TYPE_STEPS`
@@ -51,31 +57,34 @@ function nowStamp() {
   return new Date().toISOString().slice(0, 16).replace("T", " ");
 }
 
-/** 下一个任务号：`T-` + 4 位数字，取库内已用最大值 +1，确定性可复现不撞号。 */
+/**
+ * 下一个任务号（`PD-01 task.task_id`，`T-####`）。
+ * **F-35 起改为原子取号**：委托 `../shared-context/id-sequence.js` 的 CFG-09 `id_sequence`——
+ * `UPDATE id_sequence SET next_val = next_val + 1 ... RETURNING next_val` **一条语句**完成「自增 + 取值」，
+ * 不再「读全量自算最大 +1」（后者是 **P0-3** 的成因：并发读到同一个 `max` → 同一个号 → 撞主键 → 任务 `blocked`）。
+ * **调用面与返回形态不变**（仍返回 `T-####` 字符串）。冷路径的种子由下面的 thunk 现读提供，
+ * **热路径完全不读全表**——故不把全表扫描带进每次建任务。
+ */
 export async function nextTaskId(db) {
-  const rows = (await db.prepare("SELECT task_id FROM task").all()).results || [];
-  let max = 0;
-  for (const r of rows) {
-    const m = /^T-(\d+)$/.exec(String(r.task_id || "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `T-${String(max + 1).padStart(4, "0")}`;
+  const { id } = await issueId(db, "task", async () => {
+    const rows = (await db.prepare("SELECT task_id FROM task").all()).results || [];
+    return rows.map((r) => r.task_id);
+  });
+  return id;
 }
 
 /**
- * 下一个研究号：`R-` + 3 位补零（`MD-07 research_no` 全库口径 `R-xxx`，库内最大 +1，确定性不撞号）。
+ * 下一个研究号（`MD-07 research.research_no`，`R-###`）。
  * **取号真源（唯一一份）**：F-04 建 HVA 研究壳与 F-05 追问建新研究壳共用同一实现——`./followup.js`
  * 改为再导出本函数（`hva.js` 引用 `followup.js` 会成环，故取号下沉到本共用件）。
- * 形态与 `nextTaskId` / `proposal.js` 的 `nextProposalId` 一致（不写 `SELECT MAX`，读全量自算）。
+ * **F-35 起与 `nextTaskId` 同走原子取号**（`../shared-context/id-sequence.js`），调用面与形态不变。
  */
 export async function nextResearchNo(db) {
-  const rows = (await db.prepare("SELECT research_no FROM research").all()).results || [];
-  let max = 0;
-  for (const r of rows) {
-    const m = /^R-(\d+)$/.exec(String(r.research_no || "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return `R-${String(max + 1).padStart(3, "0")}`;
+  const { id } = await issueId(db, "research", async () => {
+    const rows = (await db.prepare("SELECT research_no FROM research").all()).results || [];
+    return rows.map((r) => r.research_no);
+  });
+  return id;
 }
 
 /**

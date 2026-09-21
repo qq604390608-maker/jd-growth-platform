@@ -1,10 +1,10 @@
 -- ============================================================
 -- 0001_init.sql · 用户增长机会挖掘平台 · 建表迁移（白盒，一表一建）
--- 依据：docs/03-locks/schema.md v1.3（2026-09-19，最终锁定版）
+-- 依据：docs/03-locks/schema.md v1.9（2026-09-22；v1.9 新增 CFG-09 `id_sequence`，业务表结构未动）
 -- 方言：Cloudflare D1（SQLite）。详见 schema.md §12 Q-02 / tech-stack.md §3。
 --   类型映射：datetime → TEXT(ISO8601, 本库用 'YYYY-MM-DD HH:MM')；
 --             tinyint/bigint/int → INTEGER（0/1 标志用 INTEGER）；
---             varchar(n) 仅作文档声明，D1 不强制长度（TS-11 仍待裁决，首版暂不写库级长度 CHECK；若日后裁决库级 CHECK 须补迁移）。
+--             varchar(n) 仅作文档声明，D1 不强制长度（TS-11 已于 2026-09-20 裁决为「应用层校验」，故不写库级长度 CHECK；若日后改裁决库级 CHECK 须补迁移）。
 --   约束：MD/PD/CFG 之间一律真实外键（§11，D1 默认强制）。
 --         Q-05 裁决：MD-06 六要素 NOT NULL + CHECK(length(trim(x))>0) 拒空串。
 --   本文件不承担业务数据；种子见 ../seed/0001_mock.sql。
@@ -99,6 +99,16 @@ CREATE TABLE context_template (
     order_no          INTEGER NOT NULL,
     is_required       INTEGER NOT NULL DEFAULT 1,           -- 0/1
     UNIQUE (task_type, context_type_code)
+);
+
+-- CFG-09 取号序列（**运行期基础设施**：原子取号计数器，非业务配置；归属见 schema.md §0.2 / §12 Q-18）
+-- 用途：`UPDATE ... SET next_val = next_val + 1 ... RETURNING next_val` 一步完成「自增 + 取值」，
+--   取代原先「读全量自算最大 +1」的读后写取号（P0-3 竞态：并发撞主键 → 任务 blocked）。
+-- `namespace` 取值与号形态由唯一写入面 server/shared-context/id-sequence.js 持有，DDL 不复制第二份口径。
+-- 无外键（计数器与业务表解耦）；`next_val` 语义＝**已发出的最大序号**（首次取号返回 next_val + 1）。
+CREATE TABLE id_sequence (
+    namespace TEXT    NOT NULL PRIMARY KEY,
+    next_val  INTEGER NOT NULL
 );
 
 -- ---------- 维度一 · 主数据（MD，先建 research_goal） ----------

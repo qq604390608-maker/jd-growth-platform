@@ -13,7 +13,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'db/ops/**'
+      # 收窄到**本支自己的文件**（2026-09-22 改）：原先写 `db/ops/**`，会让**任何**新增的运维 SQL
+      # 连带触发本工作流的**破坏性清场**（本文件会 DELETE 机会/证据/查询痕迹）。新增的
+      # `db/ops/2026-09-22-id-sequence.sql` 即撞上这一风险，故改为精确路径——与本工作流头部
+      # 「避免「每次部署都执行破坏性 SQL」」的初衷一致。新增运维支请各自建 workflow。
+      - 'db/ops/2026-09-21-demo-opportunities.sql'
       - '.github/workflows/ops-demo-reset.yml'
   workflow_dispatch:
 
