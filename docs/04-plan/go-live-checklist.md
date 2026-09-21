@@ -59,6 +59,12 @@
 
 > 以上均属「生产零写」红线的**配置数据侧**操作（写 `tool_registry` 配置行，不写研究/证据结论行）；
 > 研究链路数据（EXT-01/EXT-02/MD-06）只由 runner 执行体在真实运行中落库，人工不代写。
+>
+> **2026-09-21 更新：上述 1/2 已固化为 CI deploy 固定步骤**（幂等 UPDATE，每次部署对齐到登记态；
+> 凭证走仓库 Secrets，本机 wrangler 未登录无碍）；**验证项 3 固化为 `[e2e]` 门控冒烟步**
+> （commit message 含 `[e2e]` 时，deploy 后自动 `POST /api/discovery-tasks` → 轮询五步 → 断言机会 > 0，
+> 脚本 `scripts/remote-e2e-smoke.mjs`，凭证不需要——全走公网 API；GitHub runner 出网可达 workers.dev，
+> 本机被墙不影响）。种子 0001/0002 **不改**（degraded/disabled 是 mock 反例口径，被测试 oracle 钉死）。
 
 ## 3. 门禁 C · 外部契约 —— ✅ **已收口（2026-09-21，ADR-004 自拟契约基准 v1）**
 

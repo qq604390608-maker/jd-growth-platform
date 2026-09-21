@@ -18,6 +18,7 @@
 | `tests/test-ref-check.mjs` | 自检骨架（夹具断言）：证明三类**能抓到**、干净仓库**能放行**、豁免与 `--strict` 生效、退出码正确 | ✅ 已建 2026-09-19（18 断言全绿；含 1 条悬空 / 1 个孤儿 / 1 处重号 / 1 条软偏差的正例夹具与 1 个零命中夹具） |
 | `extract-config-seed.mjs` | 生产配置种子提取（决策项2）：从 `db/seed/0001_mock.sql` 提取配置生成 `0002_config.sql`（`run_policy` 仅平台级）；`--check` 复算防漂移。登记细则见 `db/seed/README.md` | ✅ 已建 2026-09-21 |
 | `probe-config-seed.mjs` | 0002 载入探针（node:sqlite，D1 兼容口径）：FK ON 正向干净载入逐表断言 + 反向「含目标级策略 POL-Q3 必外键违约」 | ✅ 已建 2026-09-21 |
+| `remote-e2e-smoke.mjs` | 远程业务闭环冒烟（go-live §2 验证项）：经公网 API（零凭证）对 `GOAL-2026Q3-01` 建真实发现任务 → 轮询五步全 done → 断言机会 > 0；只在 CI deploy 后且 commit message 含 `[e2e]` 时运行（GitHub runner 可达 workers.dev，本机被墙） | ✅ 已建 2026-09-21 |
 
 ## 用法
 
