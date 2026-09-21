@@ -29,7 +29,7 @@
 
 | 文件 | 职责 | 状态 |
 | ---- | ---- | ---- |
-| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ `scheduled` = 到期轮询 + `runSelfHealScan`（自愈补扫，F-33）+ `runPendingWork`（按 `WIRED_TASK_TYPES` 扫描 active 步骤自驱动）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}`：**已接线类型（discovery / hva_research）→ `executor.js` 的 `runStepMessage` 真实执行体；其余类型（`hva_followup` / `goal_check`）→ `delegateToAgent` 契约占位**） | ✅ 已建 2026-09-19（**2026-09-21 F-33 接线**：queue 路由改按 `WIRED_TASK_TYPES` 分派、cron 增自愈补扫；`test-ts20.mjs` 15 断言全绿） |
+| `index.js` | **TS-20 runner Worker 入口薄壳**（`wrangler.runner.toml` 的 `main`）：`runDueDiscoveryCalls` 到期轮询（active 目标 → 生效策略 → PD-01 推导 last_run → 最小间隔近似判定，**Q-17** 登记）+ `scheduled` = **一个 tick 三相位**（顺序真源 `TICK_PHASES`：`runDueDiscoveryCalls` → `runSelfHealScan`（自愈补扫，F-33）→ `runPendingWork`（按 `WIRED_TASK_TYPES` 扫描 active 步骤自驱动）），**三相位各自异常隔离**（F-36：本体 `runTick`；失败如实回报 `phases.<相位>.{ok,why}` 并呼叫 `onError`，**不静默吞错**；**顺序刻意不重排**以维持「本轮新建 / 补回的 active 步在同一 tick 被消费」的流水线）+ default export `{ scheduled, queue }`（queue 消费 `{task_id, step_no}`：**已接线类型（discovery / hva_research）→ `executor.js` 的 `runStepMessage` 真实执行体；其余类型（`hva_followup` / `goal_check`）→ `delegateToAgent` 契约占位**） | ✅ 已建 2026-09-19（**2026-09-21 F-33 接线**：queue 路由改按 `WIRED_TASK_TYPES` 分派、cron 增自愈补扫；**2026-09-21 F-36**：`scheduled` 退化为一行薄壳 + 抽出三相位异常隔离本体 `runTick`，`test-f36.mjs` **45 断言全绿**；`test-ts20.mjs` 15 断言全绿） |
 | `executor.js` | **阶段4 执行体分派与驱动器**：`runStepMessage` **按 `task.task_type` 分派**——`hva_research` → `./research.js` 的 `runResearchStep`（M4 五步），`discovery` → `runDiscoveryStep`（M3 五步：① 载入目标与时间窗 ② 规划采集范围（F-14）③ 采集入口与流量（**真实查询**经 `../tool-executor`：CDP/HJE/MKT/ACT 四源，失败按 **F-26** `handleQueryFailure` 处置、任务非 running 即停手）④ 识别与聚合线索（F-14 / EXT-01 确定性重算）⑤ 生成机会候选（F-16：依据足够落 **MD-06**、不足记缺口））；`runStepMessage` 统一负责步骤跃迁（当前步落 done + 推进下一步 + 任务完成落 done）；`runPendingWork` 供 cron 按 **`WIRED_TASK_TYPES`** 选取自驱动（`runPendingDiscoveryWork` 保留为别名）。证据落 **EXT-02**（证据号 `EV-<query_id>`，F-09 不自动取号） | ✅ 已建 2026-09-21（`test-stage4.mjs` 45 断言全绿；**F-33 增按类型分派与 `runPendingWork` 全类型选取**；工具码映射订正同步 `../agent-orchestrator/discovery.js` 4 处） |
 | `research.js` | **F-33 M4 执行体（研究任务五步接线本体）**：`runResearchStep` 按 `hva_research` 五步执行（零自有写语句、零裸 SQL；步号/判据入参形态越界与非法**在 try 外直接抛错**——程序性错误不落 `PD-02`/`PD-03`）：① `loadStartAndPlan`（F-19 研究起点三分支，**只读**）② `collectEvidence`（F-20 `queryForBehaviorCheck` **经 M5** → F-15 `verifyFiveChecks` + `buildEvidenceDraft` + `recordVerificationEvidence` 落 EXT-02）③ `resolveAnalysisInput` ▸ F-20 `formCandidateBehavior`（**MD-09/MD-10 经 F-20 写入面**）④ F-20 `assembleBehaviorVerification` + F-18 `evaluateResearchClosure` ⑤ `assembleSevenElements` ▸ F-21 `saveResearchReport`（**MD-07 内容填充 / MD-08 / MD-11 经 F-21 写入面**）；`resolveAnalysisInput` **三档门禁**＝`provided` ▸ `readAnalysisFromAI`（`llm`）▸ **确定性 fallback**（`llm_gated=true`），门禁开闭同一套代码；`OUT_OF_SCOPE_DECLARATION` 须词表**派生自 F-18 `FORBIDDEN_PRODUCTION_PATTERNS`**；`WIRED_TASK_TYPES` / `RESEARCH_STEP_COUNT` 为**唯一真源**（后者派生自 `./step-plan.js` `TYPE_STEPS`）；结构性受阻（缺研究壳 / 目标快照版本缺失）→ 兜底记 `PD-03` + 任务 `blocked` 并保留已完成部分 | ✅ 已建 2026-09-21（`test-f33.mjs` **88 断言全绿**） |
 | `self-heal.js` | **F-33 自愈补扫**：`runSelfHealScan` 扫「`running` + 已接线类型 + 有 pending 步但无 active 步」的卡死任务（P1-2 同形），把最小 pending 步推进为 active（幂等）。**唯一写动作经 `./step-plan.js` `advanceStep`**（零裸 SQL、零删行）；`hva_research` 缺 `MD-07` 研究壳（LNK-04 output）者**不擅自代建**（建壳归 F-04），跳过并如实登记 `why` 原因 | ✅ 已建 2026-09-21（`test-f33.mjs` ⑨ 六断言全绿） |
@@ -50,6 +50,7 @@
 | `test-stage4.mjs` | 阶段4 接线用例执行器（node:sqlite + D1 适配层，载真实 DDL + 种子；夹具前置：启用 TOL-01/04/09/11 + ACT `availability_status=ok`+`is_mcp_ready=1`）：① 静态零删行/改表 ② ok 全链路（5 步全 done → 任务 done → EXT-01/EXT-02/MD-06 逐层落库）③ 全失败路径（F-26 处置 → blocked）④ 幂等 ⑤ 结构受阻 ⑥ queue consumer 路由（discovery → 执行体、非 discovery → 占位） | ✅ 已建 2026-09-21（**45 断言全绿**） |
 | `test-f33.mjs` | **F-33 M4 执行体接线用例**（node:sqlite + D1 适配层；夹具＝F-04 真实任务链 `createHvaResearchTask`，查询经**注入 transport** 不 mock 业务语义）：① 静态（`research.js` 零裸 SQL 零删行、零 `SELECT`；`self-heal.js` 改行只经 `advanceStep`；`WIRED_TASK_TYPES` 真源）② 步 ① 单跑（F-19 三分支 + 停止条件）③ **全链路五步**（5 源真实查询 → EXT-01/EXT-02 → MD-09/MD-10 → MD-07 七要素 + MD-08/LNK-02 落库，任务 done）④ 按 `task_type` 分派（`hva_research` 走 M4 体；`hva_followup` 仍占位；`discovery` 拒入 M4 体；越界步号与非法判据入参**抛错不落库**）⑤ 幂等 ⑥ 结构受阻（快照版本缺失 → PD-03 + blocked）⑦ 注入判据档（`provided`）⑧ 门禁档（确定性 fallback + `llm_gated`）⑨ 自愈补扫（补回 active；**缺研究壳者不擅自代建**）⑩ 未接线类型不被选取 ⑪ 查询全失败（失败不当证据、不否定结论） | ✅ 已建 2026-09-21（**88 断言全绿**，进 CI） |
 | `test-f34.mjs` | **F-34 单 tick 守卫用例**（node:sqlite + D1 适配层；夹具＝`createDiscoveryTask` 真实任务 + **注入 transport**，不 mock 业务语义）：① 静态（守卫零 SQL / 零数据库句柄 / import 恰两处真源；`executor.js` 不复制第二份默认值；**派生等式** `TICK_QUOTA`←`TYPE_STEPS`、`STEP_TIMEOUT_MS`←`DEFAULT_TIMEOUT_MS`）② 守卫纯单元（配额计数 / 去重位 / 入参严数值化拒绝）③ 单步超时（**可注入 timer → 确定性触发**；未超时原样回传；**迟到的拒绝不变成未处理拒绝**）④ 配额=1 摊薄且**不丢步** ⑤ 两任务 10 步被摊到 ≥5 次驱动（**不跑完整批**、仍幂等）⑥ 步骤卡住（放弃 + **同 tick 只占一次** + 零状态改动 + 下个 tick 重试）⑦ 默认配置语义不变（一次驱动仍跑满五步） | ✅ 已建 2026-09-21（**56 断言全绿**，进 CI） |
+| `test-f36.mjs` | **F-36 调度相位异常隔离用例**（node:sqlite + D1 适配层，载真实 DDL + 种子；夹具＝`createDiscoveryTask` 真实任务链 + `muteDuePoll` 顶掉种子既有 discovery 时点，使本 tick 只驱动本用例的任务）：① 静态（`scheduled` 是薄壳 / 顺序真源 `TICK_PHASES`＝`due>heal>work` / `index.js` 零 `throw` / 零 `fetch` / import 集合仍恰 5 条）② **相位隔离**（首 / 中 / 末相位分别抛错——**含 async 拒绝**——只影响自己、其余照跑；三相位全失败时 `scheduled` 整体不抛异常、三条 `why` 互不覆盖）③ **失败如实回报**（`phases.<相位>.{ok,why}` 逐字带原始信息 + `onError` 逐相位留痕且顺序一致 + 未注入时默认 `console.error` 亦留痕、恰 1 条）④ **失败相位返回键齐的空形态**（`executed`/`finished`/`timed_out`/`exhausted`/`quota` 全在，下游按键读取不崩）⑤ 默认相位接线（真实默认配额＝`TICK_QUOTA`；「刚跑过」时到期轮询是 no-op、任务行数不变）+ 真实夹具端到端（**一个 tick 内跑满五步 → 任务 done**，同 tick 流水线未破）+ queue 分派路径未被改动 | ✅ 已建 2026-09-21（**45 断言全绿**，进 CI） |
 
 ## F-01 已通过用例（`test-f01.mjs`，88 断言）
 
@@ -496,6 +497,31 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   `dict:STEP_STATE` 值域只有 `pending / active / done / blocked`（**无 `running`**），
   故**不能**靠「置 running」做占位式独占——这是本路线的硬边界。
 
+### 调度相位异常隔离（`./index.js`，F-36）
+
+- **一个 tick 三相位、顺序真源 `TICK_PHASES`**：`due`（`runDueDiscoveryCalls` 到期轮询）→ `heal`
+  （`runSelfHealScan` 自愈补扫，F-33）→ `work`（`runPendingWork` 驱动执行体，F-34 守卫）。顺序写进
+  **导出的常量**而不是三行手抄：用例断言 `TICK_PHASES.join(">") === "due>heal>work"` 即锁死「顺序不被静默重排」。
+- **堵 P1-1**：原实现 `runDueDiscoveryCalls` 排在执行体之前且**无 try/catch**——任一目标抛错（如无生效策略）
+  → 整个 `scheduled` reject → 本 tick 所有 `active` 步永不执行，且**每分钟重演**。现三相位**各自隔离**：
+  任一抛错只影响自己、其余照跑。
+- **失败如实回报（不静默吞错）**：`phases.<相位>.{ok, why}` 逐字带原始错误信息，并呼叫 `onError`
+  （默认 `console.error`，供 `wrangler tail` 观测）；**成功的相位不触发 `onError`**。用例三向锁死：
+  ① `phases` 里 `ok:false` 且 `why` 含哨兵串；② `onError` 的呼叫次数与相位名顺序；③ **未注入 `onError` 时
+  默认留痕恰 1 条**（证明默认路径也不吞错）。
+- **失败相位返回「键齐的空形态」**（`EMPTY_WORK`）：`executed` / `finished` / `timed_out` / `exhausted` / `quota`
+  全在。少了这一层，下游按键读取会在相位失败的 tick 上拿到 `undefined` 而崩——**「不因失败缺键」与「不静默失败」
+  同等重要**。
+- **顺序刻意不重排（对方案原文两个选项的取舍）**：方案写的是「把 `runPendingDiscoveryWork` 提到前面**或**
+  至少让它的失败不被轮询异常吞掉」。本项取**后者**——原文举的失效模式是**抛错**，隔离已足够堵住；
+  而重排会失去**同 tick 流水线**：本轮新建任务的步 1（`active`）与本轮自愈补回的 `active` 步，现在都在
+  **同一 tick** 被 `work` 拾起；把 `work` 提到最前只会把它们推迟一个 tick。`test-f36` ④ 以「一个 tick 内
+  跑满五步 → 任务 `done`」把这条收益固定为断言。
+- **相位与留痕均可注入**：`runTick(db, { due, heal, work, onError })`。注入让「相位抛错」变成**确定性**夹具
+  （不必真造库级异常），与 F-34 的「可注入 timer」同范式。
+- **边界（如实登记）**：`queue()` 的**逐消息隔离不在本项范围**——该路径是 D1 痕迹式投递、真 Queues 未接
+  （P1-4），接入后按「一条消息失败不阻塞同批其余消息」单独处理；本项只做**相位级**隔离。
+
 ## 反向清单
 
 - **上游（我来自哪）**：`../README.md`（server 枝杈登记）｜`AGENTS.md`（`server/` 状态位）｜
@@ -519,6 +545,10 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   **F-34 增（2026-09-21）**：`./tick-guard.js` 被 `./executor.js` 引用（`runPendingWork` 是它的**唯一使用方**），
   其自身 import `./step-plan.js`（取 `TYPE_STEPS` 派生配额）与 `../tool-executor/index.js`（取 `DEFAULT_TIMEOUT_MS` 派生单步超时）——
   **守卫不 import 任何写入面**（纯计算件），故**未新增任何表写面**、模块级硬红线那句「本目录只写 X 表」的清单不变
+  **F-36 增（2026-09-21）**：`./index.js` 的相位隔离本体 `runTick` **未新增任何 import**（用例静态断言 import 仍恰 5 条），
+  仍只引用 `./schedule.js` / `./step-plan.js` / `./executor.js` / `./self-heal.js` / `./research.js`——
+  **纯控制流改动**：既不新增表写面、也不改变目录内既有引用方向；`scheduled` 由「直接连调三相位」改为「委托 `runTick`」，
+  故「入口 → 执行体 → 写入面」的单向链不变
 - **共用件（我复用谁）**：`../tool-executor/task-state.js`（任务态 / 受阻 / 已完成部分的**唯一写入面**，F-26 已落地）｜
   `../shared-context/index.js`（F-12 上下文注入，F-02/F-04 调用；**F-03 另复用其 F-10 的 `changeOpportunityStatus` /
   `listOpportunityStatusLog`**——机会状态的改行只此一处，本目录不重写；**F-04 另复用其 F-11 的 `createResearch` /
@@ -532,4 +562,4 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
   **F-34 增（2026-09-21）**：`./tick-guard.js` 复用 `./step-plan.js` 的 `TYPE_STEPS`（派生配额）与
   `../tool-executor/index.js` 的 `DEFAULT_TIMEOUT_MS`（派生单步超时）——两者都是**只读常量**，
   同样**不新增任何表写入面**（守卫本体零数据库访问）。
-- **登记**：`.github/workflows/ci.yml`（`validate` 步骤；**F-33 增 `node server/task-runner/test-f33.mjs` 一步**、**F-34 增 `node server/task-runner/test-f34.mjs` 一步**）｜`../../docs/03-locks/schema.md` §12（Q-13/Q-14）｜`../../docs/04-plan/full-flow-wiring-plan.md`（F-33~F-36 编号与范围依据）｜`../../docs/04-plan/dev-plan.md` 阶段4「接线进展」
+- **登记**：`.github/workflows/ci.yml`（`validate` 步骤；**F-33 增 `node server/task-runner/test-f33.mjs` 一步**、**F-34 增 `node server/task-runner/test-f34.mjs` 一步**、**F-36 增 `node server/task-runner/test-f36.mjs` 一步**）｜`../../docs/03-locks/schema.md` §12（Q-13/Q-14）｜`../../docs/04-plan/full-flow-wiring-plan.md`（F-33~F-36 编号与范围依据）｜`../../docs/04-plan/dev-plan.md` 阶段4「接线进展」

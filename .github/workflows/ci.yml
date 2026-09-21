@@ -88,6 +88,8 @@ jobs:
         run: node server/task-runner/test-f33.mjs
       - name: 跑 F-34 用例（阶段4 单 tick 执行守卫，跑静态（守卫零 SQL/零数据库句柄/import 恰两处真源、executor.js 不复制第二份默认值）+ 派生等式（TICK_QUOTA←TYPE_STEPS 最大步数、STEP_TIMEOUT_MS←DEFAULT_TIMEOUT_MS×2 且必须大于它、配额 < 一批 12 任务×5 步）+ 守卫纯单元（配额计数/去重位/入参严数值化拒绝）+ 单步超时（可注入 timer 确定性触发、未超时原样回传、迟到拒绝不变成未处理拒绝）+ 配额摊薄且不丢步 + 大批次摊到多 tick 仍幂等 + 步骤卡住（放弃 + 同 tick 只占一次 + 零 PD-03/零状态改动 + 下个 tick 重试）+ 默认配置语义不变（一次驱动仍跑满五步，TC-I-M1-001））
         run: node server/task-runner/test-f34.mjs
+      - name: 跑 F-36 用例（阶段4 调度相位异常隔离，跑静态（scheduled 是薄壳、顺序真源 TICK_PHASES＝due>heal>work、index.js 零 throw / 零外部调用、import 集合未变）+ 相位隔离（首/中/末相位分别抛错——含 async 拒绝——只影响自己，其余照跑；三相位全失败整体不抛异常、三条 why 互不覆盖）+ 失败如实回报（phases.<相位>.{ok,why} + onError 逐相位留痕、默认 console.error 亦留痕）+ 失败相位返回键齐的空形态（executed/finished/timed_out/exhausted/quota 全在）+ 默认相位接线（真实配额 TICK_QUOTA、刚跑过时到期轮询 no-op）+ 真实夹具端到端（一个 tick 内跑满五步 → 任务 done，同 tick 流水线未破）+ queue 分派路径未被改动）
+        run: node server/task-runner/test-f36.mjs
       - name: 跑 F-13 用例（M3 角色指令配置·agent-orchestrator，跑 MD-13 agent_profile 读 + agent.md 版本推进（单行 UNIQUE、不新建行）+ MD-14 skill_registry 注册（PK/UK/FK 库级强制）+ 生效 Skills 列表 + 版本快照组装 + 静态核验零外部调用 / 唯一写入面 MD-13+MD-14）
         run: node server/agent-orchestrator/test-f13.mjs
       - name: 跑 F-14 用例（M3 围绕目标寻找线索·agent-orchestrator，跑意向分归一 min(raw/threshold,1) 封顶（TC-U-M3-001）+ S-A1 一阶段注入清单→确定性查证计划＋停止条件（TC-A-M3-001）+ S-A3 线索须有人群/旅程归属、拒裸变化（TC-A-M3-003）+ loadDiscoveryContext 复用 shared-context 读面零写 + 静态零外部调用 / 零裸 SQL）
