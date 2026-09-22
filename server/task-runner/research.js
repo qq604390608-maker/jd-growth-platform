@@ -416,8 +416,8 @@ async function researchNoOf(db, task_id) {
   return hit ? hit.object_id : null;
 }
 
-/** 七要素 ⑥：其他解释与限制（可比性 + 未排除维度 + 因果口径 + 缺口 + 失败降级 + 门禁标注，逐条可回指）。 */
-function buildLimitsText({ analysis, behavior }) {
+/** 七要素 ⑥：其他解释与限制（可比性 + 未排除维度 + 因果口径 + 缺口 + 失败降级 + 门禁标注 + **来源排除（F-38 ②）**，逐条可回指）。 */
+function buildLimitsText({ analysis, behavior, start }) {
   const parts = [];
   const checks = behavior?.checks || {};
   const comparability = checks.population_comparability || {};
@@ -438,6 +438,14 @@ function buildLimitsText({ analysis, behavior }) {
     parts.push("本次存在由查询失败 / 受限导致的未完成条目——不能当否定结论（BRD §7 第 4 条）。");
   }
   if (analysis?.llm_gated) parts.push("语义判断受 A-1 门禁，未取得处如实留空（登记为「门禁未关闭、非发布门禁」）。");
+  // F-38 ②（2026-09-22 裁决＝纳入）：被计划排除的来源（未启用 / 未声明）须在「其他解释与限制」显式体现，
+  // 与 `done_part` / `plan_excluded_sources` 口径一致——报告自洽、数据可得性限制可见，不静默丢弃。
+  const excluded = Array.isArray(start?.plan_excluded_sources) ? start.plan_excluded_sources : [];
+  if (excluded.length > 0) {
+    parts.push(
+      `来源排除：本轮排除 ${excluded.map((x) => `${x.source_id}（${x.reason}）`).join("、")}——排除项如实登记、不静默丢弃。`,
+    );
+  }
   return parts.join("");
 }
 
@@ -489,7 +497,7 @@ export function assembleSevenElements({ research, start, records, evidenceMap, c
         `未解释项 ${(c.unexplained || []).length} 项。`
       );
     })(),
-    e6_limits: buildLimitsText({ analysis, behavior }),
+    e6_limits: buildLimitsText({ analysis, behavior, start }),
     out_of_scope_note: OUT_OF_SCOPE_DECLARATION,
     findings,
     candidates,

@@ -246,6 +246,7 @@ let CHAIN_TASK;
   assert(research.e2_scope_method.includes("研究范围与方法"), "七要素② 已由报告整体覆盖（不再是最初「尚未开展」）");
   assert(research.e4_population_diff.startsWith("人群差异："), "七要素④ 人群差异已填");
   assert(research.e6_limits.includes("其他解释"), "七要素⑥ 其他解释与限制已填");
+  assert(!research.e6_limits.includes("来源排除"), "无来源排除时七要素⑥ 不出现「来源排除」段（口径不冗余）");
   assert(research.out_of_scope_note.includes("不在本研究结论范围内"), "不覆盖范围声明已落（终版，非初值）");
 
   const cand = sqlite.prepare("SELECT * FROM candidate_behavior WHERE research_no = ?").get(research.research_no);
@@ -493,6 +494,9 @@ console.log("\n⑫ 生产同形 · PIM 未启用 → 计划不含 PIM，全链�
   const research = sqlite.prepare("SELECT * FROM research WHERE start_task_id = ?").get(tid);
   assert(research.research_status === "done", `报告落库（MD-07 research_status=done，实测 ${research.research_status}）`);
   assert(/本轮排除来源 PIM/.test(t.done_part), "done_part 如实写明本轮排除的来源（依据缺口可回查，不静默丢弃）");
+  // F-38 ②（2026-09-22 裁决＝纳入）：被排除来源须同时体现在七要素⑥「其他解释与限制」，与 done_part/plan_excluded_sources 口径一致。
+  assert(/来源排除/.test(research.e6_limits) && research.e6_limits.includes("PIM"),
+    `七要素⑥ 纳入来源排除说明（含 PIM，实测节选：${research.e6_limits.slice(0, 70)}…）`);
   assert(countRows(sqlite, "evidence") - evBefore === 4,
     `证据按可用来源落 4 行（PIM 不落库，实测 ${countRows(sqlite, "evidence") - evBefore}）；边界：报告正文的限制段归 F-21 口径，本轮不擅改`);
 }
