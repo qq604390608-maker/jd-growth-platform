@@ -24,6 +24,7 @@ import {
   recordTaskBlock,
   stopTask,
   resumeTask,
+  rebuildActiveStepOnResume,
   handleTaskFailure,
   BLOCK_REASON,
   BLOCK_REASON_CODE,
@@ -35,6 +36,13 @@ import {
   listTaskBlocks,
   TaskStateError,
 } from "../tool-executor/task-state.js";
+import {
+  createTask,
+  planTaskSteps,
+  advanceStep,
+  listTaskSteps,
+  linkTaskObject,
+} from "./step-plan.js";
 
 const DDL_PATH = new URL("../../db/migrations/0001_init.sql", import.meta.url);
 const SEED_PATH = new URL("../../db/seed/0001_mock.sql", import.meta.url);
@@ -263,13 +271,63 @@ console.log("\n⑩ 生产零写：F-06 复用 F-26 写入面，本文件零裸 S
 {
   const raw = readFileSync(RECOVERY_SRC, "utf8");
   const src = stripComments(raw);
-  assert(!/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/.test(src), "recovery.js 不含任何裸 SQL（全部写委托 task-state.js）");
+  assert(!/\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE)\b/.test(src), "recovery.js 不含任何裸 SQL（全部写委托 task-state.js / step-plan.js）");
   assert(!/\bdelegateToAgent\b|\bcreateLocalEnqueue\b|\benqueue\b/.test(src), "recovery.js 不发 Queue 消息（消息只带 task_id+step_no 的约定不由 F-06 破坏）");
-  assert(/from\s+["']\.\.\/tool-executor\/task-state\.js["']/.test(src), "recovery.js 唯一 import 来自 F-26 task-state.js 写入面");
-  // 不变量：导入的函数均来自 task-state（不出现其它写入面 import）
+  // 不变量：import 仅来自允许的写入面（task-state.js＝PD-01/PD-03；step-plan.js＝PD-02 advanceStep；research.js＝RESEARCH_TASK_TYPES 真源）
+  const ALLOWED_IMPORTS = ["../tool-executor/task-state.js", "./step-plan.js", "./research.js"];
   const imports = [...src.matchAll(/import\s*\{[^}]*\}\s*from\s*["']([^"']+)["']/g)].map((m) => m[1]);
-  assert(imports.length === 1 && imports[0] === "../tool-executor/task-state.js", `import 仅 1 个且为 task-state.js（实测 ${imports.length} 个：${imports.join(", ")}）`);
+  assert(imports.length >= 1 && imports.every((i) => ALLOWED_IMPORTS.includes(i)),
+    `recovery.js 仅 import 允许的写入面（task-state.js / step-plan.js / research.js；实测 ${imports.length} 个：${imports.join(", ")}）`);
+  assert(ALLOWED_IMPORTS.every((i) => imports.includes(i)), "recovery.js 复用三个允许的写入面（task-state.js / step-plan.js / research.js 均出现）");
   assert(/clear_ended_at:\s*true/.test(src), "resumeTask 显式声明 clear_ended_at: true（F-37：恢复即清空 ended_at，锁住不回归）");
+  assert(/rebuildActiveStepOnResume/.test(src), "resumeTask 调用 rebuildActiveStepOnResume（P1 修复：resume 重建 active 步）");
+}
+
+// ==================================================== ⑪ P1 修复 · resume 重建 active 步（不再 running 却无 active → 僵尸）
+console.log("\n⑪ P1 修复 · 恢复重建 active 步：resume 后「running + 无 active」不再成立");
+{
+  const { sqlite, db } = freshDb();
+  // 造「blocked 在研究步 2、步 1 done、步 3-5 pending」的同形任务（线上 T-0029 形：有研究壳）
+  const tk = await createTask(db, {
+    task_type: "hva_research", goal_id: "GOAL-2026Q3-01", goal_version_no: 3,
+    trigger_basis: "test-f06 ⑪ 有壳 blocked 研究任务", agent_version_snapshot: "snap",
+    task_status: "running", started_at: "2026-09-21 10:00",
+  });
+  await planTaskSteps(db, tk.task_id, "hva_research");
+  await advanceStep(db, { task_id: tk.task_id, step_no: 1, step_state: "done" });
+  await advanceStep(db, { task_id: tk.task_id, step_no: 2, step_state: "active" });
+  await advanceStep(db, { task_id: tk.task_id, step_no: 2, step_state: "blocked" });
+  // 挂研究壳（F-04 落 LNK-04 output；resume 的壳判定只看该锚点，不要求 research 行实际存在）
+  await linkTaskObject(db, { task_id: tk.task_id, object_type: "research", object_id: "R-TF06A", link_role: "output", created_at: "2026-09-21 10:00" });
+  await setTaskStatus(db, tk.task_id, "blocked", { ended_at: "2026-09-21 16:00" });
+
+  const res = await resumeTask(db, { task_id: tk.task_id });
+  assert(res.task.task_status === "running" && res.task.ended_at === null, "resume：blocked → running 且清空 ended_at");
+  assert(res.rebuilt === true && res.active_step === 2, `resume 重建 active 步＝曾受阻的步 2（实测 rebuilt=${res.rebuilt} active_step=${res.active_step}）`);
+  const s2 = sqlite.prepare("SELECT step_state FROM task_step WHERE task_id=? AND step_no=2").get(tk.task_id);
+  assert(s2.step_state === "active", "步 2 由 blocked 回到 active（下一 tick 可被 work 相位消费，不再僵尸）");
+  assert(sqlite.prepare("SELECT COUNT(*) c FROM task_step WHERE task_id=? AND step_state='active'").get(tk.task_id).c === 1,
+    "恰好一个 active 步（不重复建）");
+
+  // 幂等：对「已 running + 已有 active 步」直接调用重建函数 → 不再重建（already_active）
+  const r2 = await rebuildActiveStepOnResume(db, { task_id: tk.task_id, task_type: "hva_research" });
+  assert(r2.rebuilt === false && r2.reason === "already_active", "幂等：已有 active 步时不重复重建");
+
+  // 缺研究壳的研究任务（线上 T-0026 形）：resume 不擅自代建、如实回报 missing_research_shell，不留下 active 步
+  const { sqlite: sq2, db: db2 } = freshDb();
+  const tk2 = await createTask(db2, {
+    task_type: "hva_research", goal_id: "GOAL-2026Q3-01", goal_version_no: 3,
+    trigger_basis: "test-f06 ⑪ 无壳遗留任务", agent_version_snapshot: "snap",
+    task_status: "running", started_at: "2026-09-21 10:05",
+  });
+  await planTaskSteps(db2, tk2.task_id, "hva_research");
+  await advanceStep(db2, { task_id: tk2.task_id, step_no: 1, step_state: "blocked" });
+  await setTaskStatus(db2, tk2.task_id, "blocked", { ended_at: "2026-09-21 16:00" });
+  const res3 = await resumeTask(db2, { task_id: tk2.task_id });
+  assert(res3.task.task_status === "running", "无壳任务 resume 仍翻 running（恢复动作本身执行）");
+  assert(res3.rebuilt === false && res3.reason === "missing_research_shell", `无壳研究任务 resume 如实回报 missing_research_shell（实测 ${res3.reason}）`);
+  assert(sq2.prepare("SELECT COUNT(*) c FROM task_step WHERE task_id=? AND step_state='active'").get(tk2.task_id).c === 0,
+    "无壳任务 resume 不留下 active 步（与 self-heal 同纪律：不擅自代建研究壳）");
 }
 
 finish();

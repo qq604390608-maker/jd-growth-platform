@@ -126,7 +126,7 @@
 | **⑦（done 不可改写）** | 已完成任务 `recordTaskBlock`/`stopTask`/`resumeTask` 均被前置守卫拒 |
 | **⑧（done_part 幂等）** | 同一片段二次写入 → `done_part` 不重复追加 |
 | **⑨（失败不否定 HVA，静态）** | `recovery.js` 不 `import shared-context`、不引用任何研究/证据写函数、不含任何外部 HTTP 调用 |
-| **⑩（生产零写，静态）** | `recovery.js` 不含任何裸 SQL（全部写委托 `task-state.js`）、不发 Queue 消息、唯一 `import` 来自 `../tool-executor/task-state.js`（F-26 写入面） |
+| **⑩（生产零写，静态）** | `recovery.js` 不含任何裸 SQL（写委托 `task-state.js` PD-01/PD-03 与 `step-plan.js` PD-02 `advanceStep`）、不发 Queue 消息、`import` 仅来自 `task-state.js`/`step-plan.js`/`research.js` 三个允许写入面（F-26 写入面 + PD-02 写入面 + `RESEARCH_TASK_TYPES` 真源） |
 
 ## F-33 已通过用例（`test-f33.mjs`，88 断言）
 
@@ -543,7 +543,7 @@ source_unavailable / call_failed / limit_or_cancel / insufficient_basis）；`re
 - **文件间引用（本目录内，既有）**：`./step-plan.js` 被 `./goal.js`、`./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js`、`./recovery.js` 与 **`./research.js`（F-33，取 `TYPE_STEPS`/`advanceStep`/`listTaskSteps`/`recordBlock` 等）** 引用；
   `./schedule.js`、`./proposal.js`、`./hva.js`、`./followup.js` 与 `./recovery.js` 被 `../api/index.js` 引用；`./followup.js` 复用 `../shared-context/index.js` 与 `../tool-executor`（经 `resolveHvaToolPermissions`）；
   **`./hva.js`（F-04，2026-09-21 增）** 新引用 `./goal.js`（取目标版本业务目标，用于派生研究壳 ①）与 `../shared-context/index.js` 的 `createResearch` / `getResearch` / `listResearch`（MD-07 建行与回查，**本文件不写 SQL**）；
-  **`./hva.js` 与 `./followup.js` 之间不互相 `import`**——`followup.js` → `hva.js`（复用 `resolveHvaToolPermissions` / `HVA_AGENT_PROFILE_ID`）已是既有方向，反向引用会成环；故 `nextResearchNo` 真源下沉 `./step-plan.js`、`followup.js` 再导出（调用面不变）；`./recovery.js`（F-06）**只复用** `../tool-executor/task-state.js`（F-26 写入面），不引入其它写入面；
+  **`./hva.js` 与 `./followup.js` 之间不互相 `import`**——`followup.js` → `hva.js`（复用 `resolveHvaToolPermissions` / `HVA_AGENT_PROFILE_ID`）已是既有方向，反向引用会成环；故 `nextResearchNo` 真源下沉 `./step-plan.js`、`followup.js` 再导出（调用面不变）；`./recovery.js`（F-06）**复用** `../tool-executor/task-state.js`（PD-01/PD-03 写入面）与 `./step-plan.js` 的 `advanceStep`（PD-02 步骤推进写入面）、`./research.js` 的 `RESEARCH_TASK_TYPES`（研究类任务须有研究壳的判定真源）；**不引入其它写入面、不写裸 SQL**；
   `./executor.js`（阶段4 执行体）被 `./index.js` 引用（queue consumer + cron 驱动），其自身 **import `./research.js`（F-33 增）** 取 `runResearchStep` / `RESEARCH_TASK_TYPE` / `WIRED_TASK_TYPES`，并复用 `../agent-orchestrator/discovery.js`（F-14/F-15/F-16 编排函数）与 `../tool-executor`（查询与 F-26 处置）；
   **F-33 新增的三条目录内引用（2026-09-21）**：`./index.js` → `./executor.js`（`runPendingWork`）与 `./self-heal.js`（`runSelfHealScan`）；
   `./index.js` → `./research.js`（`WIRED_TASK_TYPES`，queue 路由）；`./self-heal.js` → `./step-plan.js`（`advanceStep`，**唯一写动作**）
